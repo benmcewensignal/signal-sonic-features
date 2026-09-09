@@ -36,7 +36,6 @@ jobs:
         if: always()
         run: |
           git config user.name "sonic-features-bot"; git config user.email "sonic@earlysignal.live"
-          rm -f sonic.db
           git add -A out 2>/dev/null || true
           git diff --cached --quiet || (git commit -qm "features: $(date -u +%FT%TZ)" && git pull -q --no-rebase origin main && git push -q origin HEAD:main) || echo "nothing to publish"
       - name: chain while work remains
@@ -50,3 +49,7 @@ jobs:
           case "$LEFT" in ''|*[!0-9]*) exit 0;; esac
           if [ "$LEFT" -gt 0 ]; then gh workflow run features.yml --ref main && echo "follow-up dispatched"; fi
           exit 0
+
+      - name: tidy
+        if: always()
+        run: rm -f sonic.db
