@@ -1,0 +1,52 @@
+name: features
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "20 * * * *"
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: sonic-features
+  cancel-in-progress: false
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: deps
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+          pip install -q numpy librosa soundfile
+      - name: fetch the pipeline database
+        run: |
+          curl -sL -o sonic.db https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/sonic.db
+          python -c "import sqlite3;c=sqlite3.connect('sonic.db');print('records',c.execute(\"select count(*) from tracks where analyser_id='local'\").fetchone()[0])"
+      - name: convert
+        env:
+          BEATPORT_USERNAME: ${{ secrets.BEATPORT_USERNAME }}
+          BEATPORT_PASSWORD: ${{ secrets.BEATPORT_PASSWORD }}
+          BEATPORT_TOKEN: ${{ secrets.BEATPORT_TOKEN }}
+          BEATPORT_CLIENT_ID: ${{ secrets.BEATPORT_CLIENT_ID }}
+        run: python -m features.convert --db sonic.db --limit 500 --budget-minutes 85 --out-dir out
+      - name: publish
+        if: always()
+        run: |
+          git config user.name "sonic-features-bot"; git config user.email "sonic@earlysignal.live"
+          rm -f sonic.db
+          git add -A out 2>/dev/null || true
+          git diff --cached --quiet || (git commit -qm "features: $(date -u +%FT%TZ)" && git pull -q --no-rebase origin main && git push -q origin HEAD:main) || echo "nothing to publish"
+      - name: chain while work remains
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          LEFT=$(python -m features.remaining 2>/dev/null | tail -1)
+          echo "records still to convert: ${LEFT:-unknown}"
+          case "$LEFT" in ''|*[!0-9]*) exit 0;; esac
+          if [ "$LEFT" -gt 0 ]; then gh workflow run features.yml --ref main && echo "follow-up dispatched"; fi
+          exit 0
