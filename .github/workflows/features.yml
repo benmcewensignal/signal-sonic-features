@@ -47,6 +47,10 @@ jobs:
           LEFT=$(python -m features.remaining 2>/dev/null | tail -1)
           echo "records still to convert: ${LEFT:-unknown}"
           case "$LEFT" in ''|*[!0-9]*) exit 0;; esac
+          # a run that converted nothing will convert nothing next time either: the records
+          # left have no preview and never will. Chain only when the last run did work.
+          NEW=$(ls -l out/features-*.jsonl 2>/dev/null | tail -1 | awk '{print $5}')
+          if [ "${NEW:-0}" -lt 100 ]; then echo "last run produced nothing; not chaining"; exit 0; fi
           if [ "$LEFT" -gt 0 ]; then gh workflow run features.yml --ref main && echo "follow-up dispatched"; fi
           exit 0
 

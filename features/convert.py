@@ -99,6 +99,10 @@ def main():
                     out.flush(); print(f"  {done}/{len(todo)}, {err} failed", flush=True)
             except Exception as e:
                 err += 1
+                # a record with no preview will never have one: publish it as skipped so the
+                # next run does not try again, and the chain can see there is no work left
+                if "no preview" in str(e).lower():
+                    out.write(json.dumps({"track_id": tid, "skipped": "no preview url"}) + "\n")
                 if err <= 3: print(f"  {tid}: {type(e).__name__}: {str(e)[:70]}", flush=True)
             finally:
                 if p:
