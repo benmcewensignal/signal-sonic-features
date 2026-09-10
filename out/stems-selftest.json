@@ -1,0 +1,24 @@
+{
+ "ran": "2026-09-10T09:51:53Z",
+ "install_ok": true,
+ "stems": [
+  "bass",
+  "drums",
+  "other",
+  "vocals"
+ ],
+ "seconds_for_12s_of_audio": 12.7,
+ "measured": {
+  "drums": {
+   "level": 0.01993,
+   "crest": 32.971,
+   "dynamic_span": 0.00882,
+   "centroid_hz": 786.4,
+   "rolloff_hz": 495.7,
+   "flatness": 3e-05,
+   "onsets_per_s": 2.083,
+   "share_of_energy": null
+  }
+ },
+ "ok": true
+}
