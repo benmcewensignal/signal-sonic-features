@@ -1,6 +1,12 @@
 name: features
 on:
   workflow_dispatch:
+    inputs:
+      task:
+        description: what to run
+        type: choice
+        options: [convert, stems-selftest, stems]
+        default: convert
   schedule:
     - cron: "20 * * * *"
 permissions:
@@ -25,7 +31,25 @@ jobs:
         run: |
           curl -sL -o sonic.db https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/sonic.db
           python -c "import sqlite3;c=sqlite3.connect('sonic.db');print('records',c.execute(\"select count(*) from tracks where analyser_id='local'\").fetchone()[0])"
+      - name: stem separation self-test
+        if: inputs.task == 'stems-selftest'
+        run: |
+          pip install -q soundfile librosa
+          python -m features.stems --self-test --out-dir out
+
+      - name: stem separation
+        if: inputs.task == 'stems'
+        env:
+          BEATPORT_USERNAME: ${{ secrets.BEATPORT_USERNAME }}
+          BEATPORT_PASSWORD: ${{ secrets.BEATPORT_PASSWORD }}
+          BEATPORT_TOKEN: ${{ secrets.BEATPORT_TOKEN }}
+          BEATPORT_CLIENT_ID: ${{ secrets.BEATPORT_CLIENT_ID }}
+        run: |
+          pip install -q soundfile librosa
+          python -m features.stems --db sonic.db --limit 60 --budget-minutes 80 --out-dir out
+
       - name: convert
+        if: inputs.task == 'convert' || inputs.task == ''
         env:
           BEATPORT_USERNAME: ${{ secrets.BEATPORT_USERNAME }}
           BEATPORT_PASSWORD: ${{ secrets.BEATPORT_PASSWORD }}
@@ -39,7 +63,7 @@ jobs:
           git add -A out 2>/dev/null || true
           git diff --cached --quiet || (git commit -qm "features: $(date -u +%FT%TZ)" && git pull -q --no-rebase origin main && git push -q origin HEAD:main) || echo "nothing to publish"
       - name: chain while work remains
-        if: always()
+        if: always() && (inputs.task == 'convert' || inputs.task == '')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
