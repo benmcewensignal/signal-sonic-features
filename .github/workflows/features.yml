@@ -46,7 +46,7 @@ jobs:
           BEATPORT_CLIENT_ID: ${{ secrets.BEATPORT_CLIENT_ID }}
         run: |
           pip install -q soundfile librosa
-          python -m features.stems --db sonic.db --limit 60 --budget-minutes 80 --out-dir out
+          python -m features.stems --db sonic.db --limit 45 --budget-minutes 85 --out-dir out
 
       - name: convert
         if: inputs.task == 'convert' || inputs.task == ''
@@ -62,6 +62,18 @@ jobs:
           git config user.name "sonic-features-bot"; git config user.email "sonic@earlysignal.live"
           git add -A out 2>/dev/null || true
           git diff --cached --quiet || (git commit -qm "features: $(date -u +%FT%TZ)" && git pull -q --no-rebase origin main && git push -q origin HEAD:main) || echo "nothing to publish"
+      - name: chain the stem pass while it is making progress
+        if: always() && inputs.task == 'stems'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          NEW=$(ls -l out/stems-*.jsonl 2>/dev/null | tail -1 | awk '{print $5}')
+          echo "last stem file: ${NEW:-0} bytes"
+          if [ "${NEW:-0}" -lt 200 ]; then echo "no progress; not chaining"; exit 0; fi
+          gh workflow run features.yml --ref main -f task=stems && echo "follow-up dispatched"
+          exit 0
+
       - name: chain while work remains
         if: always() && (inputs.task == 'convert' || inputs.task == '')
         env:
