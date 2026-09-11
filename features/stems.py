@@ -142,6 +142,8 @@ def main():
     ap.add_argument("--db", default="sonic.db"); ap.add_argument("--limit", type=int, default=60)
     ap.add_argument("--budget-minutes", type=int, default=80); ap.add_argument("--out-dir", default="out")
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--shard", type=int, default=0)
+    ap.add_argument("--of", type=int, default=1)
     a = ap.parse_args()
     if a.self_test: return self_test(a.out_dir)
     ok, err = _ensure()
@@ -149,13 +151,19 @@ def main():
         print("stems: demucs unavailable:", err, flush=True); return
     from .beatport import get_token, _get
     have = already(a.out_dir)
-    todo, remaining = pick(a.db, have, a.limit)
+    todo, remaining = pick(a.db, have, a.limit * max(1, a.of))
+    if a.of > 1:
+        # split by record, not by scene: stem separation is per record and the scenes are
+        # very uneven, so a scene split would leave shards idle while one grinds on.
+        todo = [t for i, t in enumerate(todo) if i % a.of == a.shard]
+        print(f"shard {a.shard} of {a.of}: {len(todo)} records", flush=True)
     print(f"stems: {len(have)} done, {len(todo)} this run, {remaining} left after", flush=True)
     if not todo: return
     token = get_token()
     n = len([f for f in os.listdir(a.out_dir) if f.startswith("stems-")]) if os.path.isdir(a.out_dir) else 0
     os.makedirs(a.out_dir, exist_ok=True)
-    path = os.path.join(a.out_dir, f"stems-{n:03d}.jsonl")
+    tag = f"-s{a.shard}" if a.of > 1 else ""
+    path = os.path.join(a.out_dir, f"stems-{n:03d}{tag}.jsonl")
     t0 = time.time(); done = err_n = 0
     with open(path, "w") as out:
         for tid in todo:
