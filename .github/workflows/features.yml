@@ -5,7 +5,7 @@ on:
       task:
         description: what to run
         type: choice
-        options: [convert, stems-selftest, stems]
+        options: [convert, stems-selftest, stems, stems-shard]
         default: convert
   schedule:
     - cron: "20 * * * *"
@@ -16,6 +16,64 @@ concurrency:
   group: sonic-features
   cancel-in-progress: false
 jobs:
+  # Demucs is the most parallelisable thing here: every record is independent and it is
+  # pure CPU. One job separates about forty-five records an hour; six do the same work in
+  # a sixth of the time. They split by record, write their own file, and a merge commits.
+  stems-shard:
+    if: inputs.task == 'stems-shard'
+    runs-on: ubuntu-latest
+    timeout-minutes: 115
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: deps
+        run: pip install -q numpy soundfile librosa
+      - name: fetch the pipeline database
+        run: curl -sL -o sonic.db https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/sonic.db
+      - name: separate this shard
+        env:
+          BEATPORT_USERNAME: ${{ secrets.BEATPORT_USERNAME }}
+          BEATPORT_PASSWORD: ${{ secrets.BEATPORT_PASSWORD }}
+          BEATPORT_TOKEN: ${{ secrets.BEATPORT_TOKEN }}
+          BEATPORT_CLIENT_ID: ${{ secrets.BEATPORT_CLIENT_ID }}
+        run: python -m features.stems --db sonic.db --shard ${{ matrix.shard }} --of 6 --limit 45 --budget-minutes 100 --out-dir out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stems-shard-${{ matrix.shard }}
+          path: out/stems-*.jsonl
+          if-no-files-found: warn
+
+  stems-collect:
+    needs: stems-shard
+    if: always() && inputs.task == 'stems-shard'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {path: inbox}
+      - name: commit what the shards separated
+        run: |
+          set +e
+          mkdir -p out && find inbox -name 'stems-*.jsonl' -exec cp -n {} out/ \;
+          ls -la out | tail -5
+          git config user.name "sonic-bot"; git config user.email "sonic@earlysignal.live"
+          for i in 1 2 3; do
+            git add -A out
+            if git diff --cached --quiet; then echo "nothing new"; exit 0; fi
+            git commit -q -m "stems: six shards"
+            if git push -q origin HEAD:main; then echo "pushed on attempt $i"; exit 0; fi
+            git fetch -q origin main && git reset -q --soft origin/main
+            sleep $((i*8))
+          done
+          exit 0
+
   convert:
     runs-on: ubuntu-latest
     timeout-minutes: 110
