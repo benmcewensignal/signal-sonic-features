@@ -26,7 +26,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5]
+        # eighteen, not six: the ceiling is twenty concurrent jobs per account, not per
+        # repository, so splitting across repos gains nothing and a wider matrix gains everything.
+        # Two spare for the chain and the watchdog.
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,7 +44,7 @@ jobs:
           BEATPORT_PASSWORD: ${{ secrets.BEATPORT_PASSWORD }}
           BEATPORT_TOKEN: ${{ secrets.BEATPORT_TOKEN }}
           BEATPORT_CLIENT_ID: ${{ secrets.BEATPORT_CLIENT_ID }}
-        run: python -m features.stems --db sonic.db --shard ${{ matrix.shard }} --of 6 --limit 45 --budget-minutes 100 --out-dir out
+        run: python -m features.stems --db sonic.db --shard ${{ matrix.shard }} --of 18 --limit 45 --budget-minutes 100 --out-dir out
       - uses: actions/upload-artifact@v4
         with:
           name: stems-shard-${{ matrix.shard }}
