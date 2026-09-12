@@ -86,8 +86,9 @@ jobs:
           # twice today, the second time for fifteen minutes. A finished run books the next.
           LEFT=$(python -m features.remaining --stems 2>/dev/null | tail -1)
           echo "records still to separate: ${LEFT:-unknown}"
-          case "${LEFT:-0}" in ''|*[!0-9]*) LEFT=1 ;; esac
-          if [ "$LEFT" -lt 40 ]; then echo "nothing left worth a run"; exit 0; fi
+          case "${LEFT:-}" in ''|*[!0-9-]*) LEFT=-1 ;; esac
+          # -1 is "could not tell", which chains: an idle runner costs more than a wasted run
+          if [ "$LEFT" -ge 0 ] && [ "$LEFT" -lt 40 ]; then echo "nothing left worth a run"; exit 0; fi
           gh workflow run features.yml --ref main -f task=stems-shard && echo "next eighteen dispatched"
           exit 0
 
