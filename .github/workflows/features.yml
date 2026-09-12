@@ -76,6 +76,21 @@ jobs:
             sleep $((i*8))
           done
           exit 0
+      - name: chain the next eighteen while records remain
+        if: always() && inputs.task == 'stems-shard'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          # Eighteen shards finishing used to leave the runner idle until someone noticed:
+          # twice today, the second time for fifteen minutes. A finished run books the next.
+          LEFT=$(python -m features.remaining --stems 2>/dev/null | tail -1)
+          echo "records still to separate: ${LEFT:-unknown}"
+          case "${LEFT:-0}" in ''|*[!0-9]*) LEFT=1 ;; esac
+          if [ "$LEFT" -lt 40 ]; then echo "nothing left worth a run"; exit 0; fi
+          gh workflow run features.yml --ref main -f task=stems-shard && echo "next eighteen dispatched"
+          exit 0
+
 
   convert:
     runs-on: ubuntu-latest
