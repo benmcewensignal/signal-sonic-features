@@ -92,7 +92,25 @@ jobs:
           if [ "$LEFT" -ge 0 ] && [ "$LEFT" -lt 40 ]; then echo "nothing left worth a run"; exit 0; fi
           # The dispatch has failed repeatedly and the log lives on a host this checker cannot
           # reach, so capture what gh actually says rather than only that it failed.
-          OUT=$(gh workflow run features.yml --ref main -f task=stems-shard 2>&1)
+                    # The count cannot always be answered, and I made unknown chain on the grounds that
+          # an idle runner costs more than a wasted pass. That holds when unknown is occasional.
+          # It is not: the count has returned minus one for hours while the shards separated
+          # nothing, and the chain booked itself every four minutes against a question nobody
+          # could answer. So stop on what was produced instead. If the last pass added no
+          # records, there is nothing to do, whatever the count says.
+          BEFORE=$(git show HEAD~1 --name-only --format= 2>/dev/null | grep -c "stems-" || true)
+          NOW=$(cat out/stems-*.jsonl 2>/dev/null | wc -l)
+          PREV=$(git show HEAD~1:out/stems-count.txt 2>/dev/null || echo 0)
+          echo "stem records now ${NOW}, at the previous commit ${PREV}"
+          echo "${NOW}" > out/stems-count.txt
+          git add out/stems-count.txt >/dev/null 2>&1 || true
+          git commit -qm "stem count ${NOW}" >/dev/null 2>&1 || true
+          git push -q origin main >/dev/null 2>&1 || true
+          if [ "${NOW}" = "${PREV}" ]; then
+            echo "the last pass separated nothing: standing down rather than booking another"
+            exit 0
+          fi
+OUT=$(gh workflow run features.yml --ref main -f task=stems-shard 2>&1)
           RC=$?
           echo "gh exit ${RC}: ${OUT:-（no output）}"
           if [ "$RC" -ne 0 ]; then
