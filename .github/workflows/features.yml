@@ -90,9 +90,21 @@ jobs:
           case "${LEFT:-}" in ''|*[!0-9-]*) LEFT=-1 ;; esac
           # -1 is "could not tell", which chains: an idle runner costs more than a wasted run
           if [ "$LEFT" -ge 0 ] && [ "$LEFT" -lt 40 ]; then echo "nothing left worth a run"; exit 0; fi
-          gh workflow run features.yml --ref main -f task=stems-shard \
-            && echo "next eighteen dispatched" \
-            || { echo "::error::dispatch failed - the stems chain is broken"; exit 1; }
+          # The dispatch has failed repeatedly and the log lives on a host this checker cannot
+          # reach, so capture what gh actually says rather than only that it failed.
+          OUT=$(gh workflow run features.yml --ref main -f task=stems-shard 2>&1)
+          RC=$?
+          echo "gh exit ${RC}: ${OUT:-（no output）}"
+          if [ "$RC" -ne 0 ]; then
+            echo "::error::dispatch failed (${RC}): ${OUT}"
+            # one retry: a transient refusal should not cost the chain a whole cycle
+            sleep 20
+            OUT2=$(gh workflow run features.yml --ref main -f task=stems-shard 2>&1)
+            RC2=$?
+            echo "retry exit ${RC2}: ${OUT2:-（no output）}"
+            [ "$RC2" -ne 0 ] && exit 1
+          fi
+          echo "next eighteen dispatched"
           exit 0
 
 
