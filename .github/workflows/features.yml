@@ -37,7 +37,17 @@ jobs:
       - name: deps
         run: pip install -q numpy soundfile librosa
       - name: fetch the pipeline database
-        run: curl -sL -o sonic.db https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/sonic.db
+        run: |
+          # The repository copy lags the deepened release: 22,227 records against 50,482, and
+          # 1,393 left to separate against 29,648. This pipe ran dry because it had finished
+          # the half of the corpus it could see. Take whichever copy holds more.
+          curl -sL -o sonic.db https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/sonic.db
+          curl -sL -o rel.db https://github.com/benmcewensignal/signal-sonic/releases/download/deepened/sonic.db || true
+          A=$(python -c "import sqlite3;print(sqlite3.connect('sonic.db').execute('select count(*) from tracks').fetchone()[0])" 2>/dev/null || echo 0)
+          B=$(python -c "import sqlite3;print(sqlite3.connect('rel.db').execute('select count(*) from tracks').fetchone()[0])" 2>/dev/null || echo 0)
+          echo "repository copy ${A} records, release copy ${B}"
+          if [ "${B}" -gt "${A}" ]; then mv rel.db sonic.db; echo "using the release"; else echo "using the repository copy"; fi
+          rm -f rel.db
       - name: separate this shard
         env:
           BEATPORT_USERNAME: ${{ secrets.BEATPORT_USERNAME }}
@@ -136,7 +146,16 @@ jobs:
           pip install -q numpy librosa soundfile
       - name: fetch the pipeline database
         run: |
+          # The repository copy lags the deepened release: 22,227 records against 50,482, and
+          # 1,393 left to separate against 29,648. This pipe ran dry because it had finished
+          # the half of the corpus it could see. Take whichever copy holds more.
           curl -sL -o sonic.db https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/sonic.db
+          curl -sL -o rel.db https://github.com/benmcewensignal/signal-sonic/releases/download/deepened/sonic.db || true
+          A=$(python -c "import sqlite3;print(sqlite3.connect('sonic.db').execute('select count(*) from tracks').fetchone()[0])" 2>/dev/null || echo 0)
+          B=$(python -c "import sqlite3;print(sqlite3.connect('rel.db').execute('select count(*) from tracks').fetchone()[0])" 2>/dev/null || echo 0)
+          echo "repository copy ${A} records, release copy ${B}"
+          if [ "${B}" -gt "${A}" ]; then mv rel.db sonic.db; echo "using the release"; else echo "using the repository copy"; fi
+          rm -f rel.db
           python -c "import sqlite3;c=sqlite3.connect('sonic.db');print('records',c.execute(\"select count(*) from tracks where analyser_id='local'\").fetchone()[0])"
       - name: stem separation self-test
         if: inputs.task == 'stems-selftest'
