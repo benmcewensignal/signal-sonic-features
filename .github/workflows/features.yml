@@ -37,27 +37,7 @@ jobs:
       - name: deps
         run: pip install -q numpy soundfile librosa
       - name: fetch the pipeline database
-        run: # The repository copy lags the deepened release badly: 22,227 records against 50,482,
-          # and 1,393 records left to separate against 29,648. This pipe ran dry because it had
-          # finished the half of the corpus it could see. Take whichever copy holds more.
-          curl -sL -o sonic.db https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/sonic.db
-          curl -sL -o rel.db https://github.com/benmcewensignal/signal-sonic/releases/download/deepened/sonic.db || true
-          python - <<'PICK'
-import os, sqlite3
-def n(p):
-    try:
-        return sqlite3.connect(p).execute("select count(*) from tracks").fetchone()[0]
-    except Exception:
-        return -1
-a, b = n("sonic.db"), n("rel.db")
-print(f"repository copy {a} records, release copy {b}", flush=True)
-if b > a:
-    os.replace("rel.db", "sonic.db")
-    print("using the release", flush=True)
-else:
-    print("using the repository copy", flush=True)
-PICK
-          rm -f rel.db
+        run: curl -sL -o sonic.db https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/sonic.db
       - name: separate this shard
         env:
           BEATPORT_USERNAME: ${{ secrets.BEATPORT_USERNAME }}
@@ -156,27 +136,7 @@ PICK
           pip install -q numpy librosa soundfile
       - name: fetch the pipeline database
         run: |
-          # The repository copy lags the deepened release badly: 22,227 records against 50,482,
-          # and 1,393 records left to separate against 29,648. This pipe ran dry because it had
-          # finished the half of the corpus it could see. Take whichever copy holds more.
           curl -sL -o sonic.db https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/sonic.db
-          curl -sL -o rel.db https://github.com/benmcewensignal/signal-sonic/releases/download/deepened/sonic.db || true
-          python - <<'PICK'
-import os, sqlite3
-def n(p):
-    try:
-        return sqlite3.connect(p).execute("select count(*) from tracks").fetchone()[0]
-    except Exception:
-        return -1
-a, b = n("sonic.db"), n("rel.db")
-print(f"repository copy {a} records, release copy {b}", flush=True)
-if b > a:
-    os.replace("rel.db", "sonic.db")
-    print("using the release", flush=True)
-else:
-    print("using the repository copy", flush=True)
-PICK
-          rm -f rel.db
           python -c "import sqlite3;c=sqlite3.connect('sonic.db');print('records',c.execute(\"select count(*) from tracks where analyser_id='local'\").fetchone()[0])"
       - name: stem separation self-test
         if: inputs.task == 'stems-selftest'
