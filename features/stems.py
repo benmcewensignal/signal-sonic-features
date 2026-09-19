@@ -57,6 +57,29 @@ def separate(path, outdir):
     return {os.path.splitext(f)[0]: os.path.join(d, f) for f in os.listdir(d) if f.endswith(".wav")}
 
 
+def analyse_stem(path):
+    """The full analyser, on one separated part.
+
+    Eight summary statistics per stem already beat the entire forty-five number hand-named set
+    on genre, 32.2% against 22.9%, and add twelve points on top of it. Those eight are the
+    residue of a neural separation whose output we then throw away. This runs the same analyser
+    the mix gets, on each part, so a drum stem is described as fully as a record is.
+    """
+    try:
+        from features.analyser_local import LocalAnalyser
+    except Exception:
+        return None
+    try:
+        a = LocalAnalyser()
+        fv = a.analyse(path)
+        e = getattr(fv, "embedding", None)
+        if e is None and isinstance(fv, dict):
+            e = fv.get("embedding")
+        return {"embedding": [round(float(x), 5) for x in e]} if e is not None and len(e) == 45 else None
+    except Exception:
+        return None
+
+
 def measure_stem(path):
     import numpy as np, librosa
     y, sr = librosa.load(path, sr=SR, mono=True)
@@ -181,6 +204,12 @@ def main():
                 stems = separate(src, work)
                 rec = {"track_id": tid, "model": MODEL,
                        "stems": {k: measure_stem(v) for k, v in stems.items()}}
+                # and the full analyser on each part, while the audio is still on disk
+                if os.environ.get("STEM_EMBED", "1") != "0":
+                    for k, v in stems.items():
+                        emb = analyse_stem(v)
+                        if emb and isinstance(rec["stems"].get(k), dict):
+                            rec["stems"][k].update(emb)
                 tot = sum((s or {}).get("level", 0) for s in rec["stems"].values()) or 1
                 for k, s in rec["stems"].items():
                     if s: s["share_of_energy"] = round((s.get("level", 0)) / tot, 4)
