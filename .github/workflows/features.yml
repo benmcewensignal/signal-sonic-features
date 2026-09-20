@@ -55,7 +55,19 @@ jobs:
           BEATPORT_PASSWORD: ${{ secrets.BEATPORT_PASSWORD }}
           BEATPORT_TOKEN: ${{ secrets.BEATPORT_TOKEN }}
           BEATPORT_CLIENT_ID: ${{ secrets.BEATPORT_CLIENT_ID }}
-        run: python -m features.stems --db sonic.db --shard ${{ matrix.shard }} --of 36 --limit 45 --budget-minutes 100 --out-dir out
+        run: |
+          # Thirty-eight shards reported success and wrote nothing, and I cannot read CI logs
+          # from here. The index build answered six failures the moment it wrote its output
+          # into the repository.
+          exec > >(tee -a /tmp/stemlog.txt) 2>&1
+          python -m features.stems --db sonic.db --shard ${{ matrix.shard }} --of 36 --limit 45 --budget-minutes 100 --out-dir out
+      - name: keep the shard log where it can be read
+        if: always()
+        run: |
+          set +e
+          mkdir -p out/logs
+          tail -c 12000 /tmp/stemlog.txt > "out/logs/shard-${{ matrix.shard }}.txt" 2>/dev/null || echo none > "out/logs/shard-${{ matrix.shard }}.txt"
+          exit 0
       - uses: actions/upload-artifact@v4
         with:
           name: stems-shard-${{ matrix.shard }}
