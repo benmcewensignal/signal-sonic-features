@@ -1,6 +1,6 @@
 shard 31 of 36: 7 records
-stems: 48956 done, 7 this run, 0 left after
-  bp:21300837: HTTPError: HTTP Error 404: Not Found
-  bp:21323886: HTTPError: HTTP Error 403: Forbidden
-  bp:21981596: HTTPError: HTTP Error 404: Not Found
-stems: 0 separated, 7 failed, written to out/stems-4168-s31.jsonl
+stems: 48959 done, 7 this run, 0 left after
+  bp:23186225: HTTPError: HTTP Error 404: Not Found
+  bp:22423965: HTTPError: HTTP Error 404: Not Found
+  bp:29877439: HTTPError: HTTP Error 404: Not Found
+stems: 0 separated, 7 failed, written to out/stems-4204-s31.jsonl
