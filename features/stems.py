@@ -160,6 +160,30 @@ def self_test(out_dir):
     print(json.dumps(rep, indent=1))
 
 
+
+def remeasure_todo(out_dir, limit):
+    """Records already separated whose parts carry no embedding yet, oldest shard first."""
+    import glob as _g
+    done, need = set(), []
+    for f in sorted(_g.glob(os.path.join(out_dir, 'stems-*.jsonl'))):
+        for line in open(f):
+            try:
+                d = json.loads(line)
+            except Exception:
+                continue
+            t = d.get('track_id')
+            if not t or t in done:
+                continue
+            done.add(t)
+            st = d.get('stems') or {}
+            if not isinstance(st, dict) or not st:
+                continue
+            if any(isinstance(v, dict) and v.get('embedding') for v in st.values()):
+                continue
+            need.append(t)
+    return need[:limit], max(0, len(need) - limit)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default="sonic.db"); ap.add_argument("--limit", type=int, default=60)
@@ -167,6 +191,12 @@ def main():
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--of", type=int, default=1)
+    # Separation is done on 48,945 records and each part carries eight summary numbers. Those
+    # eight already beat the whole forty-five number hand-named set on genre, which is why it
+    # is worth going back over them with the real analyser rather than only doing the 287 that
+    # are still unseparated. This mode ignores the picker and re-measures what is already in
+    # the shard files, writing the embedding alongside the eight.
+    ap.add_argument("--remeasure", action="store_true")
     a = ap.parse_args()
     if a.self_test: return self_test(a.out_dir)
     ok, err = _ensure()
@@ -174,7 +204,11 @@ def main():
         print("stems: demucs unavailable:", err, flush=True); return
     from .beatport import get_token, _get
     have = already(a.out_dir)
-    todo, remaining = pick(a.db, have, a.limit * max(1, a.of))
+    if a.remeasure:
+        todo, remaining = remeasure_todo(a.out_dir, a.limit * max(1, a.of))
+        print(f"remeasure: {len(todo)} this pass, {remaining} still on the eight numbers alone", flush=True)
+    else:
+        todo, remaining = pick(a.db, have, a.limit * max(1, a.of))
     if a.of > 1:
         # split by record, not by scene: stem separation is per record and the scenes are
         # very uneven, so a scene split would leave shards idle while one grinds on.
