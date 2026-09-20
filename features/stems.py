@@ -198,6 +198,10 @@ def main():
     # the shard files, writing the embedding alongside the eight.
     ap.add_argument("--remeasure", action="store_true")
     a = ap.parse_args()
+    # The workflow sets this rather than branching in the shell: a conditional around a
+    # GitHub expression is the kind of line that passes review and fails at run time.
+    if os.environ.get("STEMS_REMEASURE") == "1":
+        a.remeasure = True
     if a.self_test: return self_test(a.out_dir)
     ok, err = _ensure()
     if not ok:
