@@ -133,7 +133,11 @@ jobs:
             echo "the last pass separated nothing: standing down rather than booking another"
             exit 0
           fi
-          OUT=$(gh workflow run features.yml --ref main -f task=stems-shard 2>&1)
+          # The chain hardcoded the task, so a remeasure run booked a normal run as its follow-up and
+            # every pass after the first was the ordinary picker finding the last eight unseparated
+            # records. The remeasure I dispatched five times ran zero times. Pass on whatever task
+            # this run was given.
+            OUT=$(gh workflow run features.yml --ref main -f task="${{ inputs.task }}" 2>&1)
           RC=$?
           echo "gh exit ${RC}: ${OUT:-（no output）}"
           if [ "$RC" -ne 0 ]; then
