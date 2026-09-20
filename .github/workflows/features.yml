@@ -71,7 +71,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: stems-shard-${{ matrix.shard }}
-          path: out/stems-*.jsonl
+          path: |
+            out/stems-*.jsonl
+            out/logs/*.txt
           if-no-files-found: warn
 
   stems-collect:
@@ -89,6 +91,7 @@ jobs:
         run: |
           set +e
           mkdir -p out && find inbox -name 'stems-*.jsonl' -exec cp -n {} out/ \;
+          mkdir -p out/logs; find inbox -name 'shard-*.txt' -exec cp -f {} out/logs/ \; || true
           ls -la out | tail -5
           git config user.name "sonic-bot"; git config user.email "sonic@earlysignal.live"
           for i in 1 2 3; do
