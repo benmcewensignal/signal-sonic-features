@@ -1,0 +1,6 @@
+shard 22 of 36: 8 records
+stems: 48952 done, 8 this run, 0 left after
+  bp:22357539: HTTPError: HTTP Error 403: Forbidden
+  bp:22922829: HTTPError: HTTP Error 403: Forbidden
+  bp:20682556: HTTPError: HTTP Error 403: Forbidden
+stems: 0 separated, 8 failed, written to out/stems-4025-s22.jsonl

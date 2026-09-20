@@ -1,0 +1,6 @@
+shard 35 of 36: 7 records
+stems: 48952 done, 7 this run, 0 left after
+  bp:21089905: HTTPError: HTTP Error 404: Not Found
+  bp:28830217: HTTPError: HTTP Error 404: Not Found
+  bp:29343306: HTTPError: HTTP Error 404: Not Found
+stems: 0 separated, 7 failed, written to out/stems-4025-s35.jsonl
