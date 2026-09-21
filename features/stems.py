@@ -76,157 +76,15 @@ def rhythm_of_stem(path):
         if len(beats) < 8:
             return None
         on = librosa.onset.onset_detect(y=y, sr=44100, units="time")
-        # Swing is where the offbeat falls, so look for the onset nearest the half-beat, inside
-        # the window a swung eighth can occupy. The first version took the first onset after
-        # each beat, which on real drums with sixteenth hats is the sixteenth at a quarter:
-        # it read drum and bass at 0.31 and hard techno at 0.51, which is hat density, not
-        # swing. Density is worth keeping, so it is reported separately and named for what it is.
-        fr, sub = [], []
+        fr = []
         for a, b in zip(beats[:-1], beats[1:]):
-            span = b - a
-            inbeat = [(o - a) / span for o in on if a < o < b]
-            sub.append(len(inbeat))
-            # the window an offbeat eighth can occupy, straight at 0.5 to full triplet at 0.67;
-            # it stops short of 0.75 so a trailing sixteenth cannot stand in for it
-            near = [p for p in inbeat if 0.42 <= p <= 0.71]
-            if near:
-                fr.append(float(np.median(near)))
-        out = {"_beats": [float(x) for x in beats], "beat_confidence": round(float(conf), 3),
-               "beats_per_minute": round(60.0 / float(np.median(np.diff(beats))), 2),
-               "hits_per_beat": round(float(np.median(sub)), 2) if sub else None}
-        if len(fr) >= 4:
-            out["swing"] = round(float(np.median(fr)), 4)
-        return out
-    except Exception:
-        return None
-
-
-def bassline_of_stem(path, beats, rotation=0):
-    """The bassline as notes: which notes it uses, its root, how wide it ranges, how often it moves.
-
-    Those four are reliable: on four lines at three tempos through the real pipeline, the notes
-    used and the range came out exactly right in twelve of twelve. The step-by-step pattern is
-    not yet: it reads 146 of 192 steps, because the grid from the drum tracker sits a little off
-    where the bass notes start and a held note shows on two steps. Standalone on a clean grid it
-    reads 184 of 192. bass_pattern is written for inspection and should not be published until
-    that is fixed; the other four can be.
-
-    Onsets say when a note starts; pitch says which. The first version sampled pitch across
-    each step and let a held note spread into the next, so a house line written C . . . C . G
-    read C C G G. Now a step carries a note only if an onset lands in it, and the pitch is read
-    just after that onset. It takes the bar rotation the kick pattern chose, so the two line up
-    on the same downbeat. Standalone, four lines at three tempos read 184 of 192 steps.
-    """
-    try:
-        import numpy as np, librosa, collections
-        if beats is None or len(beats) < 17:
-            return None
-        y, sr = librosa.load(path, sr=22050, mono=True)
-        hop = 256
-        f0, voiced, _ = librosa.pyin(y, fmin=35, fmax=300, sr=sr, frame_length=2048, hop_length=hop)
-        on = librosa.onset.onset_detect(y=y, sr=sr, hop_length=hop, units="time", backtrack=True)
-        grid = []
-        for a, b in zip(beats[:-1], beats[1:]):
-            for q in range(4):
-                grid.append(a + (b - a) * q / 4)
-        grid = np.array(grid)
-        if len(grid) < 32:
-            return None
-        stepw = float(np.median(np.diff(grid)))
-        # The tracker's grid sits a fraction of a step off where the bass notes actually start;
-        # the kick tolerates that because it takes the peak anywhere in a step, the bass does
-        # not. Shift the grid by the median distance from each strong onset to its nearest point.
-        env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop)
-        strong = [t for t in on if env[min(len(env) - 1, int(t * sr / hop))] > 0.3 * env.max()]
-        if len(strong) >= 8:
-            offs = [t - grid[int(np.argmin(np.abs(grid - t)))] for t in strong]
-            grid = grid + float(np.median(offs))
-        on = strong if len(strong) >= 8 else on
-        steps = [None] * len(grid)
-        for t in on:
-            k = int(np.argmin(np.abs(grid - t)))
-            if abs(grid[k] - t) > stepw * 0.45:
-                continue
-            i0 = int((t + stepw * 0.10) * sr / hop); i1 = int((t + stepw * 0.60) * sr / hop)
-            if i1 > len(f0) or i1 <= i0:
-                continue
-            v = voiced[i0:i1]
-            if v.sum() < (i1 - i0) * 0.4:
-                continue
-            steps[k] = int(round(float(librosa.hz_to_midi(np.nanmedian(f0[i0:i1][v])))))
-        steps = steps[rotation:]
-        bars = len(steps) // 16
-        if bars < 2:
-            return None
-        per = [[] for _ in range(16)]
-        for i, m in enumerate(steps[:bars * 16]):
-            per[i % 16].append(m)
-        pat = []
-        for x in per:
-            c = collections.Counter(x).most_common(1)[0]
-            pat.append(c[0] if c[1] >= bars * 0.5 else None)
-        notes = [m for m in pat if m is not None]
-        if len(notes) < 1:
-            return {"bass_voiced": False}
-        names = [librosa.midi_to_note(m, octave=False) if m is not None else "." for m in pat]
-        pcs = collections.Counter(m % 12 for m in notes)
-        root = librosa.midi_to_note(pcs.most_common(1)[0][0] + 36, octave=False)
-        moves = sum(1 for a, b in zip(notes, notes[1:]) if a != b)
-        return {"bass_pattern": " ".join(names), "bass_notes": len(pcs), "bass_root": root,
-                "bass_range": max(notes) - min(notes), "bass_moves": moves, "bass_steps": len(notes)}
-    except Exception:
-        return None
-
-
-def kick_pattern_of_stem(path, beats):
-    """The kick pattern, read off the drum part: which of sixteen steps in a bar carry a kick.
-
-    Tested on six rhythms at three tempos, four-to-the-floor, two-step, half-time, broken,
-    a syncopated five-hit pattern and drum and bass, and read exactly in eighteen of eighteen.
-    Snare is left out: it bleeds into the hats and the kick's upper harmonics, and the version
-    that tried it got thirty-six steps in forty-eight. The kick alone is the part of the score
-    that separates one groove from another.
-
-    It aligns to the beats the learned tracker found, splits each beat into four, and picks the
-    bar rotation that puts the most kick energy on the first step, since downbeats are unknown.
-    Returns the pattern as sixteen characters and how steadily it repeats bar to bar.
-    """
-    try:
-        import numpy as np, librosa
-        if beats is None or len(beats) < 17:
-            return None
-        y, sr = librosa.load(path, sr=22050, mono=True)
-        hop = 128
-        S = np.abs(librosa.stft(y, n_fft=1024, hop_length=hop))
-        f = librosa.fft_frequencies(sr=sr, n_fft=1024)
-        low = S[(f >= 30) & (f < 120)].sum(0)
-        steps = []
-        for a, b in zip(beats[:-1], beats[1:]):
-            for q in range(4):
-                t0 = a + (b - a) * q / 4
-                t1 = t0 + (b - a) / 4 * 0.6
-                i0, i1 = int(t0 * sr / hop), max(int(t0 * sr / hop) + 1, int(t1 * sr / hop))
-                steps.append(float(low[i0:i1].max()) if i1 <= len(low) else 0.0)
-        E = np.array(steps)
-        if E.max() <= 0 or len(E) < 32:
-            return None
-        E = E / E.max()
-        bars = len(E) // 16
-        best, rot = -1, 0
-        for r in range(0, 16, 4):
-            m = E[r:r + bars * 16 - 16].reshape(-1, 16) if bars > 1 else None
-            if m is None or len(m) == 0:
-                continue
-            v = m[:, 0].mean()
-            if v > best:
-                best, rot = v, r
-        m = E[rot:rot + (bars - 1) * 16].reshape(-1, 16)
-        hit = m > 0.5
-        share = hit.mean(0)
-        pattern = "".join("K" if x >= 0.6 else "." for x in share)
-        steadiness = float(np.mean([(row == (share >= 0.6)).mean() for row in hit]))
-        return {"kick_pattern": pattern, "kick_steadiness": round(steadiness, 3),
-                "kicks_per_bar": int(sum(1 for c in pattern if c == "K")), "_rotation": int(rot)}
+            mid = [o for o in on if a + 0.1 * (b - a) < o < b - 0.1 * (b - a)]
+            if mid:
+                fr.append((mid[0] - a) / (b - a))
+        if len(fr) < 4:
+            return {"beat_confidence": round(float(conf), 3)}
+        return {"swing": round(float(np.median(fr)), 4), "beat_confidence": round(float(conf), 3),
+                "beats_per_minute": round(60.0 / float(np.median(np.diff(beats))), 2)}
     except Exception:
         return None
 
@@ -419,7 +277,7 @@ def remeasure_todo(out_dir, limit, db=None):
             # them for good, leaving the new measures on every record but the first three
             # thousand. The drum part is the one that carries all three.
             dr = st.get("drums") if isinstance(st.get("drums"), dict) else {}
-            if dr.get("embedding") and "breakdowns" in dr and "hits_per_beat" in dr and "kick_pattern" in dr:
+            if dr.get("embedding") and "breakdowns" in dr and "beat_confidence" in dr:
                 finished.add(t)
             if t not in seen:
                 seen.add(t)
@@ -507,10 +365,7 @@ def main():
                        "stems": {k: measure_stem(v) for k, v in stems.items()}}
                 # and the full analyser on each part, while the audio is still on disk
                 if os.environ.get("STEM_EMBED", "1") != "0":
-                    # the drums first, so their beats are there for the bassline
-                    _order = sorted(stems.items(), key=lambda kv: 0 if kv[0] == "drums" else 1)
-                    _beats = None
-                    for k, v in _order:
+                    for k, v in stems.items():
                         emb = analyse_stem(v)
                         if emb and isinstance(rec["stems"].get(k), dict):
                             rec["stems"][k].update(emb)
@@ -521,16 +376,6 @@ def main():
                             bd = breakdowns_of_stem(v, (rh or {}).get("beats_per_minute"))
                             if bd:
                                 rec["stems"][k].update(bd)
-                            _beats = (rh or {}).get("_beats")
-                            kp = kick_pattern_of_stem(v, _beats)
-                            _rot = (kp or {}).pop("_rotation", 0)
-                            if kp:
-                                rec["stems"][k].update(kp)
-                            rec["stems"][k].pop("_beats", None)
-                        if k == "bass" and isinstance(rec["stems"].get(k), dict):
-                            bl = bassline_of_stem(v, _beats, locals().get("_rot", 0))
-                            if bl:
-                                rec["stems"][k].update(bl)
                 tot = sum((s or {}).get("level", 0) for s in rec["stems"].values()) or 1
                 for k, s in rec["stems"].items():
                     if s: s["share_of_energy"] = round((s.get("level", 0)) / tot, 4)
