@@ -43,7 +43,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
       - name: deps
-        run: pip install -q numpy soundfile librosa
+        run: pip install -q numpy soundfile librosa essentia-tensorflow
       - name: fetch the pipeline database
         run: |
           # The repository copy lags the deepened release: 22,227 records against 50,482, and
