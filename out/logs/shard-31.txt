@@ -1,4 +1,5 @@
-remeasure: 108 this pass, 48830 still on the eight numbers alone
-shard 31 of 36: 3 records
-stems: 48959 done, 3 this run, 48830 left after
-stems: 3 separated, 0 failed, written to out/stems-4420-s31.jsonl
+remeasure: 360 this pass, 48578 still on the eight numbers alone
+shard 31 of 36: 10 records
+stems: 48959 done, 10 this run, 48578 left after
+  10/10, 0 failed
+stems: 10 separated, 0 failed, written to out/stems-4456-s31.jsonl
