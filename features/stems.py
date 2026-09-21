@@ -271,7 +271,13 @@ def remeasure_todo(out_dir, limit, db=None):
             st = d.get("stems") or {}
             if not isinstance(st, dict) or not st:
                 continue
-            if any(isinstance(v, dict) and v.get("embedding") for v in st.values()):
+            # Finished means carrying everything the remeasure now writes, not only the first
+            # thing it wrote. Swing and breakdowns were added after 3,261 records had their
+            # forty-five, and an embedding-only test would have called those done and skipped
+            # them for good, leaving the new measures on every record but the first three
+            # thousand. The drum part is the one that carries all three.
+            dr = st.get("drums") if isinstance(st.get("drums"), dict) else {}
+            if dr.get("embedding") and "breakdowns" in dr and "beat_confidence" in dr:
                 finished.add(t)
             if t not in seen:
                 seen.add(t)
