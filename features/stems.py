@@ -181,15 +181,16 @@ def bassline_of_stem(path, beats, rotation=0):
 def kick_pattern_of_stem(path, beats):
     """The kick pattern, read off the drum part: which of sixteen steps in a bar carry a kick.
 
-    Tested on six rhythms at three tempos, four-to-the-floor, two-step, half-time, broken,
-    a syncopated five-hit pattern and drum and bass, and read exactly in eighteen of eighteen.
-    Snare is left out: it bleeds into the hats and the kick's upper harmonics, and the version
-    that tried it got thirty-six steps in forty-eight. The kick alone is the part of the score
-    that separates one groove from another.
-
-    It aligns to the beats the learned tracker found, splits each beat into four, and picks the
-    bar rotation that puts the most kick energy on the first step, since downbeats are unknown.
-    Returns the pattern as sixteen characters and how steadily it repeats bar to bar.
+    Version 2. The first version read eighteen synthetic rhythms exactly and then came back empty
+    on 712 of the first 1,619 real records, in a pattern that tracked each scene's breakdown share
+    (raw techno 17% empty, melodic house 58%): a step counted as a kick only if it fired in 60% of
+    all bars, breakdowns included, so a record that spends forty percent of its bars without a kick
+    read as having none. It also scaled energy against the single loudest moment, so one impact
+    could push every real kick under the line, and let a kick that spilled past its sixteenth read
+    as two ('KK..KK..'); and it could only shift the grid by whole beats, so when the tracker's
+    beats sat a sixteenth off the kick it read '.K...K...K...K..'. Now only bars that carry a kick
+    vote, energy is scaled against a typical loud bar, a weak spill into the next step is dropped,
+    and the grid can shift by any step, anchoring step one on the strongest recurring kick.
     """
     try:
         import numpy as np, librosa
@@ -210,10 +211,11 @@ def kick_pattern_of_stem(path, beats):
         E = np.array(steps)
         if E.max() <= 0 or len(E) < 32:
             return None
-        E = E / E.max()
         bars = len(E) // 16
         best, rot = -1, 0
-        for r in range(0, 16, 4):
+        # any of the sixteen steps: the tracker's beats can sit a sixteenth off the kick, and a
+        # whole-beat shift can never fix that; step one goes to the strongest recurring kick
+        for r in range(16):
             m = E[r:r + bars * 16 - 16].reshape(-1, 16) if bars > 1 else None
             if m is None or len(m) == 0:
                 continue
@@ -221,12 +223,23 @@ def kick_pattern_of_stem(path, beats):
             if v > best:
                 best, rot = v, r
         m = E[rot:rot + (bars - 1) * 16].reshape(-1, 16)
+        ref = float(np.percentile(m.max(1), 75)) or float(m.max())
+        m = m / ref
         hit = m > 0.5
-        share = hit.mean(0)
+        # a kick that spills past its sixteenth leaves a weaker echo in the next step
+        for j in range(1, 16):
+            hit[:, j] &= ~(hit[:, j - 1] & (m[:, j] < 0.7 * m[:, j - 1]))
+        live = hit.any(1)
+        if live.sum() < 2:
+            return {"kick_pattern": "." * 16, "kick_steadiness": 0.0, "kicks_per_bar": 0,
+                    "kick_bars": int(live.sum()), "kick_version": 2, "_rotation": int(rot)}
+        hv = hit[live]
+        share = hv.mean(0)
         pattern = "".join("K" if x >= 0.6 else "." for x in share)
-        steadiness = float(np.mean([(row == (share >= 0.6)).mean() for row in hit]))
+        steadiness = float(np.mean([(row == (share >= 0.6)).mean() for row in hv]))
         return {"kick_pattern": pattern, "kick_steadiness": round(steadiness, 3),
-                "kicks_per_bar": int(sum(1 for c in pattern if c == "K")), "_rotation": int(rot)}
+                "kicks_per_bar": int(sum(1 for c in pattern if c == "K")),
+                "kick_bars": round(float(live.mean()), 3), "kick_version": 2, "_rotation": int(rot)}
     except Exception:
         return None
 
@@ -419,7 +432,8 @@ def remeasure_todo(out_dir, limit, db=None):
             # them for good, leaving the new measures on every record but the first three
             # thousand. The drum part is the one that carries all three.
             dr = st.get("drums") if isinstance(st.get("drums"), dict) else {}
-            if dr.get("embedding") and "breakdowns" in dr and "hits_per_beat" in dr and "kick_pattern" in dr:
+            # kick_version 2: the first version read empty on 44% of real records (see kick_pattern_of_stem)
+            if dr.get("embedding") and "breakdowns" in dr and "hits_per_beat" in dr and dr.get("kick_version") == 2:
                 finished.add(t)
             if t not in seen:
                 seen.add(t)
