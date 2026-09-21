@@ -108,7 +108,7 @@ jobs:
           done
           exit 0
       - name: chain the next eighteen while records remain
-        if: always() && (inputs.task == 'stems-shard' || inputs.task == 'stems-remeasure')
+        if: needs.stems-shard.result == 'success' && (inputs.limit == '' || inputs.limit == '45')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
