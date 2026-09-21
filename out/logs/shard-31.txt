@@ -2,7 +2,9 @@ remeasure: 1620 this pass, 47318 still on the eight numbers alone
 shard 31 of 36: 45 records
 stems: 48959 done, 45 this run, 47318 left after
   10/45, 0 failed
+/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/site-packages/librosa/core/pitch.py:105: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
   20/45, 0 failed
   30/45, 0 failed
   40/45, 0 failed
-stems: 45 separated, 0 failed, written to out/stems-4564-s31.jsonl
+stems: 45 separated, 0 failed, written to out/stems-4600-s31.jsonl
