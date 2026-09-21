@@ -7,6 +7,10 @@ on:
         type: choice
         options: [convert, stems-selftest, stems, stems-shard, stems-remeasure]
         default: convert
+      limit:
+        description: records per shard; small for a quick check, the default for real work
+        required: false
+        default: '45'
   schedule:
     - cron: "20 * * * *"
 permissions:
@@ -60,7 +64,7 @@ jobs:
           # from here. The index build answered six failures the moment it wrote its output
           # into the repository.
           exec > >(tee -a /tmp/stemlog.txt) 2>&1
-          python -m features.stems --db sonic.db --shard ${{ matrix.shard }} --of 36 --limit 45 --budget-minutes 100 --out-dir out
+          python -m features.stems --db sonic.db --shard ${{ matrix.shard }} --of 36 --limit ${{ inputs.limit || '45' }} --budget-minutes 100 --out-dir out
       - name: keep the shard log where it can be read
         if: always()
         run: |
