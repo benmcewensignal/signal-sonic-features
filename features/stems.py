@@ -289,7 +289,7 @@ def remeasure_todo(out_dir, limit, db=None):
             # them for good, leaving the new measures on every record but the first three
             # thousand. The drum part is the one that carries all three.
             dr = st.get("drums") if isinstance(st.get("drums"), dict) else {}
-            if dr.get("embedding") and "breakdowns" in dr and "beat_confidence" in dr:
+            if dr.get("embedding") and "breakdowns" in dr and "hits_per_beat" in dr:
                 finished.add(t)
             if t not in seen:
                 seen.add(t)
