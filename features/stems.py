@@ -76,15 +76,27 @@ def rhythm_of_stem(path):
         if len(beats) < 8:
             return None
         on = librosa.onset.onset_detect(y=y, sr=44100, units="time")
-        fr = []
+        # Swing is where the offbeat falls, so look for the onset nearest the half-beat, inside
+        # the window a swung eighth can occupy. The first version took the first onset after
+        # each beat, which on real drums with sixteenth hats is the sixteenth at a quarter:
+        # it read drum and bass at 0.31 and hard techno at 0.51, which is hat density, not
+        # swing. Density is worth keeping, so it is reported separately and named for what it is.
+        fr, sub = [], []
         for a, b in zip(beats[:-1], beats[1:]):
-            mid = [o for o in on if a + 0.1 * (b - a) < o < b - 0.1 * (b - a)]
-            if mid:
-                fr.append((mid[0] - a) / (b - a))
-        if len(fr) < 4:
-            return {"beat_confidence": round(float(conf), 3)}
-        return {"swing": round(float(np.median(fr)), 4), "beat_confidence": round(float(conf), 3),
-                "beats_per_minute": round(60.0 / float(np.median(np.diff(beats))), 2)}
+            span = b - a
+            inbeat = [(o - a) / span for o in on if a < o < b]
+            sub.append(len(inbeat))
+            # the window an offbeat eighth can occupy, straight at 0.5 to full triplet at 0.67;
+            # it stops short of 0.75 so a trailing sixteenth cannot stand in for it
+            near = [p for p in inbeat if 0.42 <= p <= 0.71]
+            if near:
+                fr.append(float(np.median(near)))
+        out = {"beat_confidence": round(float(conf), 3),
+               "beats_per_minute": round(60.0 / float(np.median(np.diff(beats))), 2),
+               "hits_per_beat": round(float(np.median(sub)), 2) if sub else None}
+        if len(fr) >= 4:
+            out["swing"] = round(float(np.median(fr)), 4)
+        return out
     except Exception:
         return None
 
