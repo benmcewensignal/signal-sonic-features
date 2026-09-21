@@ -82,6 +82,7 @@ jobs:
           path: |
             out/stems-*.jsonl
             out/logs/*.txt
+            inputs/inputs-*.jsonl
           if-no-files-found: warn
 
   stems-collect:
@@ -109,6 +110,28 @@ jobs:
             echo "download attempt $try failed; waiting before the next"; sleep 30
           done
           find inbox -name 'stems-*.jsonl' | wc -l | xargs -I{} echo "shard files collected: {}"
+      - name: keep what the measures read, in the stem-inputs release
+        # Each record's beats, onsets, drum low-band energy and bass pitch, so a measure can be
+        # recomputed without downloading and separating again. Kept out of git: about 110 KB a
+        # record. A failure here never stops the measures below from being committed.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          SRC="${{ inputs.recover_run }}"; [ -z "$SRC" ] && SRC="${{ github.run_id }}"
+          N=$(find inbox -name 'inputs-*.jsonl' -exec cat {} + 2>/dev/null | wc -l)
+          echo "records with inputs this pass: $N"
+          if [ "$N" -eq 0 ]; then exit 0; fi
+          find inbox -name 'inputs-*.jsonl' -exec cat {} + | gzip -6 > "inputs-$SRC.jsonl.gz"
+          ls -la "inputs-$SRC.jsonl.gz"
+          gh release view stem-inputs --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create stem-inputs --repo "${{ github.repository }}" --title "stem measure inputs" \
+              --notes "One file per remeasure pass: per record, the drum part's beats, onsets and 30-120 Hz energy, and the bass part's pitch, onsets and onset strength, as features.stems wrote them. Enough to recompute kick pattern, swing, hits per beat, breakdowns and bassline without separating again."
+          for i in 1 2 3; do
+            gh release upload stem-inputs "inputs-$SRC.jsonl.gz" --repo "${{ github.repository }}" --clobber && { echo "kept"; break; }
+            echo "upload attempt $i failed"; sleep 20
+          done
+          exit 0
       - name: commit what the shards separated
         run: |
           set +e

@@ -24,6 +24,29 @@ Results go to out/stems-*.jsonl. This never writes sonic.db.
 import argparse, collections, json, os, random, subprocess, sqlite3, sys, tempfile, time, urllib.request
 
 MODEL = "htdemucs"
+
+# What the measures read, kept per record so a measure fix is a pass over stored inputs rather
+# than a fresh download and separation. Before this, a one-line change to the kick pattern cost
+# forty hours of runners, because the only way to measure again was to separate again. The
+# measure functions put their intermediates here when it is a dict; the loop packs and writes
+# them to inputs/, outside out/, and the collect job files each pass in the stem-inputs release.
+_CAPTURE = None
+INPUTS_VERSION = 1
+
+
+def _pack(a):
+    import base64, zlib, numpy as np
+    return base64.b64encode(zlib.compress(np.asarray(a, dtype=np.float16).tobytes(), 6)).decode()
+
+
+def _unpack(s):
+    import base64, zlib, numpy as np
+    return np.frombuffer(zlib.decompress(base64.b64decode(s)), dtype=np.float16).astype(np.float32)
+
+
+def _cap(**kw):
+    if isinstance(_CAPTURE, dict):
+        _CAPTURE.update(kw)
 SR = 44100
 
 
@@ -76,6 +99,8 @@ def rhythm_of_stem(path):
         if len(beats) < 8:
             return None
         on = librosa.onset.onset_detect(y=y, sr=44100, units="time")
+        _cap(drums_beats=[round(float(b), 4) for b in beats], drums_beat_conf=float(conf),
+             drums_onsets=[round(float(o), 4) for o in on])
         # Swing is where the offbeat falls, so look for the onset nearest the half-beat, inside
         # the window a swung eighth can occupy. The first version took the first onset after
         # each beat, which on real drums with sixteenth hats is the sixteenth at a quarter:
@@ -137,6 +162,7 @@ def bassline_of_stem(path, beats, rotation=0):
         # the kick tolerates that because it takes the peak anywhere in a step, the bass does
         # not. Shift the grid by the median distance from each strong onset to its nearest point.
         env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop)
+        _cap(bass_f0=f0, bass_hop=hop, bass_sr=sr, bass_onsets=[round(float(o), 4) for o in on], bass_env=env)
         strong = [t for t in on if env[min(len(env) - 1, int(t * sr / hop))] > 0.3 * env.max()]
         if len(strong) >= 8:
             offs = [t - grid[int(np.argmin(np.abs(grid - t)))] for t in strong]
@@ -201,6 +227,18 @@ def kick_pattern_of_stem(path, beats):
         S = np.abs(librosa.stft(y, n_fft=1024, hop_length=hop))
         f = librosa.fft_frequencies(sr=sr, n_fft=1024)
         low = S[(f >= 30) & (f < 120)].sum(0)
+        _cap(drums_low=low, drums_low_hop=hop, drums_low_sr=sr)
+        return kick_pattern_from(low, sr, hop, beats)
+    except Exception:
+        return None
+
+
+def kick_pattern_from(low, sr, hop, beats):
+    """The kick pattern from the drum part's 30-120 Hz energy and its beats; see kick_pattern_of_stem."""
+    try:
+        import numpy as np
+        if beats is None or len(beats) < 17:
+            return None
         steps = []
         for a, b in zip(beats[:-1], beats[1:]):
             for q in range(4):
@@ -503,8 +541,13 @@ def main():
     tag = f"-s{a.shard}" if a.of > 1 else ""
     path = os.path.join(a.out_dir, f"stems-{n:03d}{tag}.jsonl")
     t0 = time.time(); done = err_n = 0
-    with open(path, "w") as out:
+    ipath = os.path.join(os.path.dirname(os.path.abspath(a.out_dir)), "inputs",
+                         os.path.basename(path).replace("stems-", "inputs-"))
+    os.makedirs(os.path.dirname(ipath), exist_ok=True)
+    global _CAPTURE
+    with open(path, "w") as out, open(ipath, "w") as iout:
         for tid in todo:
+            _CAPTURE = {}
             if (time.time() - t0) / 60 > a.budget_minutes:
                 print("budget reached", flush=True); break
             work = None
@@ -549,6 +592,14 @@ def main():
                 for k, s in rec["stems"].items():
                     if s: s["share_of_energy"] = round((s.get("level", 0)) / tot, 4)
                 out.write(json.dumps(rec) + "\n"); done += 1
+                try:
+                    if _CAPTURE:
+                        row = {"track_id": tid, "inputs_version": INPUTS_VERSION}
+                        for k2, v2 in _CAPTURE.items():
+                            row[k2] = _pack(v2) if k2 in ("drums_low", "bass_f0", "bass_env") else v2
+                        iout.write(json.dumps(row) + "\n")
+                except Exception as e2:
+                    print(f"  {tid}: inputs not kept ({type(e2).__name__})", flush=True)
                 if done % 10 == 0: out.flush(); print(f"  {done}/{len(todo)}, {err_n} failed", flush=True)
             except Exception as e:
                 err_n += 1
