@@ -89,6 +89,62 @@ def rhythm_of_stem(path):
         return None
 
 
+def breakdowns_of_stem(path, bpm=None):
+    """Where the kick goes and comes back, on the drum part alone.
+
+    Segmentation failed three times on the mix because a quieter passage of the same music and
+    a different passage read alike. On the isolated drums the question is simpler: is the kick
+    there or not. Low band energy, smoothed over a bar, runs shorter than two bars folded into
+    their neighbours. On synthetic records it finds every breakdown edge and nothing else, and
+    it does not claim to find a drop against a groove, which is a matter of degree it cannot
+    see. Four numbers: how many breakdowns, what share of the record they are, the longest one
+    in bars, and how far in the first one starts.
+    """
+    try:
+        import numpy as np, librosa
+        y, sr = librosa.load(path, sr=22050, mono=True)
+        if len(y) < sr * 20:
+            return None
+        if not bpm:
+            bpm = float(librosa.beat.tempo(y=y, sr=sr)[0]) or 125.0
+        bpm = max(60.0, min(200.0, bpm))
+        hop = 512
+        S = np.abs(librosa.stft(y, n_fft=2048, hop_length=hop))
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)
+        low = S[(freqs >= 40) & (freqs <= 120)].sum(0)
+        bar_frames = max(4, int(4 * 60 / bpm * sr / hop))
+        env = np.convolve(low, np.ones(bar_frames) / bar_frames, mode="same")
+        env = env / (env.max() + 1e-9)
+        on = env > 0.4
+        runs, i = [], 0
+        while i < len(on):
+            j = i
+            while j < len(on) and on[j] == on[i]:
+                j += 1
+            runs.append([i, j, bool(on[i])]); i = j
+        minlen, changed = 2 * bar_frames, True
+        while changed and len(runs) > 1:
+            changed = False
+            for k, r in enumerate(runs):
+                if r[1] - r[0] < minlen:
+                    if k > 0:
+                        runs[k - 1][1] = r[1]
+                    else:
+                        runs[k + 1][0] = r[0]
+                    runs.pop(k); changed = True; break
+        offs = [r for r in runs if not r[2]]
+        total = len(on)
+        if not offs:
+            return {"breakdowns": 0, "breakdown_share": 0.0}
+        longest = max(r[1] - r[0] for r in offs) / bar_frames
+        return {"breakdowns": len(offs),
+                "breakdown_share": round(sum(r[1] - r[0] for r in offs) / total, 4),
+                "longest_breakdown_bars": round(float(longest), 1),
+                "first_breakdown_at": round(offs[0][0] / total, 4)}
+    except Exception:
+        return None
+
+
 def analyse_stem(path):
     """The full analyser, on one separated part.
 
@@ -311,6 +367,9 @@ def main():
                             rh = rhythm_of_stem(v)
                             if rh:
                                 rec["stems"][k].update(rh)
+                            bd = breakdowns_of_stem(v, (rh or {}).get("beats_per_minute"))
+                            if bd:
+                                rec["stems"][k].update(bd)
                 tot = sum((s or {}).get("level", 0) for s in rec["stems"].values()) or 1
                 for k, s in rec["stems"].items():
                     if s: s["share_of_energy"] = round((s.get("level", 0)) / tot, 4)
