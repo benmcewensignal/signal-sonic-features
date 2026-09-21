@@ -11,6 +11,10 @@ on:
         description: records per shard; small for a quick check, the default for real work
         required: false
         default: '45'
+      recover_run:
+        description: a run id whose shard artifacts were never collected; fetch and commit them
+        required: false
+        default: ''
   schedule:
     - cron: "20 * * * *"
 permissions:
@@ -24,7 +28,7 @@ jobs:
   # pure CPU. One job separates about forty-five records an hour; six do the same work in
   # a sixth of the time. They split by record, write their own file, and a merge commits.
   stems-shard:
-    if: inputs.task == 'stems-shard' || inputs.task == 'stems-remeasure'
+    if: (inputs.task == 'stems-shard' || inputs.task == 'stems-remeasure') && inputs.recover_run == ''
     runs-on: ubuntu-latest
     timeout-minutes: 115
     strategy:
@@ -89,8 +93,22 @@ jobs:
       actions: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with: {path: inbox}
+      # The download of thirty-six shards, 423 MB, failed once and took a whole pass with it:
+      # the shards had succeeded, the commit was skipped, and the chain stopped. Retry it, and
+      # let a named earlier run be collected so work that finished is never simply lost.
+      - name: collect the shards, retrying, or from a named run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          SRC="${{ inputs.recover_run }}"
+          [ -z "$SRC" ] && SRC="${{ github.run_id }}"
+          echo "collecting artifacts from run $SRC"
+          for try in 1 2 3; do
+            gh run download "$SRC" --repo "${{ github.repository }}" --dir inbox && break
+            echo "download attempt $try failed; waiting before the next"; sleep 30
+          done
+          find inbox -name 'stems-*.jsonl' | wc -l | xargs -I{} echo "shard files collected: {}"
       - name: commit what the shards separated
         run: |
           set +e
