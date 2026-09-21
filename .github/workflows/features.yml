@@ -121,7 +121,13 @@ jobs:
             if git diff --cached --quiet; then echo "nothing new"; exit 0; fi
             git commit -q -m "stems: six shards"
             if git push -q origin HEAD:main; then echo "pushed on attempt $i"; exit 0; fi
-            git fetch -q origin main && git reset -q --soft origin/main
+            # A soft reset kept this run's own snapshot of every file staged, so a retry after
+            # main had moved wrote the run's stale copy of anything changed upstream back over
+            # it: at 19:39 on 21 September that reverted four commits to features/stems.py (the
+            # swing fix, the swing redo, the kick pattern, the bassline) under the message
+            # 'stems: six shards'. A mixed reset gives the index origin's files and only out/
+            # is staged again above, so code that changed mid-run is never written back.
+            git fetch -q origin main && git reset -q origin/main
             sleep $((i*8))
           done
           exit 0
