@@ -1,6 +1,4 @@
-shard 31 of 36: 7 records
-stems: 48959 done, 7 this run, 0 left after
-  bp:23186225: HTTPError: HTTP Error 404: Not Found
-  bp:22423965: HTTPError: HTTP Error 404: Not Found
-  bp:29877439: HTTPError: HTTP Error 404: Not Found
-stems: 0 separated, 7 failed, written to out/stems-4384-s31.jsonl
+remeasure: 108 this pass, 48830 still on the eight numbers alone
+shard 31 of 36: 3 records
+stems: 48959 done, 3 this run, 48830 left after
+stems: 3 separated, 0 failed, written to out/stems-4420-s31.jsonl
