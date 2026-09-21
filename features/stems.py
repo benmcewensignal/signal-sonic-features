@@ -57,6 +57,38 @@ def separate(path, outdir):
     return {os.path.splitext(f)[0]: os.path.join(d, f) for f in os.listdir(d) if f.endswith(".wav")}
 
 
+def rhythm_of_stem(path):
+    """Swing and pulse from a learned beat tracker, on the drum part alone.
+
+    Swing failed three times on onset autocorrelation and was written off. A learned tracker
+    reads a synthetic beat correctly on the first try: offbeat position 0.49 straight, 0.56,
+    0.63, 0.73 as the swing is turned up. On the isolated drum stem, with no bass or synth to
+    confuse the onsets, it should do better still. Two numbers: where the offbeat falls
+    between beats, 0.5 straight and 0.67 full triplet, and how sure the tracker was.
+    """
+    try:
+        import numpy as np, librosa
+        from essentia.standard import BeatTrackerMultiFeature, MonoLoader
+        y = MonoLoader(filename=path, sampleRate=44100)()
+        if len(y) < 44100 * 4:
+            return None
+        beats, conf = BeatTrackerMultiFeature()(y)
+        if len(beats) < 8:
+            return None
+        on = librosa.onset.onset_detect(y=y, sr=44100, units="time")
+        fr = []
+        for a, b in zip(beats[:-1], beats[1:]):
+            mid = [o for o in on if a + 0.1 * (b - a) < o < b - 0.1 * (b - a)]
+            if mid:
+                fr.append((mid[0] - a) / (b - a))
+        if len(fr) < 4:
+            return {"beat_confidence": round(float(conf), 3)}
+        return {"swing": round(float(np.median(fr)), 4), "beat_confidence": round(float(conf), 3),
+                "beats_per_minute": round(60.0 / float(np.median(np.diff(beats))), 2)}
+    except Exception:
+        return None
+
+
 def analyse_stem(path):
     """The full analyser, on one separated part.
 
@@ -275,6 +307,10 @@ def main():
                         emb = analyse_stem(v)
                         if emb and isinstance(rec["stems"].get(k), dict):
                             rec["stems"][k].update(emb)
+                        if k == "drums" and isinstance(rec["stems"].get(k), dict):
+                            rh = rhythm_of_stem(v)
+                            if rh:
+                                rec["stems"][k].update(rh)
                 tot = sum((s or {}).get("level", 0) for s in rec["stems"].values()) or 1
                 for k, s in rec["stems"].items():
                     if s: s["share_of_energy"] = round((s.get("level", 0)) / tot, 4)
