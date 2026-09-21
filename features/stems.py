@@ -161,26 +161,51 @@ def self_test(out_dir):
 
 
 
-def remeasure_todo(out_dir, limit):
-    """Records already separated whose parts carry no embedding yet, oldest shard first."""
-    import glob as _g
+def remeasure_todo(out_dir, limit, db=None):
+    """Records already separated whose parts carry no embedding yet, taken a scene at a time.
+
+    It took them in shard-file order, and the early files are mostly two scenes, so after two
+    passes 3,369 records were done and thirteen scenes untouched: nothing could be analysed until
+    the whole thirty hours had run. Round-robin by scene instead, the way the picker does it, so
+    every pass adds a balanced sample and the result can be tested early.
+    """
+    import glob as _g, collections as _c
     done, need = set(), []
-    for f in sorted(_g.glob(os.path.join(out_dir, 'stems-*.jsonl'))):
+    for f in sorted(_g.glob(os.path.join(out_dir, "stems-*.jsonl"))):
         for line in open(f):
             try:
                 d = json.loads(line)
             except Exception:
                 continue
-            t = d.get('track_id')
+            t = d.get("track_id")
             if not t or t in done:
                 continue
             done.add(t)
-            st = d.get('stems') or {}
+            st = d.get("stems") or {}
             if not isinstance(st, dict) or not st:
                 continue
-            if any(isinstance(v, dict) and v.get('embedding') for v in st.values()):
+            if any(isinstance(v, dict) and v.get("embedding") for v in st.values()):
                 continue
             need.append(t)
+    scene = {}
+    if db:
+        try:
+            import sqlite3 as _s
+            c = _s.connect(db)
+            for t, sc in c.execute("select track_id, scene from track_scenes where week like '____-M__'"):
+                scene.setdefault(t, sc)
+        except Exception:
+            scene = {}
+    if scene:
+        pools = _c.defaultdict(list)
+        for t in need:
+            pools[scene.get(t, "?")].append(t)
+        order, keys = [], sorted(pools)
+        while any(pools[k] for k in keys):
+            for k in keys:
+                if pools[k]:
+                    order.append(pools[k].pop(0))
+        need = order
     return need[:limit], max(0, len(need) - limit)
 
 
@@ -209,7 +234,7 @@ def main():
     from .beatport import get_token, _get
     have = already(a.out_dir)
     if a.remeasure:
-        todo, remaining = remeasure_todo(a.out_dir, a.limit * max(1, a.of))
+        todo, remaining = remeasure_todo(a.out_dir, a.limit * max(1, a.of), a.db)
         print(f"remeasure: {len(todo)} this pass, {remaining} still on the eight numbers alone", flush=True)
     else:
         todo, remaining = pick(a.db, have, a.limit * max(1, a.of))
