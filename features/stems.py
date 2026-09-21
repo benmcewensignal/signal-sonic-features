@@ -161,26 +161,53 @@ def self_test(out_dir):
 
 
 
-def remeasure_todo(out_dir, limit):
-    """Records already separated whose parts carry no embedding yet, oldest shard first."""
-    import glob as _g
-    done, need = set(), []
-    for f in sorted(_g.glob(os.path.join(out_dir, 'stems-*.jsonl'))):
+def remeasure_todo(out_dir, limit, db=None):
+    """Records already separated that carry no embedding anywhere, a scene at a time.
+
+    Two faults in the version before this. It looked only at the first copy of each record, which
+    is always the original without the embedding, so every pass redid the same records: 8,227
+    remeasured lines were 1,641 unique records, 1,510 of them done five times. And it took them
+    in shard-file order, which is mostly two scenes, so nothing could be tested until the end.
+    """
+    import glob as _g, collections as _c
+    finished, seen, order = set(), set(), []
+    for f in sorted(_g.glob(os.path.join(out_dir, "stems-*.jsonl"))):
         for line in open(f):
             try:
                 d = json.loads(line)
             except Exception:
                 continue
-            t = d.get('track_id')
-            if not t or t in done:
+            t = d.get("track_id")
+            if not t:
                 continue
-            done.add(t)
-            st = d.get('stems') or {}
+            st = d.get("stems") or {}
             if not isinstance(st, dict) or not st:
                 continue
-            if any(isinstance(v, dict) and v.get('embedding') for v in st.values()):
-                continue
-            need.append(t)
+            if any(isinstance(v, dict) and v.get("embedding") for v in st.values()):
+                finished.add(t)
+            if t not in seen:
+                seen.add(t)
+                order.append(t)
+    need = [t for t in order if t not in finished]
+    scene = {}
+    if db:
+        try:
+            import sqlite3 as _s
+            for t, sc in _s.connect(db).execute(
+                    "select track_id, scene from track_scenes where week like '____-M__'"):
+                scene.setdefault(t, sc)
+        except Exception:
+            scene = {}
+    if scene:
+        pools = _c.defaultdict(list)
+        for t in need:
+            pools[scene.get(t, "?")].append(t)
+        keys, rot = sorted(pools), []
+        while any(pools[k] for k in keys):
+            for k in keys:
+                if pools[k]:
+                    rot.append(pools[k].pop(0))
+        need = rot
     return need[:limit], max(0, len(need) - limit)
 
 
@@ -209,7 +236,7 @@ def main():
     from .beatport import get_token, _get
     have = already(a.out_dir)
     if a.remeasure:
-        todo, remaining = remeasure_todo(a.out_dir, a.limit * max(1, a.of))
+        todo, remaining = remeasure_todo(a.out_dir, a.limit * max(1, a.of), a.db)
         print(f"remeasure: {len(todo)} this pass, {remaining} still on the eight numbers alone", flush=True)
     else:
         todo, remaining = pick(a.db, have, a.limit * max(1, a.of))
