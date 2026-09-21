@@ -1,10 +1,16 @@
-remeasure: 1620 this pass, 47318 still on the eight numbers alone
+remeasure: 1620 this pass, 47339 still on the eight numbers alone
 shard 31 of 36: 45 records
-stems: 48959 done, 45 this run, 47318 left after
+stems: 48959 done, 45 this run, 47339 left after
+2026-09-21 16:54:36.491865: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.14/x64/lib
+2026-09-21 16:54:36.491887: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+[   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-09-21 16:54:36.912806: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-09-21 16:54:36.913248: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.14/x64/lib
+2026-09-21 16:54:36.913268: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-09-21 16:54:36.913290: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (runnervmlun5p): /proc/driver/nvidia/version does not exist
   10/45, 0 failed
-/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/site-packages/librosa/core/pitch.py:105: UserWarning: Trying to estimate tuning from empty frequency set.
-  return pitch_tuning(
   20/45, 0 failed
   30/45, 0 failed
   40/45, 0 failed
-stems: 45 separated, 0 failed, written to out/stems-4600-s31.jsonl
+stems: 45 separated, 0 failed, written to out/stems-4636-s31.jsonl
