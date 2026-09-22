@@ -228,9 +228,42 @@ def kick_pattern_of_stem(path, beats):
         f = librosa.fft_frequencies(sr=sr, n_fft=1024)
         low = S[(f >= 30) & (f < 120)].sum(0)
         _cap(drums_low=low, drums_low_hop=hop, drums_low_sr=sr)
-        return kick_pattern_from(low, sr, hop, beats)
+        return kick_pattern_v3(low, sr, hop, beats)
     except Exception:
         return None
+
+
+def kick_pattern_v3(low, sr, hop, beats):
+    """Version 3: read the kick as a rise in low-band energy, and trust the level where it saw more.
+
+    Version 2 read the level of the 30-120 Hz band, so a long kick's tail kept the next sixteenth
+    lit and 40% of records came out doubled ('KK..KK..'); tech house read four-on-the-floor on 37%.
+    Reading the rise (the attack) fixes that, but misses the attack on some beats of a soft,
+    sub-heavy kick, so amapiano's four-on-the-floor came out partial. Version 3 takes the rise
+    reading unless the level reading found strictly more kicks with no doubling, which means it saw
+    kicks the rise missed. On 6,458 stored records: house and techno four-on-the-floor 38% -> 74%,
+    any doubling 40% -> 6%, empty 6% -> 6%, amapiano four-on-the-floor 48% -> 49%, broken-beat
+    scenes 4% -> 6%. Needs only the stored low band and beats, so it recomputes without separating.
+    """
+    import numpy as np
+    lv = np.asarray(low, dtype=float)
+    rise = np.maximum(0.0, np.diff(lv, prepend=lv[:1]))
+    r = kick_pattern_from(rise, sr, hop, beats)
+    l = kick_pattern_from(lv, sr, hop, beats)
+    pr = (r or {}).get("kick_pattern") or ""; pl = (l or {}).get("kick_pattern") or ""
+    pick = r
+    if not set(pr) - {"."}:
+        pick = l
+    elif len(pr) == 16 and len(pl) == 16:
+        for k in range(16):
+            pk = pl[k:] + pl[:k]
+            if "KK" not in pk + pk[0] and pk != pr and all(pk[i] == "K" for i in range(16) if pr[i] == "K"):
+                pick = l
+                break
+    if pick is None:
+        return None
+    out = dict(pick); out["kick_version"] = 3
+    return out
 
 
 def kick_pattern_from(low, sr, hop, beats):
@@ -471,6 +504,13 @@ def remeasure_todo(out_dir, limit, db=None):
     remeasured lines were 1,641 unique records, 1,510 of them done five times. And it took them
     in shard-file order, which is mostly two scenes, so nothing could be tested until the end.
     """
+    # kick patterns recomputed to version 3 from stored inputs, without separating again
+    _v3 = set()
+    try:
+        for line in open(os.path.join(out_dir, "kick-v3.jsonl")):
+            _v3.add(json.loads(line)["track_id"])
+    except Exception:
+        pass
     import glob as _g, collections as _c
     finished, seen, order = set(), set(), []
     for f in sorted(_g.glob(os.path.join(out_dir, "stems-*.jsonl"))):
@@ -492,7 +532,7 @@ def remeasure_todo(out_dir, limit, db=None):
             # thousand. The drum part is the one that carries all three.
             dr = st.get("drums") if isinstance(st.get("drums"), dict) else {}
             # kick_version 2: the first version read empty on 44% of real records (see kick_pattern_of_stem)
-            if dr.get("embedding") and "breakdowns" in dr and "hits_per_beat" in dr and dr.get("kick_version") == 2:
+            if dr.get("embedding") and "breakdowns" in dr and "hits_per_beat" in dr and (dr.get("kick_version") == 3 or t in _v3):
                 finished.add(t)
             if t not in seen:
                 seen.add(t)
