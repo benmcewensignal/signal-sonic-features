@@ -382,6 +382,27 @@ def measure_stem(path):
             "share_of_energy": None}
 
 
+def refused(out_dir, times=2):
+    """Records Beatport has refused (HTTP 403 or 404 on the preview) at least `times` times.
+
+    275 records came back 403 or 404 on every pass, so every pass spent a slot on each of them
+    and the separation count could never reach zero. A refusal is recorded when it happens;
+    twice refused, a record is left out of both the separation and remeasure lists.
+    """
+    n = collections.Counter()
+    if os.path.isdir(out_dir):
+        for f in os.listdir(out_dir):
+            if f.startswith("failed-") and f.endswith(".jsonl"):
+                for line in open(os.path.join(out_dir, f)):
+                    try:
+                        d = json.loads(line)
+                        if "403" in d.get("error", "") or "404" in d.get("error", ""):
+                            n[d["track_id"]] += 1
+                    except Exception:
+                        pass
+    return {t for t, k in n.items() if k >= times}
+
+
 def pick(db, have, limit):
     """One record per scene-month, round robin. A sweep in insertion order samples
     whichever wave was ingested last, which has bitten three modules already."""
@@ -525,9 +546,10 @@ def main():
     have = already(a.out_dir)
     if a.remeasure:
         todo, remaining = remeasure_todo(a.out_dir, a.limit * max(1, a.of), a.db)
+        _no = refused(a.out_dir); todo = [t for t in todo if t not in _no]
         print(f"remeasure: {len(todo)} this pass, {remaining} still on the eight numbers alone", flush=True)
     else:
-        todo, remaining = pick(a.db, have, a.limit * max(1, a.of))
+        todo, remaining = pick(a.db, have | refused(a.out_dir), a.limit * max(1, a.of))
     if a.of > 1:
         # split by record, not by scene: stem separation is per record and the scenes are
         # very uneven, so a scene split would leave shards idle while one grinds on.
@@ -604,6 +626,12 @@ def main():
             except Exception as e:
                 err_n += 1
                 if err_n <= 3: print(f"  {tid}: {type(e).__name__}: {str(e)[:80]}", flush=True)
+                try:
+                    with open(path.replace("stems-", "failed-"), "a") as fo:
+                        fo.write(json.dumps({"track_id": tid, "error": f"{type(e).__name__}: {str(e)[:120]}",
+                                             "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}) + "\n")
+                except Exception:
+                    pass
             finally:
                 if work: subprocess.run(["rm", "-rf", work], capture_output=True)
     print(f"stems: {done} separated, {err_n} failed, written to {path}", flush=True)

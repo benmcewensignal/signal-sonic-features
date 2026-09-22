@@ -81,6 +81,7 @@ jobs:
           name: stems-shard-${{ matrix.shard }}
           path: |
             out/stems-*.jsonl
+            out/failed-*.jsonl
             out/logs/*.txt
             inputs/inputs-*.jsonl
           if-no-files-found: warn
@@ -136,6 +137,7 @@ jobs:
         run: |
           set +e
           mkdir -p out && find inbox -name 'stems-*.jsonl' -exec cp -n {} out/ \;
+          find inbox -name 'failed-*.jsonl' -exec cp -n {} out/ \; 2>/dev/null
           mkdir -p out/logs; find inbox -name 'shard-*.txt' -exec cp -f {} out/logs/ \; || true
           ls -la out | tail -5
           git config user.name "sonic-bot"; git config user.email "sonic@earlysignal.live"
