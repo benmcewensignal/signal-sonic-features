@@ -507,7 +507,11 @@ def remeasure_todo(out_dir, limit, db=None):
     # kick patterns recomputed to version 3 from stored inputs, without separating again
     _v3 = set()
     try:
-        for line in open(os.path.join(out_dir, "kick-v3.jsonl")):
+        # kept outside out/ so no collect job can delete it: on 22 September one that checked out
+        # before it existed staged its absence with 'git add -A out' and removed it
+        _kp = os.path.join(os.path.dirname(os.path.abspath(out_dir)), "kick", "kick-v3.jsonl")
+        if not os.path.exists(_kp): _kp = os.path.join(out_dir, "kick-v3.jsonl")
+        for line in open(_kp):
             _v3.add(json.loads(line)["track_id"])
     except Exception:
         pass

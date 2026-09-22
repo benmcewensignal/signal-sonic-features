@@ -142,7 +142,7 @@ jobs:
           ls -la out | tail -5
           git config user.name "sonic-bot"; git config user.email "sonic@earlysignal.live"
           for i in 1 2 3; do
-            git add -A out
+            git add --ignore-removal out
             if git diff --cached --quiet; then echo "nothing new"; exit 0; fi
             git commit -q -m "stems: six shards"
             if git push -q origin HEAD:main; then echo "pushed on attempt $i"; exit 0; fi
@@ -259,7 +259,7 @@ jobs:
         if: always()
         run: |
           git config user.name "sonic-features-bot"; git config user.email "sonic@earlysignal.live"
-          git add -A out 2>/dev/null || true
+          git add --ignore-removal out 2>/dev/null || true
           git diff --cached --quiet || (git commit -qm "features: $(date -u +%FT%TZ)" && git pull -q --no-rebase origin main && git push -q origin HEAD:main) || echo "nothing to publish"
       - name: chain the stem pass while it is making progress
         if: always() && inputs.task == 'stems'
