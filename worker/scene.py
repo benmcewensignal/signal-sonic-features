@@ -28,7 +28,7 @@ def features_of(path):
 
 
 def call_from_numbers(x):
-    """The scene call from the 78 numbers a device measured itself; no audio involved."""
+    """The scene call from the 75 numbers a device measured itself; no audio involved."""
     M = _model(); x = np.array(x, float)
     if x.shape != (len(M["mu"]),): raise ValueError("wrong number of measures")
     z = (x - np.array(M["mu"])) / np.array(M["sd"])
