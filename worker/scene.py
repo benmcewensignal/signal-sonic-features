@@ -31,8 +31,12 @@ def features_of(path):
 def _reliability(M, scene, conf):
     """How often a call of this scene at this confidence was right with whole artists held out;
     the overall tier where the scene had fewer than 15 such calls."""
-    for lo, hi, r, n in (M.get("scene_tiers") or {}).get(scene, []):
+    bins = (M.get("scene_tiers") or {}).get(scene, [])
+    for lo, hi, r, n in bins:
         if lo <= conf < hi + 1e-9 and r is not None and n >= 15: return r, "scene"
+    # too few calls at this confidence: the scene's accuracy over all its calls, before the overall tier
+    tot = sum(n for *_, n in bins); right = sum((r or 0) * n for _, _, r, n in bins)
+    if tot >= 15: return round(right / tot, 3), "scene"
     t = next((t for t in M["tiers"] if t[0] <= conf < t[1]), M["tiers"][-1])
     return t[2], "all"
 
