@@ -23,5 +23,16 @@ jobs:
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: |
           if [ -z "$MODAL_TOKEN_ID" ]; then echo "::notice::no Modal token yet; the worker is not deployed"; exit 0; fi
-          pip install -q modal
-          modal deploy worker/modal_app.py
+          pip install -q modal "fastapi[standard]"
+          # the deploy log is not readable from outside, so its last lines become an annotation
+          set +e
+          modal deploy worker/modal_app.py 2>&1 | tee /tmp/deploy.log
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then
+            msg=$(tail -n 12 /tmp/deploy.log | sed 's/%/%25/g' | tr '\n' '|' | cut -c1-900)
+            echo "::error title=modal deploy failed::$msg"
+          else
+            msg=$(grep -o 'https://[a-z0-9-]*--sonic-parts[a-z-]*\.modal\.run' /tmp/deploy.log | sort -u | tr '\n' ' ')
+            echo "::notice title=worker endpoints::$msg"
+          fi
+          exit $rc

@@ -27,9 +27,9 @@ def read_parts(wav: bytes) -> dict:
 
 
 
-with image.imports():
-    from fastapi import Request
-    from fastapi.responses import JSONResponse
+# imported plainly: the endpoint signatures need Request where modal deploy runs, not only in the image
+from fastapi import Request
+from fastapi.responses import JSONResponse
 
 
 def _ok(request):
