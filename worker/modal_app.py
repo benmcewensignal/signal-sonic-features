@@ -12,8 +12,9 @@ app = modal.App("sonic-parts")
 image = (modal.Image.debian_slim(python_version="3.12")
          .apt_install("ffmpeg", "libsndfile1")
          .pip_install("numpy<2", "librosa==0.10.2", "soundfile", "demucs==4.0.1", "torch==2.3.1",
-                      "torchaudio==2.3.1", "essentia-tensorflow", "fastapi[standard]")
-         .add_local_python_source("features", "worker"))
+                      "torchaudio==2.3.1", "essentia-tensorflow", "fastapi[standard]", "scikit-learn==1.8.0")
+         .add_local_python_source("features")
+         .add_local_dir("worker", "/root/worker"))   # the worker with its model file
 secret = modal.Secret.from_name("sonic-parts")          # holds PARTS_KEY
 
 

@@ -33,6 +33,13 @@ def read(wav_path):
         for s in rec.values():
             if s: s["share_of_energy"] = round(s.get("level", 0) / tot, 4)
         v = rec.get("vocals") or {}
-        return {"model": S.MODEL, "parts": rec, "voice_type": voice_type(v) if v else None}
+        out = {"model": S.MODEL, "parts": rec, "voice_type": voice_type(v) if v else None}
+        # the scene call: the corpus analyser's measures of the whole mix, through the trained model
+        try:
+            from worker.scene import call
+            out["scene"] = call(wav_path)
+        except Exception as e:
+            out["scene_error"] = type(e).__name__
+        return out
     finally:
         shutil.rmtree(work, ignore_errors=True)
