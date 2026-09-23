@@ -47,6 +47,19 @@ async def submit(request: Request):
 
 
 @app.function(image=image, secrets=[secret])
+@modal.fastapi_endpoint(method="POST")
+async def numbers(request: Request):
+    """The scene call from a device's own 78 measures: JSON {"x": [...]}, answered at once."""
+    if not _ok(request): return JSONResponse({"error": "unauthorised"}, 401)
+    body = await request.json()
+    from worker.scene import call_from_numbers
+    try:
+        return call_from_numbers(body.get("x") or [])
+    except Exception as e:
+        return JSONResponse({"error": type(e).__name__}, 400)
+
+
+@app.function(image=image, secrets=[secret])
 @modal.fastapi_endpoint(method="GET")
 def result(request: Request, id: str):
     if not _ok(request): return JSONResponse({"error": "unauthorised"}, 401)

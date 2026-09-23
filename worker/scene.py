@@ -27,6 +27,18 @@ def features_of(path):
     return np.array(x, float), d
 
 
+def call_from_numbers(x):
+    """The scene call from the 78 numbers a device measured itself; no audio involved."""
+    M = _model(); x = np.array(x, float)
+    if x.shape != (len(M["mu"]),): raise ValueError("wrong number of measures")
+    z = (x - np.array(M["mu"])) / np.array(M["sd"])
+    p = M["model"].predict_proba(z[None, :])[0]; order = np.argsort(-p); conf = float(p[order[0]])
+    tier = next((t for t in M["tiers"] if t[0] <= conf < t[1]), M["tiers"][-1])
+    return {"scenes": [[str(M["classes"][i]), round(float(p[i]), 3)] for i in order[:5]], "confidence": round(conf, 3),
+            "right_at_this_confidence": tier[2], "analyser": M.get("analyser", "2.9"),
+            "model": {"trained_on": M["trained_on"], "built": M["built"], "held_out_accuracy": 0.472}}
+
+
 def call(path):
     M = _model(); x, d = features_of(path)
     z = (x - np.array(M["mu"])) / np.array(M["sd"])
