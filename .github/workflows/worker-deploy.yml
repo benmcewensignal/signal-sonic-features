@@ -1,0 +1,27 @@
+name: worker-deploy
+# Deploys the parts worker (worker/modal_app.py) to Modal whenever it or the measure code changes,
+# so a file's parts are always read by the same code as the corpus. Needs MODAL_TOKEN_ID and
+# MODAL_TOKEN_SECRET; without them it stands down.
+on:
+  push:
+    branches: [main]
+    paths: ["worker/**", "features/stems.py", ".github/workflows/worker-deploy.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: deploy to Modal
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: |
+          if [ -z "$MODAL_TOKEN_ID" ]; then echo "::notice::no Modal token yet; the worker is not deployed"; exit 0; fi
+          pip install -q modal
+          modal deploy worker/modal_app.py
