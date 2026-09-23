@@ -53,7 +53,7 @@ def _decoder_fingerprint() -> str:
 
 class LocalAnalyser(Analyser):
     analyser_id = "local"
-    version = "2.9"        # 2: full 45-dim embedding. 2.1: tempo resolves the octave
+    version = "3.0"        # 2: full 45-dim embedding. 2.1: tempo resolves the octave
                            # error. 2.2: rhythm vector. 2.3: each feature family scaled
                            # against itself, which brings the twelve chroma dimensions back
 
@@ -100,7 +100,7 @@ class LocalAnalyser(Analyser):
 
     # -- features ----------------------------------------------------------
     def _key(self, y, sr) -> str:
-        chroma = librosa.feature.chroma_cqt(y=y, sr=sr).mean(axis=1)
+        chroma = librosa.feature.chroma_stft(y=y, sr=sr, tuning=0.0).mean(axis=1)
         chroma = chroma / (chroma.sum() or 1.0)
         best, best_r = "", -2.0
         for i in range(12):
@@ -148,14 +148,14 @@ class LocalAnalyser(Analyser):
         return float(min(1.0, (sub / total) * 4.0))  # 25% share ≈ saturated
 
     def _vocal_presence(self, y, sr) -> float:
-        """Heuristic: harmonic energy share in the 300-3400 Hz band with low
-        spectral flatness reads as voice-like. Crude; measured, not trusted."""
-        y_h = librosa.effects.harmonic(y, margin=3.0)
-        S = np.abs(librosa.stft(y_h, n_fft=2048)) ** 2
+        """3.0: the 2.9 formula on the plain spectrum. The harmonic split it used is a heavy
+        median filter that cannot be reproduced exactly on a phone; without it the measure is
+        the same idea, computed identically everywhere."""
+        S = np.abs(librosa.stft(y, n_fft=2048)) ** 2
         freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)
         band = S[(freqs >= 300) & (freqs <= 3400)]
         share = band.sum() / (S.sum() or 1.0)
-        flat = float(librosa.feature.spectral_flatness(y=y_h).mean())
+        flat = float(librosa.feature.spectral_flatness(y=y).mean())
         return float(min(1.0, share * (1.0 - min(1.0, flat * 8.0)) * 2.2))
 
     def _groove(self, y, sr) -> dict:
@@ -220,44 +220,36 @@ class LocalAnalyser(Analyser):
             return {"edm_error": f"{type(e).__name__}: {str(e)[:60]}"}
 
     def _tempo(self, y, sr) -> float:
-        """Beat rate, resolved against the octave error.
-
-        A pulse is ambiguous by factors of two: a drum and bass record at 174 has a real,
-        strongly autocorrelating half-time pulse at 87, and the detector was choosing it for
-        the whole scene. Measured at 117 against a true 174, which made an entire genre
-        look mid-tempo and fed a wrong number to the classifier.
-
-        Autocorrelation cannot settle it, because both rates are genuinely present. What
-        settles it is convention: dance music is counted at the faster pulse, and no scene
-        we measure is counted below about ninety. So when doubling lands inside the range
-        dance records actually occupy, and the onsets support it nearly as well, take it.
-        """
-        cands = np.atleast_1d(librosa.feature.rhythm.tempo(y=y, sr=sr, aggregate=None))
-        base = float(np.median(cands)) if cands.size else 120.0
+        """3.0: the strongest autocorrelation of the onset envelope over whole-frame lags from
+        200 down to 60 BPM, the peak refined by parabolic interpolation, then the 2.9 preference
+        for 90 to 190. Deterministic and reproducible outside librosa: the tempogram it
+        replaces resamples in stages a browser cannot match."""
         onset = librosa.onset.onset_strength(y=y, sr=sr)
-
-        def support(bpm):
-            if bpm <= 0: return 0.0
-            lag = int(round(60.0 / bpm * sr / 512))
-            if lag < 2 or lag >= len(onset) // 2: return 0.0
-            a = onset[:-lag] - onset[:-lag].mean()
-            b = onset[lag:] - onset[lag:].mean()
+        o = onset - onset.mean(); fps = sr / 512.0
+        def support_lag(lag):
+            if lag < 2 or lag >= len(o) // 2: return 0.0
+            a, b = o[:-lag], o[lag:]
             den = (np.linalg.norm(a) * np.linalg.norm(b)) or 1.0
             return float(np.dot(a, b) / den)
-
-        LO, HI = 90.0, 190.0          # the range the scenes we measure are counted in
-        best, s_best = base, support(base)
+        lo, hi = int(round(60.0 / 200.0 * fps)), int(round(60.0 / 60.0 * fps))
+        r = {lag: support_lag(lag) for lag in range(lo - 1, hi + 2)}
+        best_lag = max(range(lo, hi + 1), key=lambda L: r[L])
+        y0, y1, y2 = r[best_lag - 1], r[best_lag], r[best_lag + 1]
+        den = (y0 - 2 * y1 + y2)
+        shift = 0.5 * (y0 - y2) / den if den else 0.0
+        shift = max(-0.5, min(0.5, shift))
+        base = 60.0 * fps / (best_lag + shift)
+        def support(bpm):
+            if bpm <= 0: return 0.0
+            return support_lag(int(round(60.0 / bpm * fps)))
+        LO, HI = 90.0, 190.0
+        best, s_best = base, r[best_lag]
         for mult in (2.0, 1.5, 3.0):
             alt = base * mult
-            if not (LO <= alt <= HI):
-                continue
-            # it need not beat the slower pulse, only nearly match it: the slower one is
-            # real, it is simply not how the record is counted.
+            if not (LO <= alt <= HI): continue
             if support(alt) >= s_best * 0.75:
-                best = alt
-                break
-        if best < LO and base * 2 <= HI:
-            best = base * 2
+                best = alt; break
+        if best < LO and base * 2 <= HI: best = base * 2
         return float(best)
 
     def _rhythm_vector(self, y, sr) -> list[float]:
@@ -305,7 +297,7 @@ class LocalAnalyser(Analyser):
 
     def _embedding(self, y, sr) -> list[float]:
         mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+        chroma = librosa.feature.chroma_stft(y=y, sr=sr, tuning=0.0)
         contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
         parts = [
             mfcc.mean(axis=1), mfcc.std(axis=1),          # 26
