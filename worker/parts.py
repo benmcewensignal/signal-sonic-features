@@ -36,8 +36,11 @@ def read(wav_path):
         out = {"model": S.MODEL, "parts": rec, "voice_type": voice_type(v) if v else None}
         # the scene call: the corpus analyser's measures of the whole mix, through the trained model
         try:
-            from worker.scene import call
+            from worker.scene import call, call_parts, features_of
             out["scene"] = call(wav_path)
+            mix_x, _ = features_of(wav_path)
+            tri = call_parts(mix_x, rec)
+            if tri: out["scene_parts"] = tri
         except Exception as e:
             out["scene_error"] = type(e).__name__
         return out

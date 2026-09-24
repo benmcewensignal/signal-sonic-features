@@ -1,0 +1,27 @@
+name: train-parts
+# Train the triangulated scene model (the mix and its four parts) with whole artists held out, and
+# commit it; the worker redeploys itself from the push.
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q numpy "scikit-learn==1.8.0"
+      - name: fetch the corpus database
+        env: { GH_TOKEN: "${{ secrets.PIPELINE_PAT || github.token }}" }
+        run: for i in 1 2 3 4 5; do gh release download deepened --repo benmcewensignal/signal-sonic --pattern sonic.db --clobber --dir /tmp && [ -s /tmp/sonic.db ] && break; sleep $((i*20)); done
+      - name: train and calibrate
+        run: python tools/train_parts.py /tmp/sonic.db
+      - name: commit the model
+        run: |
+          git config user.name sonic-bot; git config user.email sonic@earlysignal.live
+          git add worker/scene_model_parts.pkl worker/scene_model_parts.json
+          git commit -qm "triangulated scene model, trained and calibrated with artists held out"
+          ok=0; for i in 1 2 3 4 5; do git pull -q --rebase --autostash origin main && git push -q origin HEAD:main && { ok=1; break; }; sleep $((i*5)); done
+          [ "$ok" = 1 ] || { echo "::error::model not pushed"; exit 1; }

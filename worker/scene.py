@@ -63,3 +63,25 @@ def call(path):
     return {"scenes": [[str(M["classes"][i]), round(float(p[i]), 3)] for i in order[:5]], "confidence": round(conf, 3),
             "right_at_this_confidence": tier[2], "tempo": round(float(d["tempo"]), 1), "loudness": round(float(d["loudness"]), 2),
             "model": {"trained_on": M["trained_on"], "built": M["built"], "held_out_accuracy": 0.472}}
+
+
+_MP = None
+
+
+def call_parts(mix_x, stems):
+    """The triangulated call, from the whole mix's 75 and the measured parts; None if no parts model."""
+    global _MP
+    import pickle
+    if _MP is None:
+        fp = os.path.join(os.path.dirname(__file__), "scene_model_parts.pkl")
+        if not os.path.exists(fp): return None
+        with open(fp, "rb") as f: _MP = pickle.load(f)
+    from worker.parts_features import parts_vector
+    pv = parts_vector(stems)
+    if pv is None: return None
+    x = np.array(list(mix_x) + pv, float); z = (x - np.array(_MP["mu"])) / np.array(_MP["sd"])
+    p = _MP["model"].predict_proba(z[None, :])[0]; order = np.argsort(-p); conf = float(p[order[0]])
+    rel, basis = _reliability(_MP, str(_MP["classes"][order[0]]), conf)
+    return {"scenes": [[str(_MP["classes"][i]), round(float(p[i]), 3)] for i in order[:5]], "confidence": round(conf, 3),
+            "right_at_this_confidence": rel, "reliability_basis": basis, "analyser": "3.0", "inputs": "mix and four parts",
+            "model": {"trained_on": _MP["trained_on"], "built": _MP["built"], "held_out_accuracy": _MP["held_out_accuracy"]}}
