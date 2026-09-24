@@ -1,0 +1,55 @@
+{
+ "records": 48849,
+ "artists_held_out": 3666,
+ "held_out_records": 6825,
+ "first": 0.5613186813186813,
+ "top3": 0.7860805860805861,
+ "tiers": [
+  [
+   0.6,
+   1.0,
+   0.776,
+   0.535
+  ],
+  [
+   0.4,
+   0.6,
+   0.393,
+   0.236
+  ],
+  [
+   0.25,
+   0.4,
+   0.249,
+   0.191
+  ],
+  [
+   0,
+   0.25,
+   0.163,
+   0.039
+  ]
+ ],
+ "per_scene": {
+  "140-deep-dubstep-grime": 0.794,
+  "afro-house": 0.565,
+  "amapiano": 0.846,
+  "bass-house": 0.518,
+  "breaks-breakbeat-uk-bass": 0.498,
+  "deep-house": 0.465,
+  "drum-and-bass": 0.827,
+  "hard-techno": 0.74,
+  "house": 0.282,
+  "indie-dance": 0.318,
+  "melodic-house-techno": 0.418,
+  "organic-house": 0.534,
+  "progressive-house": 0.4,
+  "psy-trance": 0.766,
+  "tech-house": 0.549,
+  "techno-peak-time": 0.279,
+  "techno-raw-deep-hypnotic": 0.595,
+  "trance-main-floor": 0.534,
+  "uk-funky-gqom": 0.51,
+  "uk-garage-speed-garage": 0.652
+ }
+}
