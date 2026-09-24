@@ -85,3 +85,25 @@ def call_parts(mix_x, stems):
     return {"scenes": [[str(_MP["classes"][i]), round(float(p[i]), 3)] for i in order[:5]], "confidence": round(conf, 3),
             "right_at_this_confidence": rel, "reliability_basis": basis, "analyser": "3.0", "inputs": "mix and four parts",
             "model": {"trained_on": _MP["trained_on"], "built": _MP["built"], "held_out_accuracy": _MP["held_out_accuracy"]}}
+
+
+_AR = None
+
+
+def sounds_like(mix_x, stems, k=5):
+    """The artists whose average sound is nearest, from the whole mix and its four parts."""
+    global _AR
+    import json as _j
+    if _AR is None:
+        base = os.path.dirname(__file__)
+        if not os.path.exists(os.path.join(base, "artists_parts.npz")): return None
+        _AR = (np.load(os.path.join(base, "artists_parts.npz")), _j.load(open(os.path.join(base, "artists_parts.json"))))
+    from worker.parts_features import parts_vector
+    pv = parts_vector(stems)
+    if pv is None: return None
+    z, meta = _AR
+    def nz(x, mu, sd):
+        v = np.nan_to_num((np.array(x, float) - mu) / sd); return v / (np.linalg.norm(v) + 1e-9)
+    q = np.hstack([nz(mix_x, z["muX"], z["sdX"]), nz(pv, z["muP"], z["sdP"])]) / np.sqrt(2)
+    sc = z["c"] @ q; order = np.argsort(-sc)[:k]
+    return {"artists": [[meta["artists"][i], round(float(sc[i]), 3)] for i in order], "top5": meta["top5"], "of": len(meta["artists"])}

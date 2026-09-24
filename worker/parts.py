@@ -41,6 +41,9 @@ def read(wav_path):
             mix_x, _ = features_of(wav_path)
             tri = call_parts(mix_x, rec)
             if tri: out["scene_parts"] = tri
+            from worker.scene import sounds_like
+            sl = sounds_like(mix_x, rec)
+            if sl: out["sounds_like"] = sl
         except Exception as e:
             out["scene_error"] = type(e).__name__
         return out
