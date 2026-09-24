@@ -25,3 +25,6 @@ jobs:
           git commit -qm "triangulated scene model, trained and calibrated with artists held out"
           ok=0; for i in 1 2 3 4 5; do git pull -q --rebase --autostash origin main && git push -q origin HEAD:main && { ok=1; break; }; sleep $((i*5)); done
           [ "$ok" = 1 ] || { echo "::error::model not pushed"; exit 1; }
+      - name: deploy the worker with it
+        env: { GH_TOKEN: "${{ secrets.PIPELINE_PAT || github.token }}" }
+        run: gh workflow run worker-deploy.yml --ref main && echo "worker deploy requested"
