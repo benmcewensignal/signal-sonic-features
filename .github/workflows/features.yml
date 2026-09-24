@@ -190,7 +190,10 @@ jobs:
             # every pass after the first was the ordinary picker finding the last eight unseparated
             # records. The remeasure I dispatched five times ran zero times. Pass on whatever task
             # this run was given.
-            OUT=$(gh workflow run features.yml --ref main -f task="${{ inputs.task }}" 2>&1)
+            # the remeasure is done (98%); what remains are records never separated, which only a
+            # separation run takes. Booking remeasure again looped on 24 September: 58 runs, about
+            # 8 records each, while 37,000 records from DJ sets and the new genres waited.
+            OUT=$(gh workflow run features.yml --ref main -f task="${{ inputs.task == 'stems-remeasure' && 'stems-shard' || inputs.task }}" 2>&1)
           RC=$?
           echo "gh exit ${RC}: ${OUT:-（no output）}"
           if [ "$RC" -ne 0 ]; then
