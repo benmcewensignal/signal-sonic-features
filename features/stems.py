@@ -468,11 +468,15 @@ def pick(db, have, limit):
         if r["track_id"] not in have: pool[(r["scene"], r["week"])].append(r["track_id"])
     keys = sorted(pool); rr = random.Random(4)
     for k in keys: rr.shuffle(pool[k])
-    todo = []
+    # records that DJ sets play and the charts never listed carry no scene-month, so the sweep above
+    # never reached them; they come first, since the promo test needs their parts
+    todo = [r[0] for r in c.execute("select track_id from tracks where source='tracklist' and analyser_id='local' and track_id like 'bp:%'")
+            if r[0] not in have][:limit]
+    left_tl = sum(1 for r in c.execute("select track_id from tracks where source='tracklist' and analyser_id='local'") if r[0] not in have) - len(todo)
     while len(todo) < limit and any(pool[k] for k in keys):
         for k in keys:
             if pool[k] and len(todo) < limit: todo.append(pool[k].pop())
-    return todo, sum(len(v) for v in pool.values())
+    return todo, sum(len(v) for v in pool.values()) + max(0, left_tl)
 
 
 def already(out_dir):
