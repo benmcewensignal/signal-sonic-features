@@ -64,7 +64,7 @@ def call_from_numbers(x, condition=None):
             if row[0] != "overall" and row[0] <= conf < row[1] + 1e-9 and row[2] is not None: rel, basis = row[2], "condition"; break
     pc, cset = _calibrated(M, p)
     return {"scenes": [[str(M["classes"][i]), round(float(pc[i]), 3)] for i in order[:5]], "confidence": round(float(pc[order[0]]), 3), "set": cset, "set_coverage": 0.9 if M.get("conformal_q90") else None,
-            "right_at_this_confidence": rel, "reliability_basis": basis, "analyser": M.get("analyser", "2.9"),
+            "right_at_this_confidence": rel, "reliability_basis": basis, "condition": condition, "analyser": M.get("analyser", "2.9"),
             "model": {"trained_on": M["trained_on"], "built": M["built"], "held_out_accuracy": 0.472}}
 
 
