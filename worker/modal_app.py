@@ -54,7 +54,7 @@ async def numbers(request: Request):
     body = await request.json()
     from worker.scene import call_from_numbers
     try:
-        return call_from_numbers(body.get("x") or [])
+        return call_from_numbers(body.get("x") or [], body.get("condition"))
     except Exception as e:
         return JSONResponse({"error": type(e).__name__}, 400)
 

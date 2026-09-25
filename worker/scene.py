@@ -51,16 +51,20 @@ def _reliability(M, scene, conf):
     return t[2], "all"
 
 
-def call_from_numbers(x):
+def call_from_numbers(x, condition=None):
     """The scene call from the 75 numbers a device measured itself; no audio involved."""
     M = _model(); x = np.array(x, float)
     if x.shape != (len(M["mu"]),): raise ValueError("wrong number of measures")
     z = (x - np.array(M["mu"])) / np.array(M["sd"])
     p = M["model"].predict_proba(z[None, :])[0]; order = np.argsort(-p); conf = float(p[order[0]])
     rel, basis = _reliability(M, str(M["classes"][order[0]]), conf)
+    CT = M.get("condition_tiers") or {}
+    if condition in CT:   # the reliability measured for this condition (a phone, an excerpt), on held-out records
+        for row in CT[condition]:
+            if row[0] != "overall" and row[0] <= conf < row[1] + 1e-9 and row[2] is not None: rel, basis = row[2], "condition"; break
     pc, cset = _calibrated(M, p)
     return {"scenes": [[str(M["classes"][i]), round(float(pc[i]), 3)] for i in order[:5]], "confidence": round(float(pc[order[0]]), 3), "set": cset, "set_coverage": 0.9 if M.get("conformal_q90") else None,
-            "right_at_this_confidence": rel, "reliability_basis": basis, "analyser": M.get("analyser", "2.9"),
+            "right_at_this_confidence": rel, "reliability_basis": basis, "condition": condition, "analyser": M.get("analyser", "2.9"),
             "model": {"trained_on": M["trained_on"], "built": M["built"], "held_out_accuracy": 0.472}}
 
 

@@ -164,7 +164,11 @@ jobs:
           set +e
           # Eighteen shards finishing used to leave the runner idle until someone noticed:
           # twice today, the second time for fifteen minutes. A finished run books the next.
-          LEFT=$(python -m features.remaining --stems 2>/dev/null | tail -1)
+          # count against the database the shards separate from (the release), not the old copy in this
+          # folder: that one predates the DJ-set records and the new genres, and on 25 September its
+          # count of almost nothing left stopped the chain with 35,000 records waiting
+          for i in 1 2 3 4 5; do GH_TOKEN="${{ secrets.PIPELINE_PAT || github.token }}" gh release download deepened --repo benmcewensignal/signal-sonic --pattern sonic.db --clobber --dir /tmp/rel && [ -s /tmp/rel/sonic.db ] && break; sleep $((i*15)); done
+          LEFT=$(python -c "import sys; sys.path.insert(0,'.'); from features.remaining import stems_left; print(stems_left('/tmp/rel/sonic.db'))" 2>/dev/null | tail -1)
           echo "records still to separate: ${LEFT:-unknown}"
           case "${LEFT:-}" in ''|*[!0-9-]*) LEFT=-1 ;; esac
           # -1 is "could not tell", which chains: an idle runner costs more than a wasted run

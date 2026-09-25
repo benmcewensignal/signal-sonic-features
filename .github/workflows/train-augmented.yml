@@ -1,0 +1,31 @@
+name: train-augmented
+# Retrain the device's scene model on condition variants; keep it only if no condition gets worse.
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q numpy scipy "scikit-learn==1.8.0"
+      - name: fetch the database, the hidden scenes and the variants
+        env: { GH_TOKEN: "${{ secrets.PIPELINE_PAT || github.token }}" }
+        run: |
+          for i in 1 2 3 4 5; do gh release download deepened --repo benmcewensignal/signal-sonic --pattern sonic.db --clobber --dir /tmp && [ -s /tmp/sonic.db ] && break; sleep $((i*20)); done
+          curl -sf https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/data/hidden-scenes.json -o hidden.json
+          git clone -q --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/benmcewensignal/signal-sonic.git" /tmp/sonic
+          ls /tmp/sonic/data/robustness/
+      - run: python tools/train_augmented.py /tmp/sonic.db /tmp/sonic/data/robustness
+      - name: keep it if accepted, then recalibrate (which redeploys the worker)
+        env: { GH_TOKEN: "${{ secrets.PIPELINE_PAT || github.token }}" }
+        run: |
+          git config user.name sonic-bot; git config user.email sonic@earlysignal.live
+          git add worker/scene_model_augmented.json worker/scene_model.pkl
+          git diff --cached --quiet && exit 0
+          git commit -qm "device scene model: retrained on condition variants (see scene_model_augmented.json)"
+          for i in 1 2 3 4 5; do git pull -q --rebase --autostash origin main && git push -q origin HEAD:main && break; sleep $((i*5)); done
+          if python -c "import json,sys; sys.exit(0 if json.load(open('worker/scene_model_augmented.json'))['accepted'] else 1)"; then gh workflow run calibrate.yml --ref main && echo "recalibration requested"; fi
