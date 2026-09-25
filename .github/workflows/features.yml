@@ -21,7 +21,10 @@ permissions:
   contents: write
   actions: write
 concurrency:
-  group: sonic-features
+  # one queue per task: with one queue for all, the hourly conversion chain replaced every waiting
+  # separation run (a group keeps one run waiting), and separation did not run from 05:00 to 16:00
+  # on 25 September
+  group: sonic-features-${{ inputs.task || 'convert' }}
   cancel-in-progress: false
 jobs:
   # Demucs is the most parallelisable thing here: every record is independent and it is

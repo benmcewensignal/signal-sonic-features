@@ -1,0 +1,39 @@
+name: embed-pilot
+# A learned embedding, pilot: spectrogram patches on Modal, a compact CNN with artists held out.
+on: { workflow_dispatch: { inputs: { per_scene: { default: "250" }, stage: { default: "all" } } } }
+permissions: { contents: read }
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -q modal
+      - name: the manifest
+        env: { GH_TOKEN: "${{ secrets.PIPELINE_PAT || github.token }}" }
+        run: |
+          for i in 1 2 3 4 5; do gh release download deepened --repo benmcewensignal/signal-sonic --pattern sonic.db --clobber --dir /tmp && [ -s /tmp/sonic.db ] && break; sleep $((i*20)); done
+          curl -sf https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/data/hidden-scenes.json -o hidden.json
+          python - << 'PY'
+          import sqlite3, json, random, collections
+          c = sqlite3.connect("/tmp/sonic.db"); H = set(json.load(open("hidden.json"))); url = dict(c.execute("select track_id, url from preview_cache"))
+          art = {}
+          for t, a in c.execute("select track_id, artists from track_meta"):
+              try: v = (json.loads(a) if a and a.startswith("[") else [a])[0]
+              except Exception: v = None
+              art[t] = v if isinstance(v, str) and v else t
+          by = collections.defaultdict(set)
+          for t, s in c.execute("select track_id, scene from track_scenes where week like '____-M__'"):
+              if s not in H and url.get(t): by[s].add(t)
+          rng = random.Random(11); man = []
+          for s, ts in sorted(by.items()):
+              ts = sorted(ts); rng.shuffle(ts); man += [{"id": t, "url": url[t], "scene": s, "artist": art.get(t, t)} for t in ts[:${{ inputs.per_scene }}]]
+          json.dump(man, open("manifest.json", "w")); print(len(man), "records across", len(by), "scenes")
+          PY
+      - name: extract and train on Modal
+        run: modal run embed/modal_embed.py --manifest-path manifest.json --stage "${{ inputs.stage }}"
