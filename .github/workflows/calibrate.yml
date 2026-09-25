@@ -1,0 +1,27 @@
+name: calibrate
+# Temperature and conformal threshold for both scene models, on their artist-held-out split.
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  calibrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q numpy scipy "scikit-learn==1.8.0"
+      - name: fetch the corpus database and the hidden scenes
+        env: { GH_TOKEN: "${{ secrets.PIPELINE_PAT || github.token }}" }
+        run: |
+          for i in 1 2 3 4 5; do gh release download deepened --repo benmcewensignal/signal-sonic --pattern sonic.db --clobber --dir /tmp && [ -s /tmp/sonic.db ] && break; sleep $((i*20)); done
+          curl -sf https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/data/hidden-scenes.json -o hidden.json
+      - run: python tools/calibrate_models.py /tmp/sonic.db
+      - name: commit the calibrated models and deploy the worker
+        env: { GH_TOKEN: "${{ secrets.PIPELINE_PAT || github.token }}" }
+        run: |
+          git config user.name sonic-bot; git config user.email sonic@earlysignal.live
+          git add worker/scene_model.pkl worker/scene_model_parts.pkl && git commit -qm "scene models: temperature and conformal threshold from their held-out split"
+          for i in 1 2 3 4 5; do git pull -q --rebase --autostash origin main && git push -q origin HEAD:main && break; sleep $((i*5)); done
+          gh workflow run worker-deploy.yml --ref main && echo "worker deploy requested"

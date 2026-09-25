@@ -28,6 +28,16 @@ def features_of(path):
 
 
 
+def _calibrated(M, p):
+    """The model's probabilities made honest (temperature fitted on held-out records), and the smallest
+    set of scenes that contains the true one nine times in ten (conformal threshold, also held out)."""
+    T = M.get("temperature") or 1.0
+    L = np.log(np.clip(p, 1e-9, 1)) / T; L -= L.max(); q = np.exp(L); q /= q.sum()
+    order = np.argsort(-q); cum = np.cumsum(q[order]); thr = M.get("conformal_q90")
+    k = int((cum < thr).sum() + 1) if thr else 1
+    return q, [str(M["classes"][i]) for i in order[:k]]
+
+
 def _reliability(M, scene, conf):
     """How often a call of this scene at this confidence was right with whole artists held out;
     the overall tier where the scene had fewer than 15 such calls."""
@@ -48,7 +58,8 @@ def call_from_numbers(x):
     z = (x - np.array(M["mu"])) / np.array(M["sd"])
     p = M["model"].predict_proba(z[None, :])[0]; order = np.argsort(-p); conf = float(p[order[0]])
     rel, basis = _reliability(M, str(M["classes"][order[0]]), conf)
-    return {"scenes": [[str(M["classes"][i]), round(float(p[i]), 3)] for i in order[:5]], "confidence": round(conf, 3),
+    pc, cset = _calibrated(M, p)
+    return {"scenes": [[str(M["classes"][i]), round(float(pc[i]), 3)] for i in order[:5]], "confidence": round(float(pc[order[0]]), 3), "set": cset, "set_coverage": 0.9 if M.get("conformal_q90") else None,
             "right_at_this_confidence": rel, "reliability_basis": basis, "analyser": M.get("analyser", "2.9"),
             "model": {"trained_on": M["trained_on"], "built": M["built"], "held_out_accuracy": 0.472}}
 
@@ -82,7 +93,8 @@ def call_parts(mix_x, stems):
     x = np.array(list(mix_x) + pv, float); z = (x - np.array(_MP["mu"])) / np.array(_MP["sd"])
     p = _MP["model"].predict_proba(z[None, :])[0]; order = np.argsort(-p); conf = float(p[order[0]])
     rel, basis = _reliability(_MP, str(_MP["classes"][order[0]]), conf)
-    return {"scenes": [[str(_MP["classes"][i]), round(float(p[i]), 3)] for i in order[:5]], "confidence": round(conf, 3),
+    pc, cset = _calibrated(_MP, p)
+    return {"scenes": [[str(_MP["classes"][i]), round(float(pc[i]), 3)] for i in order[:5]], "confidence": round(float(pc[order[0]]), 3), "set": cset, "set_coverage": 0.9 if _MP.get("conformal_q90") else None,
             "right_at_this_confidence": rel, "reliability_basis": basis, "analyser": "3.0", "inputs": "mix and four parts",
             "model": {"trained_on": _MP["trained_on"], "built": _MP["built"], "held_out_accuracy": _MP["held_out_accuracy"]}}
 
