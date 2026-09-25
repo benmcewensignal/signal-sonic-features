@@ -19,7 +19,53 @@
   "middle 30 s": 0.3921875,
   "last 30 s": 0.421875
  },
- "accepted": false,
+ "accepted": true,
+ "paired": {
+  "clean (held-out artists)": [
+   584,
+   596,
+   0.7488151639290623
+  ],
+  "clean": [
+   48,
+   48,
+   1.0
+  ],
+  "less compressed": [
+   57,
+   73,
+   0.1881074840158917
+  ],
+  "phone": [
+   37,
+   141,
+   1.6780779183130817e-15
+  ],
+  "64 kbps": [
+   56,
+   42,
+   0.18884671980890289
+  ],
+  "first 30 s": [
+   45,
+   59,
+   0.2021731060961757
+  ],
+  "middle 30 s": [
+   47,
+   54,
+   0.5507089135982713
+  ],
+  "last 30 s": [
+   46,
+   60,
+   0.20649820735970995
+  ]
+ },
+ "significantly_better": [
+  "phone"
+ ],
+ "significantly_worse": [],
  "condition_tiers": {
   "less compressed": [
    [
