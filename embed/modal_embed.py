@@ -30,7 +30,7 @@ def extract(batch):
 
 
 @app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=14400, memory=40960)
-def train(manifest, epochs: int = 30):
+def train(manifest, epochs: int = 20):
     import os, random, numpy as np, torch, torch.nn as nn
     vol.reload()
     items = [m for m in manifest if os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
@@ -38,6 +38,7 @@ def train(manifest, epochs: int = 30):
     arts = sorted({m["artist"] for m in items}); random.Random(0).shuffle(arts); hold = set(arts[:len(arts) // 5])
     tr = [m for m in items if m["artist"] not in hold]; te = [m for m in items if m["artist"] in hold]
     load = lambda m: np.load(f"/data/patches/{m['id'].replace(':', '_')}.npy")   # kept at half precision; converted per batch
+    print('loading', len(tr), 'training and', len(te), 'test records', flush=True)
     Xtr = np.stack([load(m) for m in tr]); ytr = np.array([si[m["scene"]] for m in tr]); Xte = np.stack([load(m) for m in te]); yte = np.array([si[m["scene"]] for m in te])
     smp = Xtr[:2000].astype(np.float32); mu, sd = float(smp.mean()), float(smp.std() + 1e-6)
     dev = "cuda"
