@@ -36,4 +36,11 @@ jobs:
           json.dump(man, open("manifest.json", "w")); print(len(man), "records across", len(by), "scenes")
           PY
       - name: extract and train on Modal
-        run: modal run embed/modal_embed.py --manifest-path manifest.json --stage "${{ inputs.stage }}"
+        run: |
+          set +e
+          modal run embed/modal_embed.py --manifest-path manifest.json --stage "${{ inputs.stage }}" 2>&1 | tee /tmp/modal.log
+          code=${PIPESTATUS[0]}
+          # Modal's own output is otherwise unreadable after a failure; keep its tail in the run's notes
+          grep -E "extracted|epoch|notice|Error|Timeout|Traceback|Killed|memory" /tmp/modal.log | tail -12 | while read -r l; do echo "::notice title=modal::${l:0:400}"; done
+          echo "::notice title=modal tail::$(tail -c 1500 /tmp/modal.log | tr '\n' ' ' | tr -d '\r')"
+          exit $code
