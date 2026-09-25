@@ -1,0 +1,11 @@
+{"track_id": "bp:18499195", "error": "HTTPError: HTTP Error 403: Forbidden", "at": "2026-09-25T22:05:15Z"}
+{"track_id": "bp:1211971", "error": "HTTPError: HTTP Error 403: Forbidden", "at": "2026-09-25T22:14:09Z"}
+{"track_id": "bp:26853243", "error": "HTTPError: HTTP Error 403: Forbidden", "at": "2026-09-25T22:18:17Z"}
+{"track_id": "bp:23679875", "error": "URLError: <urlopen error [Errno 104] Connection reset by peer>", "at": "2026-09-25T22:19:38Z"}
+{"track_id": "bp:13265262", "error": "URLError: <urlopen error [Errno 104] Connection reset by peer>", "at": "2026-09-25T22:27:20Z"}
+{"track_id": "bp:466820", "error": "HTTPError: HTTP Error 403: Forbidden", "at": "2026-09-25T22:27:20Z"}
+{"track_id": "bp:9372680", "error": "URLError: <urlopen error [Errno 104] Connection reset by peer>", "at": "2026-09-25T22:28:40Z"}
+{"track_id": "bp:23831852", "error": "URLError: <urlopen error [Errno 104] Connection reset by peer>", "at": "2026-09-25T22:30:02Z"}
+{"track_id": "bp:12584409", "error": "URLError: <urlopen error [Errno 104] Connection reset by peer>", "at": "2026-09-25T22:32:45Z"}
+{"track_id": "bp:28519972", "error": "HTTPError: HTTP Error 403: Forbidden", "at": "2026-09-25T22:37:15Z"}
+{"track_id": "bp:23434058", "error": "HTTPError: HTTP Error 404: Not Found", "at": "2026-09-25T22:39:57Z"}
