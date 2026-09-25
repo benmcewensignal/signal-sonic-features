@@ -29,7 +29,7 @@ def extract(batch):
     vol.commit(); return done
 
 
-@app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=5400)
+@app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=14400, memory=40960)
 def train(manifest, epochs: int = 30):
     import os, random, numpy as np, torch, torch.nn as nn
     vol.reload()
@@ -37,9 +37,9 @@ def train(manifest, epochs: int = 30):
     scenes = sorted({m["scene"] for m in items}); si = {s: i for i, s in enumerate(scenes)}
     arts = sorted({m["artist"] for m in items}); random.Random(0).shuffle(arts); hold = set(arts[:len(arts) // 5])
     tr = [m for m in items if m["artist"] not in hold]; te = [m for m in items if m["artist"] in hold]
-    load = lambda m: np.load(f"/data/patches/{m['id'].replace(':', '_')}.npy").astype(np.float32)
+    load = lambda m: np.load(f"/data/patches/{m['id'].replace(':', '_')}.npy")   # kept at half precision; converted per batch
     Xtr = np.stack([load(m) for m in tr]); ytr = np.array([si[m["scene"]] for m in tr]); Xte = np.stack([load(m) for m in te]); yte = np.array([si[m["scene"]] for m in te])
-    mu, sd = float(Xtr.mean()), float(Xtr.std() + 1e-6); Xtr = (Xtr - mu) / sd; Xte = (Xte - mu) / sd
+    smp = Xtr[:2000].astype(np.float32); mu, sd = float(smp.mean()), float(smp.std() + 1e-6)
     dev = "cuda"
     def block(i, o): return nn.Sequential(nn.Conv2d(i, o, 3, padding=1), nn.BatchNorm2d(o), nn.ReLU(), nn.Conv2d(o, o, 3, padding=1), nn.BatchNorm2d(o), nn.ReLU(), nn.MaxPool2d(2))
     class Net(nn.Module):
@@ -50,12 +50,12 @@ def train(manifest, epochs: int = 30):
         def forward(s, x): return s.out(s.embed(x))
     net = Net(len(scenes)).to(dev); opt = torch.optim.AdamW(net.parameters(), 1e-3, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, 3e-3, total_steps=epochs * (len(tr) * 8 // 256 + 1)); lossf = nn.CrossEntropyLoss(label_smoothing=0.1)
-    P = torch.tensor(Xtr.reshape(-1, 96, W)); Y = torch.tensor(np.repeat(ytr, 8))
+    P = torch.from_numpy(Xtr.reshape(-1, 96, W)); Y = torch.tensor(np.repeat(ytr, 8))
     def evaluate():
         net.eval(); outs = []
         with torch.no_grad():
             for i in range(0, len(Xte), 64):
-                x = torch.tensor(Xte[i:i + 64]).to(dev); b = x.shape[0]
+                x = ((torch.from_numpy(Xte[i:i + 64].astype(np.float32)) - mu) / sd).to(dev); b = x.shape[0]
                 outs.append(torch.softmax(net(x.reshape(-1, 96, W)), 1).reshape(b, 8, -1).mean(1).cpu().numpy())
         p = np.concatenate(outs); net.train()
         return float(np.mean(p.argmax(1) == yte)), float(np.mean([yte[k] in np.argsort(-p[k])[:3] for k in range(len(yte))]))
@@ -63,11 +63,11 @@ def train(manifest, epochs: int = 30):
     for ep in range(epochs):
         perm = torch.randperm(len(P))
         for i in range(0, len(P), 256):
-            idx = perm[i:i + 256]; x = P[idx].to(dev); y = Y[idx].to(dev)
+            idx = perm[i:i + 256]; x = ((P[idx].float() - mu) / sd).to(dev); y = Y[idx].to(dev)
             f = torch.randint(0, 80, (1,)).item(); x[:, f:f + 12, :] = 0   # a little frequency masking
             opt.zero_grad(); l = lossf(net(x), y); l.backward(); opt.step(); sched.step()
         if ep % 5 == 4 or ep == epochs - 1: a1, a3 = evaluate(); hist.append([ep + 1, round(a1, 3), round(a3, 3)]); print("epoch", ep + 1, a1, a3, flush=True)
-    torch.save({"state": net.state_dict(), "scenes": scenes, "mu": mu, "sd": sd}, "/data/embed_pilot.pt"); vol.commit()
+    torch.save({"state": net.state_dict(), "scenes": scenes, "mu": mu, "sd": sd}, f"/data/embed_{len(items)}.pt"); vol.commit()
     a1, a3 = evaluate()
     return {"records": len(items), "train": len(tr), "test": len(te), "artists_held_out": len(hold), "first": round(a1, 3), "top3": round(a3, 3), "history": hist}
 

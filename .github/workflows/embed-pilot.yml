@@ -5,7 +5,7 @@ permissions: { contents: read }
 jobs:
   pilot:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 330
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
