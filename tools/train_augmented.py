@@ -42,15 +42,26 @@ Xa = arr([R[t]["vectors"][k] for t in rv_tr for k in CONDS]); ya = np.array([R[t
 mu, sd = Xc.mean(0), Xc.std(0) + 1e-9
 P = dict(max_iter=250, learning_rate=0.08, max_leaf_nodes=31, early_stopping=False, random_state=0)
 def fit(X, y): return HistGradientBoostingClassifier(**P).fit((X - mu) / sd, y)
-def score(m):
-    out = {"clean (held-out artists)": float(np.mean(m.predict((arr([clean[t] for t in te_ids]) - mu) / sd) == np.array([sc[t] for t in te_ids])))}
+def right(m):
+    out = {"clean (held-out artists)": m.predict((arr([clean[t] for t in te_ids]) - mu) / sd) == np.array([sc[t] for t in te_ids])}
     tags = np.array([R[t]["tag"] for t in rv_te])
-    for k in ["clean"] + CONDS: out[k] = float(np.mean(m.predict((arr([R[t]["vectors"][k] for t in rv_te]) - mu) / sd) == tags))
+    for k in ["clean"] + CONDS: out[k] = m.predict((arr([R[t]["vectors"][k] for t in rv_te]) - mu) / sd) == tags
     return out
-base = score(fit(Xc, yc)); aug_m = fit(np.vstack([Xc, Xa]), np.concatenate([yc, ya])); aug = score(aug_m)
+base_m = fit(Xc, yc); aug_m = fit(np.vstack([Xc, Xa]), np.concatenate([yc, ya])); rb, ra = right(base_m), right(aug_m)
+base = {k: float(v.mean()) for k, v in rb.items()}; aug = {k: float(v.mean()) for k, v in ra.items()}
+from scipy.stats import binomtest
+def mcnemar(k):   # paired: records the old model got right and the new one wrong, and the reverse
+    b = int(np.sum(rb[k] & ~ra[k])); c = int(np.sum(~rb[k] & ra[k])); n = b + c
+    return b, c, (binomtest(min(b, c), n, 0.5).pvalue if n else 1.0)
+paired = {k: mcnemar(k) for k in rb}
 print("condition                  baseline  retrained")
 for k in base: print(f"  {k:24} {base[k]*100:6.0f}%  {aug[k]*100:6.0f}%", flush=True)
-ok = all(aug[k] >= base[k] - 0.01 for k in base)
+# kept only if no condition is significantly worse and at least one significantly better, paired on the
+# same records (McNemar). A fixed one-point margin rejected a sixteen-point phone gain for a two-point
+# 64 kbps change inside the noise, on 25 September; this rule was adopted after that run.
+worse = [k for k, (b, c, p) in paired.items() if b > c and p < 0.05]; better = [k for k, (b, c, p) in paired.items() if c > b and p < 0.05]
+ok = not worse and bool(better)
+for k, (b, c, p) in paired.items(): print(f"  paired {k:24} old right/new wrong {b:4}  new right/old wrong {c:4}  p={p:.3g}", flush=True)
 # reliability per condition, by confidence, from the held-out records
 Q = {}
 for k in CONDS + ["clean"]:
@@ -59,7 +70,7 @@ for k in CONDS + ["clean"]:
     Q[k].append(["overall", round(float(np.mean(pred == tags)), 3), len(tags)])
 msg = ("accepted: " if ok else "not accepted: ") + "; ".join(f"{k} {base[k]*100:.0f}% -> {aug[k]*100:.0f}%" for k in base)
 print(msg); print(f"::notice title=augmented model::{msg}")
-json.dump({"baseline": base, "retrained": aug, "accepted": ok, "condition_tiers": Q, "held_out_variant_records": len(rv_te)}, open("worker/scene_model_augmented.json", "w"), indent=1)
+json.dump({"baseline": base, "retrained": aug, "accepted": ok, "paired": {k: list(v) for k, v in paired.items()}, "significantly_better": better, "significantly_worse": worse, "condition_tiers": Q, "held_out_variant_records": len(rv_te)}, open("worker/scene_model_augmented.json", "w"), indent=1)
 if ok:
     final = HistGradientBoostingClassifier(**P).fit((np.vstack([arr(list(clean.values())), arr([R[t]["vectors"][k] for t in R for k in CONDS])]) - mu) / sd,
                                                   np.concatenate([np.array([sc[t] for t in clean]), np.array([R[t]["tag"] for t in R for k in CONDS])]))
