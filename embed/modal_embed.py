@@ -180,9 +180,10 @@ def robust_batch(batch, model: str = "embed_live.pt"):
         lo, hi = int(a * M.shape[1]), int(b * M.shape[1]); M = M[:, lo:hi]
         if M.shape[1] < W: return None
         return np.stack([M[:, s_:s_ + W] for s_ in np.linspace(0, M.shape[1] - W, 8).astype(int)])
-    def read(x):
+    T = C.get("temperature", 1.0)
+    def read(x):   # the call and how sure it is, after the model's calibration temperature
         with torch.no_grad(): p = torch.softmax(net((torch.from_numpy(x) - C["mu"]) / C["sd"]), 1).mean(0).numpy()
-        return int(p.argmax())
+        q = np.power(np.clip(p, 1e-9, 1), 1 / T); q = q / q.sum(); return [int(q.argmax()), float(q.max())]
     def phone(y):   # a phone in a room: band-limited, a short room tail, and background noise
         F = np.fft.rfft(y); f = np.fft.rfftfreq(len(y), 1 / 16000); F[(f < 200) | (f > 6000)] = 0; z = np.fft.irfft(F, len(y))
         ir = rng.standard_normal(2400) * np.exp(-np.arange(2400) / 500); ir[0] = 1; z = np.convolve(z, ir / np.abs(ir).sum() * 4, mode="same")
@@ -251,6 +252,18 @@ def promote(tag: str):
     shutil.copyfile(src, "/data/embed_live.pt"); vol.commit(); return {"live": src, "backup": "embed_live_prev.pt"}
 
 
+@app.function(image=image, volumes={"/data": vol}, timeout=600)
+def save_condition_tiers(tiers, files):
+    import torch
+    vol.reload(); done = []
+    for f in files:
+        try:
+            C = torch.load(f"/data/{f}", map_location="cpu"); C["condition_tiers"] = tiers; torch.save(C, f"/data/{f}"); done.append(f)
+        except Exception as e:
+            done.append(f + ": " + type(e).__name__)
+    vol.commit(); return done
+
+
 @app.local_entrypoint()
 def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0, tag: str = "", ckpt: str = ""):
     man = json.load(open(manifest_path))
@@ -259,6 +272,18 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         import collections; tot = collections.Counter()
         for w_ in extract.map(batches): tot.update(w_ if isinstance(w_, dict) else {"new": w_})
         print("::notice title=extraction::" + json.dumps({"of": len(man), **dict(tot)}))
+    if stage == "calcond":
+        # reliability measured in the conditions readings actually run in: the full reading's 60-second clip, and a phone
+        import random
+        test_ids = {t for t, _ in split.remote(man)["test"]}
+        te = [m for m in man if m.get("scene") and m["id"] in test_ids]; random.Random(11).shuffle(te); te = te[:3000]
+        rows = [r for b_ in robust_batch.starmap([([(m["id"], m["url"], m["scene"]) for m in te[i:i + 40]], "embed_live.pt") for i in range(0, len(te), 40)]) for r in b_]
+        BINS = ((0.6, 1.01), (0.4, 0.6), (0.0, 0.4)); tiers = {}
+        for k in ("clip 60 s", "phone", "clean"):
+            ok = [r["p"][k] + [r["y"]] for r in rows if r["p"].get(k)]
+            tiers[k] = [[lo, hi, (round(sum(1 for p_, c_, y_ in ok if lo <= c_ < hi and p_ == y_) / n_, 3) if n_ >= 30 else None), n_] for lo, hi in BINS for n_ in [sum(1 for p_, c_, y_ in ok if lo <= c_ < hi)]]
+        print("::notice title=condition tiers::" + json.dumps({"records": len(rows), **tiers}))
+        print("::notice title=saved::" + json.dumps(save_condition_tiers.remote(tiers, ["embed_live.pt", "embed_live_aug.pt"])))
     if stage == "robust":
         import random
         test_ids = {t for t, _ in split.remote(man)["test"]}   # the exact held-out split training used
@@ -268,8 +293,8 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         res = {"records": len(rows)}
         for k in CONDS:
             ok = [r for r in rows if r["p"].get(k) is not None]
-            res[k] = round(sum(r["p"][k] == r["y"] for r in ok) / max(1, len(ok)), 3)
-            if k != "clean": res[k + " same call"] = round(sum(r["p"][k] == r["p"]["clean"] for r in ok) / max(1, len(ok)), 3)
+            res[k] = round(sum(r["p"][k][0] == r["y"] for r in ok) / max(1, len(ok)), 3)
+            if k != "clean": res[k + " same call"] = round(sum(r["p"][k][0] == r["p"]["clean"][0] for r in ok) / max(1, len(ok)), 3)
         print("::notice title=robustness::" + json.dumps({"model": model, **res}))
     if stage == "promote":
         print("::notice title=promoted::" + json.dumps(promote.remote(tag)))

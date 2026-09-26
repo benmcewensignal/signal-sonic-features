@@ -20,7 +20,11 @@ def _load():
     """Load once found; until then look again on every reading, refreshing the volume, since a warm
     container does not see files written to the volume after it started."""
     global _M
-    if _M: return _M
+    if _M:
+        try:
+            if os.path.getmtime("/embed/embed_live.pt") == _M.get("_mtime"): return _M   # reload when the live file changes
+        except Exception:
+            return _M
     import torch
     fp = "/embed/embed_live.pt"
     if not os.path.exists(fp):
@@ -29,7 +33,7 @@ def _load():
         except Exception:
             pass
     if not os.path.exists(fp): return None
-    C = torch.load(fp, map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval(); C["net"] = net; _M = C
+    C = torch.load(fp, map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval(); C["net"] = net; C["_mtime"] = os.path.getmtime(fp); _M = C
     return _M
 
 def learned_call(wav_path):
@@ -43,9 +47,14 @@ def learned_call(wav_path):
     with torch.no_grad():
         p = torch.softmax(C["net"]((torch.from_numpy(x) - C["mu"]) / C["sd"]), 1).mean(0).numpy()
     q = np.power(np.clip(p, 1e-9, 1), 1 / C.get("temperature", 1.0)); q = q / q.sum(); order = np.argsort(-q); top = C["scenes"][order[0]]; conf = float(q[order[0]])
+    # the full reading always sends a 60-second clip: its reliability is measured on 60-second clips
     rel, basis = None, "overall"
-    for lo, hi, r in (C.get("scene_tiers") or {}).get(top, []):
-        if lo <= conf < hi and r is not None: rel, basis = r, "scene"
+    for row in (C.get("condition_tiers") or {}).get("clip 60 s", []):
+        lo, hi, r = row[0], row[1], row[2]
+        if lo <= conf < hi and r is not None: rel, basis = r, "60-second clips"
+    if rel is None:
+        for lo, hi, r in (C.get("scene_tiers") or {}).get(top, []):
+            if lo <= conf < hi and r is not None: rel, basis = r, "scene"
     if rel is None:
         for lo, hi, r in C.get("tiers") or []:
             if lo <= conf < hi and r is not None: rel = r
