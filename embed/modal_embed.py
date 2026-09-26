@@ -232,13 +232,23 @@ def confusion(manifest, tag: str = "aug"):
     with torch.no_grad():
         for i in range(0, len(te), 128):
             with ThreadPoolExecutor(32) as ex: x = np.stack(list(ex.map(ld, te[i:i + 128])))
-            b = x.shape[0]; x = ((torch.from_numpy(x).cuda() - C["mu"].cuda()) / C["sd"].cuda()).reshape(-1, 96, W)
+            b = x.shape[0]; x = ((torch.from_numpy(x).cuda() - float(C["mu"])) / float(C["sd"])).reshape(-1, 96, W)
             P.append(torch.softmax(net(x), 1).reshape(b, 8, -1).mean(1).cpu().numpy())
     pred = np.concatenate(P).argmax(1); n = len(sc); M = np.zeros((n, n))
     for a_, b_ in zip(y, pred): M[a_, b_] += 1
     R = M / np.maximum(1, M.sum(1, keepdims=True))
     out = {sc[i]: {"n": int(M[i].sum()), "right": round(float(R[i, i]), 3), "mistaken_for": [[sc[j], round(float(R[i, j]), 3)] for j in np.argsort(-R[i]) if j != i][:4]} for i in range(n)}
     return {"tag": tag, "records": len(te), "genres": out}
+
+
+@app.function(image=image, volumes={"/data": vol}, timeout=600)
+def promote(tag: str):
+    """Make a tagged, calibrated model the live one; the previous live file is kept as embed_live_prev.pt."""
+    import shutil, os
+    vol.reload(); src = f"/data/embed_live_{tag}.pt"
+    if not os.path.exists(src): return {"error": "no " + src}
+    if os.path.exists("/data/embed_live.pt"): shutil.copyfile("/data/embed_live.pt", "/data/embed_live_prev.pt")
+    shutil.copyfile(src, "/data/embed_live.pt"); vol.commit(); return {"live": src, "backup": "embed_live_prev.pt"}
 
 
 @app.local_entrypoint()
@@ -261,6 +271,8 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
             res[k] = round(sum(r["p"][k] == r["y"] for r in ok) / max(1, len(ok)), 3)
             if k != "clean": res[k + " same call"] = round(sum(r["p"][k] == r["p"]["clean"] for r in ok) / max(1, len(ok)), 3)
         print("::notice title=robustness::" + json.dumps({"model": model, **res}))
+    if stage == "promote":
+        print("::notice title=promoted::" + json.dumps(promote.remote(tag)))
     if stage == "confusion":
         res = confusion.remote(man, tag or "aug"); print("::notice title=confusion::" + json.dumps(res, separators=(",", ":")))
     if stage == "restore":
