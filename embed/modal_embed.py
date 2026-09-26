@@ -140,6 +140,46 @@ def calibrate(manifest):
     return {"temperature": T, "tiers": tiers, "first": round(first, 3), "top3": round(top3, 3), "records": len(te), "from": os.path.basename(ck)}
 
 
+CONDS = ["clean", "clip 60 s", "first 30 s", "middle 30 s", "last 30 s", "phone", "64 kbps", "12 dB quieter"]
+
+
+@app.function(image=image, volumes={"/data": vol}, timeout=1800, cpu=2, retries=1, max_containers=12)
+def robust_batch(batch):
+    """Each held-out record downloaded again, degraded eight ways, and read by the live model."""
+    import os, subprocess, tempfile, numpy as np, librosa, requests, torch
+    vol.reload(); C = torch.load("/data/embed_live.pt", map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval()
+    si = {s_: i for i, s_ in enumerate(C["scenes"])}; out = []; rng = np.random.default_rng(0)
+    def patches(y, a=0.0, b=1.0):
+        M = np.log1p(1000 * librosa.feature.melspectrogram(y=y, sr=16000, n_fft=512, hop_length=256, n_mels=96)).astype(np.float32)
+        lo, hi = int(a * M.shape[1]), int(b * M.shape[1]); M = M[:, lo:hi]
+        if M.shape[1] < W: return None
+        return np.stack([M[:, s_:s_ + W] for s_ in np.linspace(0, M.shape[1] - W, 8).astype(int)])
+    def read(x):
+        with torch.no_grad(): p = torch.softmax(net((torch.from_numpy(x) - C["mu"]) / C["sd"]), 1).mean(0).numpy()
+        return int(p.argmax())
+    def phone(y):   # a phone in a room: band-limited, a short room tail, and background noise
+        F = np.fft.rfft(y); f = np.fft.rfftfreq(len(y), 1 / 16000); F[(f < 200) | (f > 6000)] = 0; z = np.fft.irfft(F, len(y))
+        ir = rng.standard_normal(2400) * np.exp(-np.arange(2400) / 500); ir[0] = 1; z = np.convolve(z, ir / np.abs(ir).sum() * 4, mode="same")
+        return (z + rng.standard_normal(len(z)) * np.std(z) * 0.1).astype(np.float32)
+    for tid, url, scene in batch:
+        if scene not in si: continue
+        try:
+            r = requests.get(url, timeout=40, headers={"User-Agent": "signal-sonic"}); r.raise_for_status()
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f: f.write(r.content); fn = f.name
+            y, _ = librosa.load(fn, sr=16000, mono=True, duration=120); L = len(y) / 16000
+            lowfn = fn + ".64.mp3"; subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-i", fn, "-b:a", "64k", lowfn], check=True)
+            ylow, _ = librosa.load(lowfn, sr=16000, mono=True, duration=120); os.remove(fn); os.remove(lowfn)
+            mid = max(0, (L - 60) / 2) / L
+            X = {"clean": patches(y), "clip 60 s": patches(y, mid, mid + min(1, 60 / L)),
+                 "first 30 s": patches(y, 0, 30 / L), "middle 30 s": patches(y, max(0, (L - 30) / 2) / L, min(1, (L + 30) / 2 / L)), "last 30 s": patches(y, 1 - 30 / L, 1),
+                 "phone": patches(phone(y)), "64 kbps": patches(ylow), "12 dB quieter": patches(y * 10 ** (-12 / 20))}
+            if X["clean"] is None: continue
+            out.append({"id": tid, "y": si[scene], "p": {k: (read(x) if x is not None else None) for k, x in X.items()}})
+        except Exception as e:
+            print("skip", tid, type(e).__name__)
+    return out
+
+
 @app.local_entrypoint()
 def main(manifest_path: str, stage: str = "all", epochs: int = 20):
     man = json.load(open(manifest_path))
@@ -148,6 +188,17 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20):
         import collections; tot = collections.Counter()
         for w_ in extract.map(batches): tot.update(w_ if isinstance(w_, dict) else {"new": w_})
         print("::notice title=extraction::" + json.dumps({"of": len(man), **dict(tot)}))
+    if stage == "robust":
+        import random
+        items = [m for m in man if m.get("scene")]; arts = sorted({m["artist"] for m in items}); random.Random(0).shuffle(arts); hold = set(arts[:len(arts) // 5])
+        te = [m for m in items if m["artist"] in hold]; random.Random(7).shuffle(te); te = te[:2000]
+        rows = [r for b_ in robust_batch.map([[(m["id"], m["url"], m["scene"]) for m in te[i:i + 40]] for i in range(0, len(te), 40)]) for r in b_]
+        res = {"records": len(rows)}
+        for k in CONDS:
+            ok = [r for r in rows if r["p"].get(k) is not None]
+            res[k] = round(sum(r["p"][k] == r["y"] for r in ok) / max(1, len(ok)), 3)
+            if k != "clean": res[k + " same call"] = round(sum(r["p"][k] == r["p"]["clean"] for r in ok) / max(1, len(ok)), 3)
+        print("::notice title=robustness::" + json.dumps(res))
     if stage == "calibrate":
         res = calibrate.remote(man); print("::notice title=calibration::" + json.dumps(res))
     if stage == "split":
