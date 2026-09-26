@@ -10,36 +10,43 @@ image = (modal.Image.debian_slim(python_version="3.11").apt_install("ffmpeg", "l
 W = 188   # a patch: three seconds at 16 kHz, hop 256
 
 
-@app.function(image=image, volumes={"/data": vol}, timeout=900, cpu=2, retries=1)
+@app.function(image=image, volumes={"/data": vol}, timeout=1800, cpu=2, retries=1, max_containers=16)
 def extract(batch):
     import os, tempfile, numpy as np, librosa, requests
-    os.makedirs("/data/patches", exist_ok=True); done = 0
+    import time, collections
+    os.makedirs("/data/patches", exist_ok=True); done = 0; why = collections.Counter()
     for tid, url in batch:
         p = f"/data/patches/{tid.replace(':', '_')}.npy"
-        if os.path.exists(p): done += 1; continue
+        if os.path.exists(p): done += 1; why["already"] += 1; continue
         try:
-            r = requests.get(url, timeout=40, headers={"User-Agent": "signal-sonic"}); r.raise_for_status()
+            for attempt in range(4):   # throttling and server errors: wait and try again
+                r = requests.get(url, timeout=40, headers={"User-Agent": "signal-sonic"})
+                if r.status_code in (429, 500, 502, 503, 504): time.sleep(3 * (attempt + 1) ** 2); continue
+                break
+            if r.status_code != 200: why[f"http {r.status_code}"] += 1; continue
             with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f: f.write(r.content); fn = f.name
             y, _ = librosa.load(fn, sr=16000, mono=True, duration=120); os.remove(fn)
             M = np.log1p(1000 * librosa.feature.melspectrogram(y=y, sr=16000, n_fft=512, hop_length=256, n_mels=96)).astype(np.float16)
             if M.shape[1] < 2 * W: continue
-            np.save(p, np.stack([M[:, s:s + W] for s in np.linspace(0, M.shape[1] - W, 8).astype(int)])); done += 1
+            np.save(p, np.stack([M[:, s:s + W] for s in np.linspace(0, M.shape[1] - W, 8).astype(int)])); done += 1; why["new"] += 1
         except Exception as e:
-            print("skip", tid, type(e).__name__)
-    vol.commit(); return done
+            why[type(e).__name__] += 1
+    vol.commit(); return dict(why)
 
 
 @app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=14400, memory=40960)
 def train(manifest, epochs: int = 20):
     import os, random, numpy as np, torch, torch.nn as nn
     vol.reload()
-    items = [m for m in manifest if os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
+    items = [m for m in manifest if m.get("scene") and os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
     scenes = sorted({m["scene"] for m in items}); si = {s: i for i, s in enumerate(scenes)}
     arts = sorted({m["artist"] for m in items}); random.Random(0).shuffle(arts); hold = set(arts[:len(arts) // 5])
     tr = [m for m in items if m["artist"] not in hold]; te = [m for m in items if m["artist"] in hold]
     load = lambda m: np.load(f"/data/patches/{m['id'].replace(':', '_')}.npy")   # kept at half precision; converted per batch
-    print('loading', len(tr), 'training and', len(te), 'test records', flush=True)
-    Xtr = np.stack([load(m) for m in tr]); ytr = np.array([si[m["scene"]] for m in tr]); Xte = np.stack([load(m) for m in te]); yte = np.array([si[m["scene"]] for m in te])
+    print('loading', len(tr), 'training and', len(te), 'test records across', len(scenes), 'scenes', flush=True)
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(48) as ex: Xtr = np.stack(list(ex.map(load, tr))); Xte = np.stack(list(ex.map(load, te)))
+    ytr = np.array([si[m["scene"]] for m in tr]); yte = np.array([si[m["scene"]] for m in te])
     smp = Xtr[:2000].astype(np.float32); mu, sd = float(smp.mean()), float(smp.std() + 1e-6)
     dev = "cuda"
     def block(i, o): return nn.Sequential(nn.Conv2d(i, o, 3, padding=1), nn.BatchNorm2d(o), nn.ReLU(), nn.Conv2d(o, o, 3, padding=1), nn.BatchNorm2d(o), nn.ReLU(), nn.MaxPool2d(2))
@@ -78,7 +85,7 @@ def split(manifest):
     """The exact split train() uses: the records whose patches exist, with a fifth of artists held out."""
     import os, random
     vol.reload()
-    items = [m for m in manifest if os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
+    items = [m for m in manifest if m.get("scene") and os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
     arts = sorted({m["artist"] for m in items}); random.Random(0).shuffle(arts); hold = set(arts[:len(arts) // 5])
     return {"train": [[m["id"], m["scene"]] for m in items if m["artist"] not in hold], "test": [[m["id"], m["scene"]] for m in items if m["artist"] in hold], "held_artists": sorted(hold)}
 
@@ -104,12 +111,15 @@ def calibrate(manifest):
     ck = sorted(glob.glob("/data/embed_*.pt"), key=lambda f: int(f.split("_")[-1].split(".")[0]) if f.split("_")[-1].split(".")[0].isdigit() else 0)[-1]
     C = torch.load(ck, map_location="cuda"); scenes = C["scenes"]; si = {s: i for i, s in enumerate(scenes)}
     net = make_net(len(scenes)).cuda(); net.load_state_dict(C["state"]); net.eval()
-    items = [m for m in manifest if os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
+    items = [m for m in manifest if m.get("scene") in si and os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
     arts = sorted({m["artist"] for m in items}); random.Random(0).shuffle(arts); hold = set(arts[:len(arts) // 5])
     te = [m for m in items if m["artist"] in hold]; y = np.array([si[m["scene"]] for m in te]); P = []
+    from concurrent.futures import ThreadPoolExecutor
+    ld = lambda m: np.load(f"/data/patches/{m['id'].replace(':', '_')}.npy").astype(np.float32)
     with torch.no_grad():
         for i in range(0, len(te), 64):
-            x = np.stack([np.load(f"/data/patches/{m['id'].replace(':', '_')}.npy").astype(np.float32) for m in te[i:i + 64]]); b = x.shape[0]
+            with ThreadPoolExecutor(32) as ex: x = np.stack(list(ex.map(ld, te[i:i + 64])))
+            b = x.shape[0]
             x = ((torch.from_numpy(x) - C["mu"]) / C["sd"]).cuda().reshape(-1, 96, W)
             P.append(torch.softmax(net(x), 1).reshape(b, 8, -1).mean(1).cpu().numpy())
     P = np.concatenate(P); rng = np.random.default_rng(0); idx = rng.permutation(len(te)); A, B = idx[:len(idx) // 2], idx[len(idx) // 2:]
@@ -131,14 +141,18 @@ def calibrate(manifest):
 
 
 @app.local_entrypoint()
-def main(manifest_path: str, stage: str = "all"):
+def main(manifest_path: str, stage: str = "all", epochs: int = 20):
     man = json.load(open(manifest_path))
     if stage in ("all", "extract"):
         batches = [[(m["id"], m["url"]) for m in man[i:i + 40]] for i in range(0, len(man), 40)]
-        print("extracted", sum(extract.map(batches)), "of", len(man))
+        import collections; tot = collections.Counter()
+        for w_ in extract.map(batches): tot.update(w_ if isinstance(w_, dict) else {"new": w_})
+        print("::notice title=extraction::" + json.dumps({"of": len(man), **dict(tot)}))
     if stage == "calibrate":
         res = calibrate.remote(man); print("::notice title=calibration::" + json.dumps(res))
     if stage == "split":
         res = split.remote(man); json.dump(res, open("split.json", "w")); print("split:", len(res["train"]), "train,", len(res["test"]), "test")
-    if stage in ("all", "train"):
-        res = train.remote(man); print("::notice title=embedding pilot::" + json.dumps(res))
+    if stage in ("all", "train", "traincal"):
+        res = train.remote(man, epochs); print("::notice title=embedding pilot::" + json.dumps(res))
+    if stage == "traincal":
+        res = calibrate.remote(man); print("::notice title=calibration::" + json.dumps(res))

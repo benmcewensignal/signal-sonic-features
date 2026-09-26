@@ -1,6 +1,6 @@
 name: embed-pilot
 # A learned embedding, pilot: spectrogram patches on Modal, a compact CNN with artists held out.
-on: { workflow_dispatch: { inputs: { per_scene: { default: "250" }, stage: { default: "all" } } } }
+on: { workflow_dispatch: { inputs: { per_scene: { default: "250" }, stage: { default: "all" }, scope: { default: "visible" }, epochs: { default: "20" } } } }
 permissions: { contents: read }
 jobs:
   pilot:
@@ -27,18 +27,22 @@ jobs:
               try: v = (json.loads(a) if a and a.startswith("[") else [a])[0]
               except Exception: v = None
               art[t] = v if isinstance(v, str) and v else t
+          ALL = "${{ inputs.scope }}" == "all"
           by = collections.defaultdict(set)
           for t, s in c.execute("select track_id, scene from track_scenes where week like '____-M__'"):
-              if s not in H and url.get(t): by[s].add(t)
+              if (ALL or s not in H) and url.get(t): by[s].add(t)
           rng = random.Random(11); man = []
           for s, ts in sorted(by.items()):
               ts = sorted(ts); rng.shuffle(ts); man += [{"id": t, "url": url[t], "scene": s, "artist": art.get(t, t)} for t in ts[:${{ inputs.per_scene }}]]
+          if ALL:   # records with no monthly listing (DJ sets and the rest): measured, not trained on
+              seen = {m["id"] for m in man}
+              man += [{"id": t, "url": u, "scene": None, "artist": art.get(t, t)} for t, u in url.items() if u and t not in seen]
           json.dump(man, open("manifest.json", "w")); print(len(man), "records across", len(by), "scenes")
           PY
       - name: extract and train on Modal
         run: |
           set +e
-          modal run embed/modal_embed.py --manifest-path manifest.json --stage "${{ inputs.stage }}" 2>&1 | tee /tmp/modal.log
+          modal run embed/modal_embed.py --manifest-path manifest.json --stage "${{ inputs.stage }}" --epochs "${{ inputs.epochs }}" 2>&1 | tee /tmp/modal.log
           code=${PIPESTATUS[0]}
           # Modal's own output is otherwise unreadable after a failure; keep its tail in the run's notes
           grep -E "extracted|epoch|notice|Error|Timeout|Traceback|Killed|memory" /tmp/modal.log | tail -12 | while read -r l; do echo "::notice title=modal::${l:0:400}"; done
