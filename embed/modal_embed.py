@@ -34,7 +34,7 @@ def extract(batch):
     vol.commit(); return dict(why)
 
 
-@app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=14400, memory=65536)
+@app.function(image=image, gpu="H100", volumes={"/data": vol}, timeout=14400, memory=65536)
 def train(manifest, epochs: int = 20, aug: bool = False, tag: str = ""):
     import os, random, numpy as np, torch, torch.nn as nn
     vol.reload()
@@ -126,7 +126,7 @@ def make_net(n):
     return Net(n)
 
 
-@app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=3600, memory=16384)
+@app.function(image=image, gpu="H100", volumes={"/data": vol}, timeout=3600, memory=16384)
 def calibrate(manifest, tag: str = ""):
     """Temperature and reliability for the latest trained model, on its held-out records; saved as embed_live.pt."""
     import os, glob, random, numpy as np, torch
