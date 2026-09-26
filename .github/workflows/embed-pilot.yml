@@ -22,6 +22,11 @@ jobs:
           python - << 'PY'
           import sqlite3, json, random, collections
           c = sqlite3.connect("/tmp/sonic.db"); H = set(json.load(open("hidden.json"))); url = dict(c.execute("select track_id, url from preview_cache"))
+          import urllib.request
+          try:   # addresses recovered for the deepen passes' records, kept beside the database
+              rec = json.load(urllib.request.urlopen("https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/data/previews-recovered.json", timeout=60))
+              url.update({k: v for k, v in rec.items() if v and not url.get(k)}); print(len(rec), "recovered addresses added")
+          except Exception as e: print("no recovered addresses yet:", e)
           art = {}
           for t, a in c.execute("select track_id, artists from track_meta"):
               try: v = (json.loads(a) if a and a.startswith("[") else [a])[0]
