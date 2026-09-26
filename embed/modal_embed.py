@@ -10,23 +10,28 @@ image = (modal.Image.debian_slim(python_version="3.11").apt_install("ffmpeg", "l
 W = 188   # a patch: three seconds at 16 kHz, hop 256
 
 
-@app.function(image=image, volumes={"/data": vol}, timeout=900, cpu=2, retries=1)
+@app.function(image=image, volumes={"/data": vol}, timeout=1800, cpu=2, retries=1, max_containers=16)
 def extract(batch):
     import os, tempfile, numpy as np, librosa, requests
-    os.makedirs("/data/patches", exist_ok=True); done = 0
+    import time, collections
+    os.makedirs("/data/patches", exist_ok=True); done = 0; why = collections.Counter()
     for tid, url in batch:
         p = f"/data/patches/{tid.replace(':', '_')}.npy"
-        if os.path.exists(p): done += 1; continue
+        if os.path.exists(p): done += 1; why["already"] += 1; continue
         try:
-            r = requests.get(url, timeout=40, headers={"User-Agent": "signal-sonic"}); r.raise_for_status()
+            for attempt in range(4):   # throttling and server errors: wait and try again
+                r = requests.get(url, timeout=40, headers={"User-Agent": "signal-sonic"})
+                if r.status_code in (429, 500, 502, 503, 504): time.sleep(3 * (attempt + 1) ** 2); continue
+                break
+            if r.status_code != 200: why[f"http {r.status_code}"] += 1; continue
             with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f: f.write(r.content); fn = f.name
             y, _ = librosa.load(fn, sr=16000, mono=True, duration=120); os.remove(fn)
             M = np.log1p(1000 * librosa.feature.melspectrogram(y=y, sr=16000, n_fft=512, hop_length=256, n_mels=96)).astype(np.float16)
             if M.shape[1] < 2 * W: continue
-            np.save(p, np.stack([M[:, s:s + W] for s in np.linspace(0, M.shape[1] - W, 8).astype(int)])); done += 1
+            np.save(p, np.stack([M[:, s:s + W] for s in np.linspace(0, M.shape[1] - W, 8).astype(int)])); done += 1; why["new"] += 1
         except Exception as e:
-            print("skip", tid, type(e).__name__)
-    vol.commit(); return done
+            why[type(e).__name__] += 1
+    vol.commit(); return dict(why)
 
 
 @app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=14400, memory=40960)
@@ -140,7 +145,9 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20):
     man = json.load(open(manifest_path))
     if stage in ("all", "extract"):
         batches = [[(m["id"], m["url"]) for m in man[i:i + 40]] for i in range(0, len(man), 40)]
-        print("extracted", sum(extract.map(batches)), "of", len(man))
+        import collections; tot = collections.Counter()
+        for w_ in extract.map(batches): tot.update(w_ if isinstance(w_, dict) else {"new": w_})
+        print("::notice title=extraction::" + json.dumps({"of": len(man), **dict(tot)}))
     if stage == "calibrate":
         res = calibrate.remote(man); print("::notice title=calibration::" + json.dumps(res))
     if stage == "split":
