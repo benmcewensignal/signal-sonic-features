@@ -206,6 +206,18 @@ def robust_batch(batch, model: str = "embed_live.pt"):
     return out
 
 
+@app.function(image=image, volumes={"/data": vol}, timeout=600)
+def restore_live():
+    """Put back the live model's calibration from its first, clean run (26 September, 07:00): the split it
+    was calibrated on can no longer be reproduced, so any recalibration now leaks training artists."""
+    import torch
+    vol.reload(); C = torch.load("/data/embed_live.pt", map_location="cpu")
+    C.update({"temperature": 0.75, "tiers": [[0.6, 1.01, 0.848], [0.4, 0.6, 0.487], [0.0, 0.4, 0.295]], "held_out_accuracy": 0.607, "held_out_top3": 0.82, "held_out_records": 9813, "restored": "2026-09-26"})
+    C.pop("scene_tiers", None)
+    torch.save(C, "/data/embed_live.pt"); vol.commit()
+    return {"scenes": len(C["scenes"]), "temperature": C["temperature"], "tiers": C["tiers"]}
+
+
 @app.local_entrypoint()
 def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0, tag: str = "", ckpt: str = ""):
     man = json.load(open(manifest_path))
@@ -226,6 +238,8 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
             res[k] = round(sum(r["p"][k] == r["y"] for r in ok) / max(1, len(ok)), 3)
             if k != "clean": res[k + " same call"] = round(sum(r["p"][k] == r["p"]["clean"] for r in ok) / max(1, len(ok)), 3)
         print("::notice title=robustness::" + json.dumps({"model": model, **res}))
+    if stage == "restore":
+        print("::notice title=restored::" + json.dumps(restore_live.remote()))
     if stage == "calibrate":
         res = calibrate.remote(man, tag, ckpt); print("::notice title=calibration::" + json.dumps({"tag": tag, **res}))
     if stage == "split":
