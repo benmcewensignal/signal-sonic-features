@@ -17,12 +17,19 @@ def make_net(n):
 
 
 def _load():
+    """Load once found; until then look again on every reading, refreshing the volume, since a warm
+    container does not see files written to the volume after it started."""
     global _M
-    if _M is None:
-        import torch
-        fp = "/embed/embed_live.pt"
-        if not os.path.exists(fp): _M = False; return _M
-        C = torch.load(fp, map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval(); C["net"] = net; _M = C
+    if _M: return _M
+    import torch
+    fp = "/embed/embed_live.pt"
+    if not os.path.exists(fp):
+        try:
+            import modal; modal.Volume.from_name("sonic-embed").reload()
+        except Exception:
+            pass
+    if not os.path.exists(fp): return None
+    C = torch.load(fp, map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval(); C["net"] = net; _M = C
     return _M
 
 def learned_call(wav_path):
