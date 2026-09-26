@@ -1,6 +1,6 @@
 name: embed-pilot
 # A learned embedding, pilot: spectrogram patches on Modal, a compact CNN with artists held out.
-on: { workflow_dispatch: { inputs: { per_scene: { default: "250" }, stage: { default: "all" }, scope: { default: "visible" }, epochs: { default: "20" }, aug: { default: "0" }, tag: { default: "" } } } }
+on: { workflow_dispatch: { inputs: { per_scene: { default: "250" }, stage: { default: "all" }, scope: { default: "visible" }, epochs: { default: "20" }, aug: { default: "0" }, tag: { default: "" }, ckpt: { default: "" } } } }
 permissions: { contents: read }
 jobs:
   pilot:
@@ -47,7 +47,7 @@ jobs:
       - name: extract and train on Modal
         run: |
           set +e
-          modal run embed/modal_embed.py --manifest-path manifest.json --stage "${{ inputs.stage }}" --epochs "${{ inputs.epochs }}" --aug "${{ inputs.aug }}" --tag "${{ inputs.tag }}" 2>&1 | tee /tmp/modal.log
+          modal run embed/modal_embed.py --manifest-path manifest.json --stage "${{ inputs.stage }}" --epochs "${{ inputs.epochs }}" --aug "${{ inputs.aug }}" --tag "${{ inputs.tag }}" --ckpt "${{ inputs.ckpt }}" 2>&1 | tee /tmp/modal.log
           code=${PIPESTATUS[0]}
           # Modal's own output is otherwise unreadable after a failure; keep its tail in the run's notes
           grep -E "extracted|epoch|notice|Error|Timeout|Traceback|Killed|memory" /tmp/modal.log | tail -12 | while read -r l; do echo "::notice title=modal::${l:0:400}"; done
