@@ -274,7 +274,14 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
     if stage == "promote":
         print("::notice title=promoted::" + json.dumps(promote.remote(tag)))
     if stage == "confusion":
-        res = confusion.remote(man, tag or "aug"); print("::notice title=confusion::" + json.dumps(res, separators=(",", ":")))
+        res = confusion.remote(man, tag or "aug")
+        # notes are cut at 4,096 characters: one compact line per genre, in several notes
+        lines = [f"{g}|{v['n']}|{v['right']}|" + ";".join(f"{x[0]}={x[1]}" for x in v["mistaken_for"]) for g, v in res["genres"].items()]
+        chunk, k = [], 0
+        for ln in lines + ["END"]:
+            if sum(len(x) + 1 for x in chunk) + len(ln) > 3500 or ln == "END":
+                k += 1; print(f"::notice title=confusion-{k}::" + " ".join(chunk)); chunk = []
+            if ln != "END": chunk.append(ln)
     if stage == "restore":
         print("::notice title=restored::" + json.dumps(restore_live.remote()))
     if stage == "calibrate":
