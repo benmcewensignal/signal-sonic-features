@@ -35,7 +35,7 @@ def extract(batch):
 
 
 @app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=14400, memory=65536)
-def train(manifest, epochs: int = 20):
+def train(manifest, epochs: int = 20, aug: bool = False, tag: str = ""):
     import os, random, numpy as np, torch, torch.nn as nn
     vol.reload()
     items = [m for m in manifest if m.get("scene") and os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
@@ -72,15 +72,33 @@ def train(manifest, epochs: int = 20):
                 outs.append(torch.softmax(net(x.reshape(-1, 96, W)), 1).reshape(b, 8, -1).mean(1).cpu().numpy())
         p = np.concatenate(outs); net.train()
         return float(np.mean(p.argmax(1) == yte)), float(np.mean([yte[k] in np.argsort(-p[k])[:3] for k in range(len(yte))]))
+    import librosa
+    fq = torch.tensor(librosa.mel_frequencies(n_mels=96, fmax=8000), device=dev)
+    phone_band = ((fq < 200) | (fq > 6000)).float()[None, :, None]
+    def degrade(xn):
+        """On half of each batch, what users' conditions do to a spectrogram: volume changes, a phone's
+        frequency range, a room's echo, background noise. Applied to the linear spectrum, then re-logged."""
+        x = xn * sd + mu; M = (torch.exp(x) - 1) / 1000; b = x.shape[0]; pick = torch.rand(b, device=dev) < 0.5
+        g = 10 ** (torch.empty(b, 1, 1, device=dev).uniform_(-15, 15) / 10); M = torch.where(pick[:, None, None], M * g, M)
+        ph = pick & (torch.rand(b, device=dev) < 0.5); M = torch.where(ph[:, None, None], M * (1 - 0.97 * phone_band), M)
+        rv = pick & (torch.rand(b, device=dev) < 0.4)
+        if rv.any():
+            k = torch.exp(-torch.arange(12, device=dev, dtype=torch.float32) / 3.0); k = (k / k.sum()).view(1, 1, 1, -1)
+            sm = torch.nn.functional.conv2d(torch.nn.functional.pad(M.unsqueeze(1), (11, 0, 0, 0)), k).squeeze(1)
+            M = torch.where(rv[:, None, None], 0.6 * M + 0.4 * sm, M)
+        nz = pick & (torch.rand(b, device=dev) < 0.4); floor = M.mean((1, 2), keepdim=True) * torch.empty(b, 1, 1, device=dev).uniform_(0.01, 0.1)
+        M = torch.where(nz[:, None, None], M + floor * torch.rand_like(M), M)
+        return (torch.log1p(1000 * M) - mu) / sd
     hist = []
     for ep in range(epochs):
         perm = torch.randperm(len(P))
         for i in range(0, len(P), 256):
             idx = perm[i:i + 256]; x = ((P[idx].float() - mu) / sd).to(dev); y = Y[idx].to(dev)
             f = torch.randint(0, 80, (1,)).item(); x[:, f:f + 12, :] = 0   # a little frequency masking
+            if aug: x = degrade(x)
             opt.zero_grad(); l = lossf(net(x), y); l.backward(); opt.step(); sched.step()
         if ep % 5 == 4 or ep == epochs - 1: a1, a3 = evaluate(); hist.append([ep + 1, round(a1, 3), round(a3, 3)]); print("epoch", ep + 1, a1, a3, flush=True)
-    torch.save({"state": net.state_dict(), "scenes": scenes, "mu": mu, "sd": sd}, f"/data/embed_{len(items)}.pt"); vol.commit()
+    torch.save({"state": net.state_dict(), "scenes": scenes, "mu": mu, "sd": sd, "augmented": aug}, f"/data/embed_{tag + '_' if tag else ''}{len(items)}.pt"); vol.commit()
     a1, a3 = evaluate()
     return {"records": len(items), "train": len(tr), "test": len(te), "artists_held_out": len(hold), "first": round(a1, 3), "top3": round(a3, 3), "history": hist}
 
@@ -109,11 +127,12 @@ def make_net(n):
 
 
 @app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=3600, memory=16384)
-def calibrate(manifest):
+def calibrate(manifest, tag: str = ""):
     """Temperature and reliability for the latest trained model, on its held-out records; saved as embed_live.pt."""
     import os, glob, random, numpy as np, torch
     vol.reload()
-    ck = sorted(glob.glob("/data/embed_*.pt"), key=lambda f: int(f.split("_")[-1].split(".")[0]) if f.split("_")[-1].split(".")[0].isdigit() else 0)[-1]
+    pat = f"/data/embed_{tag}_*.pt" if tag else "/data/embed_[0-9]*.pt"
+    ck = sorted(glob.glob(pat), key=lambda f: int(f.split("_")[-1].split(".")[0]) if f.split("_")[-1].split(".")[0].isdigit() else 0)[-1]
     C = torch.load(ck, map_location="cuda"); scenes = C["scenes"]; si = {s: i for i, s in enumerate(scenes)}
     net = make_net(len(scenes)).cuda(); net.load_state_dict(C["state"]); net.eval()
     items = [m for m in manifest if m.get("scene") in si and os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
@@ -141,7 +160,7 @@ def calibrate(manifest):
         scene_tiers[sname] = rows
     first = float(np.mean(pred == y)); top3 = float(np.mean([y[i] in np.argsort(-Q[i])[:3] for i in range(len(y))]))
     C.update({"temperature": T, "tiers": tiers, "scene_tiers": scene_tiers, "held_out_accuracy": round(first, 3), "held_out_top3": round(top3, 3), "held_out_records": len(te), "trained_on": len(items) - len(te), "built": "2026-09-26", "from": os.path.basename(ck)})
-    torch.save({k: (v if k != "state" else {kk: vv.cpu() for kk, vv in v.items()}) for k, v in C.items()}, "/data/embed_live.pt"); vol.commit()
+    torch.save({k: (v if k != "state" else {kk: vv.cpu() for kk, vv in v.items()}) for k, v in C.items()}, f"/data/embed_live{'_' + tag if tag else ''}.pt"); vol.commit()
     return {"temperature": T, "tiers": tiers, "first": round(first, 3), "top3": round(top3, 3), "records": len(te), "from": os.path.basename(ck)}
 
 
@@ -149,10 +168,10 @@ CONDS = ["clean", "clip 60 s", "first 30 s", "middle 30 s", "last 30 s", "phone"
 
 
 @app.function(image=image, volumes={"/data": vol}, timeout=1800, cpu=2, retries=1, max_containers=12)
-def robust_batch(batch):
+def robust_batch(batch, model: str = "embed_live.pt"):
     """Each held-out record downloaded again, degraded eight ways, and read by the live model."""
     import os, subprocess, tempfile, numpy as np, librosa, requests, torch
-    vol.reload(); C = torch.load("/data/embed_live.pt", map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval()
+    vol.reload(); C = torch.load(f"/data/{model}", map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval()
     si = {s_: i for i, s_ in enumerate(C["scenes"])}; out = []; rng = np.random.default_rng(0)
     def patches(y, a=0.0, b=1.0):
         M = np.log1p(1000 * librosa.feature.melspectrogram(y=y, sr=16000, n_fft=512, hop_length=256, n_mels=96)).astype(np.float32)
@@ -186,7 +205,7 @@ def robust_batch(batch):
 
 
 @app.local_entrypoint()
-def main(manifest_path: str, stage: str = "all", epochs: int = 20):
+def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0, tag: str = ""):
     man = json.load(open(manifest_path))
     if stage in ("all", "extract"):
         batches = [[(m["id"], m["url"]) for m in man[i:i + 40]] for i in range(0, len(man), 40)]
@@ -195,20 +214,21 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20):
         print("::notice title=extraction::" + json.dumps({"of": len(man), **dict(tot)}))
     if stage == "robust":
         import random
-        items = [m for m in man if m.get("scene")]; arts = sorted({m["artist"] for m in items}); random.Random(0).shuffle(arts); hold = set(arts[:len(arts) // 5])
-        te = [m for m in items if m["artist"] in hold]; random.Random(7).shuffle(te); te = te[:2000]
-        rows = [r for b_ in robust_batch.map([[(m["id"], m["url"], m["scene"]) for m in te[i:i + 40]] for i in range(0, len(te), 40)]) for r in b_]
+        test_ids = {t for t, _ in split.remote(man)["test"]}   # the exact held-out split training used
+        te = [m for m in man if m.get("scene") and m["id"] in test_ids]; random.Random(7).shuffle(te); te = te[:2000]
+        model = f"embed_live{'_' + tag if tag else ''}.pt"
+        rows = [r for b_ in robust_batch.starmap([([(m["id"], m["url"], m["scene"]) for m in te[i:i + 40]], model) for i in range(0, len(te), 40)]) for r in b_]
         res = {"records": len(rows)}
         for k in CONDS:
             ok = [r for r in rows if r["p"].get(k) is not None]
             res[k] = round(sum(r["p"][k] == r["y"] for r in ok) / max(1, len(ok)), 3)
             if k != "clean": res[k + " same call"] = round(sum(r["p"][k] == r["p"]["clean"] for r in ok) / max(1, len(ok)), 3)
-        print("::notice title=robustness::" + json.dumps(res))
+        print("::notice title=robustness::" + json.dumps({"model": model, **res}))
     if stage == "calibrate":
-        res = calibrate.remote(man); print("::notice title=calibration::" + json.dumps(res))
+        res = calibrate.remote(man, tag); print("::notice title=calibration::" + json.dumps({"tag": tag, **res}))
     if stage == "split":
         res = split.remote(man); json.dump(res, open("split.json", "w")); print("split:", len(res["train"]), "train,", len(res["test"]), "test")
     if stage in ("all", "train", "traincal"):
-        res = train.remote(man, epochs); print("::notice title=embedding pilot::" + json.dumps(res))
+        res = train.remote(man, epochs, bool(aug), tag); print("::notice title=embedding pilot::" + json.dumps({"tag": tag, "augmented": bool(aug), **res}))
     if stage == "traincal":
         res = calibrate.remote(man); print("::notice title=calibration::" + json.dumps(res))
