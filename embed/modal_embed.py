@@ -34,7 +34,7 @@ def extract(batch):
     vol.commit(); return dict(why)
 
 
-@app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=14400, memory=40960)
+@app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=14400, memory=65536)
 def train(manifest, epochs: int = 20):
     import os, random, numpy as np, torch, torch.nn as nn
     vol.reload()
@@ -45,7 +45,12 @@ def train(manifest, epochs: int = 20):
     load = lambda m: np.load(f"/data/patches/{m['id'].replace(':', '_')}.npy")   # kept at half precision; converted per batch
     print('loading', len(tr), 'training and', len(te), 'test records across', len(scenes), 'scenes', flush=True)
     from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(48) as ex: Xtr = np.stack(list(ex.map(load, tr))); Xte = np.stack(list(ex.map(load, te)))
+    def fill(ms):   # one pre-sized array, filled in place: stacking a list would hold everything twice
+        X = np.empty((len(ms), 8, 96, W), np.float16)
+        def put(i): X[i] = load(ms[i])
+        with ThreadPoolExecutor(48) as ex: list(ex.map(put, range(len(ms))))
+        return X
+    Xtr = fill(tr); Xte = fill(te)
     ytr = np.array([si[m["scene"]] for m in tr]); yte = np.array([si[m["scene"]] for m in te])
     smp = Xtr[:2000].astype(np.float32); mu, sd = float(smp.mean()), float(smp.std() + 1e-6)
     dev = "cuda"
