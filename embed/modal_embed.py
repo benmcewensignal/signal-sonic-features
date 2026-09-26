@@ -73,11 +73,23 @@ def train(manifest, epochs: int = 20):
     return {"records": len(items), "train": len(tr), "test": len(te), "artists_held_out": len(hold), "first": round(a1, 3), "top3": round(a3, 3), "history": hist}
 
 
+@app.function(image=image, volumes={"/data": vol}, timeout=900)
+def split(manifest):
+    """The exact split train() uses: the records whose patches exist, with a fifth of artists held out."""
+    import os, random
+    vol.reload()
+    items = [m for m in manifest if os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
+    arts = sorted({m["artist"] for m in items}); random.Random(0).shuffle(arts); hold = set(arts[:len(arts) // 5])
+    return {"train": [[m["id"], m["scene"]] for m in items if m["artist"] not in hold], "test": [[m["id"], m["scene"]] for m in items if m["artist"] in hold], "held_artists": sorted(hold)}
+
+
 @app.local_entrypoint()
 def main(manifest_path: str, stage: str = "all"):
     man = json.load(open(manifest_path))
     if stage in ("all", "extract"):
         batches = [[(m["id"], m["url"]) for m in man[i:i + 40]] for i in range(0, len(man), 40)]
         print("extracted", sum(extract.map(batches)), "of", len(man))
+    if stage == "split":
+        res = split.remote(man); json.dump(res, open("split.json", "w")); print("split:", len(res["train"]), "train,", len(res["test"]), "test")
     if stage in ("all", "train"):
         res = train.remote(man); print("::notice title=embedding pilot::" + json.dumps(res))

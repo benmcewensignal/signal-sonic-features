@@ -43,4 +43,5 @@ jobs:
           # Modal's own output is otherwise unreadable after a failure; keep its tail in the run's notes
           grep -E "extracted|epoch|notice|Error|Timeout|Traceback|Killed|memory" /tmp/modal.log | tail -12 | while read -r l; do echo "::notice title=modal::${l:0:400}"; done
           echo "::notice title=modal tail::$(tail -c 1500 /tmp/modal.log | tr '\n' ' ' | tr -d '\r')"
+          if [ "${{ inputs.stage }}" = "split" ] && [ -s split.json ]; then pip install -q numpy "scikit-learn==1.8.0" && python tools/compare_embed.py /tmp/sonic.db split.json; fi
           exit $code
