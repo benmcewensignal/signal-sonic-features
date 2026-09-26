@@ -42,6 +42,12 @@ def read(wav_path):
             tri = call_parts(mix_x, rec)
             if tri: out["scene_parts"] = tri
             try:
+                from worker.scene import part_calls
+                pc = part_calls(rec)
+                if pc: out["part_calls"] = pc
+            except Exception as e_:
+                out["part_calls_error"] = type(e_).__name__
+            try:
                 from worker.embed import learned_call
                 le = learned_call(wav_path)
                 if le: out["scene_learned"] = le

@@ -123,3 +123,25 @@ def sounds_like(mix_x, stems, k=5):
     q = np.hstack([nz(mix_x, z["muX"], z["sdX"]), nz(pv, z["muP"], z["sdP"])]) / np.sqrt(2)
     sc = z["c"] @ q; order = np.argsort(-sc)[:k]
     return {"artists": [[meta["artists"][i], round(float(sc[i]), 3)] for i in order], "top5": meta["top5"], "of": len(meta["artists"])}
+
+
+_PM = None
+
+
+def part_calls(stems):
+    """Each part heard alone: what scene it points to, with how often that part alone is right."""
+    global _PM
+    import pickle
+    if _PM is None:
+        fp = os.path.join(os.path.dirname(__file__), "part_models.pkl")
+        if not os.path.exists(fp): return None
+        with open(fp, "rb") as f: _PM = pickle.load(f)
+    SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
+    out = {}
+    for p in ("drums", "bass", "other", "vocals"):
+        s = (stems or {}).get(p) or {}; e = s.get("embedding"); M = _PM.get(p)
+        if not M or not (isinstance(e, list) and len(e) == 45): continue
+        v = np.array([float(x) for x in e] + [float(s.get(k)) if isinstance(s.get(k), (int, float)) else 0.0 for k in SC], float)
+        z = (v - M["mu"]) / M["sd"]; pr = M["model"].predict_proba(z[None, :])[0]; order = np.argsort(-pr)
+        out[p] = {"scenes": [[str(M["classes"][i]), round(float(pr[i]), 3)] for i in order[:3]], "alone_right": M["held_out_accuracy"]}
+    return out or None
