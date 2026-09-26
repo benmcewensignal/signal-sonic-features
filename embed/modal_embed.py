@@ -73,11 +73,72 @@ def train(manifest, epochs: int = 20):
     return {"records": len(items), "train": len(tr), "test": len(te), "artists_held_out": len(hold), "first": round(a1, 3), "top3": round(a3, 3), "history": hist}
 
 
+@app.function(image=image, volumes={"/data": vol}, timeout=900)
+def split(manifest):
+    """The exact split train() uses: the records whose patches exist, with a fifth of artists held out."""
+    import os, random
+    vol.reload()
+    items = [m for m in manifest if os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
+    arts = sorted({m["artist"] for m in items}); random.Random(0).shuffle(arts); hold = set(arts[:len(arts) // 5])
+    return {"train": [[m["id"], m["scene"]] for m in items if m["artist"] not in hold], "test": [[m["id"], m["scene"]] for m in items if m["artist"] in hold], "held_artists": sorted(hold)}
+
+
+
+def make_net(n):
+    import torch.nn as nn, torch
+    def block(i, o): return nn.Sequential(nn.Conv2d(i, o, 3, padding=1), nn.BatchNorm2d(o), nn.ReLU(), nn.Conv2d(o, o, 3, padding=1), nn.BatchNorm2d(o), nn.ReLU(), nn.MaxPool2d(2))
+    class Net(nn.Module):
+        def __init__(s, n):
+            super().__init__(); s.f = nn.Sequential(block(1, 32), block(32, 64), block(64, 128), block(128, 256)); s.emb = nn.Sequential(nn.Linear(512, 128), nn.ReLU(), nn.Dropout(0.3)); s.out = nn.Linear(128, n)
+        def embed(s, x):
+            h = s.f(x.unsqueeze(1)); return s.emb(torch.cat([h.mean((2, 3)), h.amax((2, 3))], 1))
+        def forward(s, x): return s.out(s.embed(x))
+    return Net(n)
+
+
+@app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=3600, memory=16384)
+def calibrate(manifest):
+    """Temperature and reliability for the latest trained model, on its held-out records; saved as embed_live.pt."""
+    import os, glob, random, numpy as np, torch
+    vol.reload()
+    ck = sorted(glob.glob("/data/embed_*.pt"), key=lambda f: int(f.split("_")[-1].split(".")[0]) if f.split("_")[-1].split(".")[0].isdigit() else 0)[-1]
+    C = torch.load(ck, map_location="cuda"); scenes = C["scenes"]; si = {s: i for i, s in enumerate(scenes)}
+    net = make_net(len(scenes)).cuda(); net.load_state_dict(C["state"]); net.eval()
+    items = [m for m in manifest if os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
+    arts = sorted({m["artist"] for m in items}); random.Random(0).shuffle(arts); hold = set(arts[:len(arts) // 5])
+    te = [m for m in items if m["artist"] in hold]; y = np.array([si[m["scene"]] for m in te]); P = []
+    with torch.no_grad():
+        for i in range(0, len(te), 64):
+            x = np.stack([np.load(f"/data/patches/{m['id'].replace(':', '_')}.npy").astype(np.float32) for m in te[i:i + 64]]); b = x.shape[0]
+            x = ((torch.from_numpy(x) - C["mu"]) / C["sd"]).cuda().reshape(-1, 96, W)
+            P.append(torch.softmax(net(x), 1).reshape(b, 8, -1).mean(1).cpu().numpy())
+    P = np.concatenate(P); rng = np.random.default_rng(0); idx = rng.permutation(len(te)); A, B = idx[:len(idx) // 2], idx[len(idx) // 2:]
+    def cal(p, T): q = np.power(np.clip(p, 1e-9, 1), 1 / T); return q / q.sum(1, keepdims=True)
+    Ts = np.arange(0.5, 3.01, 0.05); T = float(Ts[np.argmin([-np.mean(np.log(cal(P[A], t)[np.arange(len(A)), y[A]])) for t in Ts])])
+    Q = cal(P, T); pred = Q.argmax(1); conf = Q.max(1); BINS = ((0.6, 1.01), (0.4, 0.6), (0.0, 0.4))
+    tiers = [[lo, hi, round(float(np.mean(pred[B][(conf[B] >= lo) & (conf[B] < hi)] == y[B][(conf[B] >= lo) & (conf[B] < hi)])), 3) if ((conf[B] >= lo) & (conf[B] < hi)).sum() >= 30 else None] for lo, hi in BINS]
+    scene_tiers = {}
+    for k, sname in enumerate(scenes):
+        rows = []
+        for lo, hi in BINS:
+            m = B[(pred[B] == k) & (conf[B] >= lo) & (conf[B] < hi)]
+            rows.append([lo, hi, round(float(np.mean(pred[m] == y[m])), 3) if len(m) >= 30 else None])
+        scene_tiers[sname] = rows
+    first = float(np.mean(pred == y)); top3 = float(np.mean([y[i] in np.argsort(-Q[i])[:3] for i in range(len(y))]))
+    C.update({"temperature": T, "tiers": tiers, "scene_tiers": scene_tiers, "held_out_accuracy": round(first, 3), "held_out_top3": round(top3, 3), "held_out_records": len(te), "trained_on": len(items) - len(te), "built": "2026-09-26", "from": os.path.basename(ck)})
+    torch.save({k: (v if k != "state" else {kk: vv.cpu() for kk, vv in v.items()}) for k, v in C.items()}, "/data/embed_live.pt"); vol.commit()
+    return {"temperature": T, "tiers": tiers, "first": round(first, 3), "top3": round(top3, 3), "records": len(te), "from": os.path.basename(ck)}
+
+
 @app.local_entrypoint()
 def main(manifest_path: str, stage: str = "all"):
     man = json.load(open(manifest_path))
     if stage in ("all", "extract"):
         batches = [[(m["id"], m["url"]) for m in man[i:i + 40]] for i in range(0, len(man), 40)]
         print("extracted", sum(extract.map(batches)), "of", len(man))
+    if stage == "calibrate":
+        res = calibrate.remote(man); print("::notice title=calibration::" + json.dumps(res))
+    if stage == "split":
+        res = split.remote(man); json.dump(res, open("split.json", "w")); print("split:", len(res["train"]), "train,", len(res["test"]), "test")
     if stage in ("all", "train"):
         res = train.remote(man); print("::notice title=embedding pilot::" + json.dumps(res))

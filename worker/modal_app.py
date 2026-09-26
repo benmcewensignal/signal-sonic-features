@@ -18,7 +18,7 @@ image = (modal.Image.debian_slim(python_version="3.12")
 secret = modal.Secret.from_name("sonic-parts")          # holds PARTS_KEY
 
 
-@app.function(image=image, cpu=4.0, memory=6144, timeout=420)
+@app.function(image=image, cpu=4.0, memory=6144, timeout=420, volumes={"/embed": modal.Volume.from_name("sonic-embed", create_if_missing=True)})
 def read_parts(wav: bytes) -> dict:
     import tempfile
     from worker.parts import read
