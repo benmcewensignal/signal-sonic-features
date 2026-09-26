@@ -127,12 +127,14 @@ def make_net(n):
 
 
 @app.function(image=image, gpu="H100", volumes={"/data": vol}, timeout=3600, memory=16384)
-def calibrate(manifest, tag: str = ""):
+def calibrate(manifest, tag: str = "", ckpt: str = ""):
     """Temperature and reliability for the latest trained model, on its held-out records; saved as embed_live.pt."""
     import os, glob, random, numpy as np, torch
     vol.reload()
-    pat = f"/data/embed_{tag}_*.pt" if tag else "/data/embed_[0-9]*.pt"
-    ck = sorted(glob.glob(pat), key=lambda f: int(f.split("_")[-1].split(".")[0]) if f.split("_")[-1].split(".")[0].isdigit() else 0)[-1]
+    if ckpt: ck = f"/data/{ckpt}"   # named explicitly: on 26 September an unnamed pick calibrated the wrong model
+    else:
+        pat = f"/data/embed_{tag}_*.pt" if tag else "/data/embed_[0-9]*.pt"
+        ck = sorted(glob.glob(pat), key=lambda f: int(f.split("_")[-1].split(".")[0]) if f.split("_")[-1].split(".")[0].isdigit() else 0)[-1]
     C = torch.load(ck, map_location="cuda"); scenes = C["scenes"]; si = {s: i for i, s in enumerate(scenes)}
     net = make_net(len(scenes)).cuda(); net.load_state_dict(C["state"]); net.eval()
     items = [m for m in manifest if m.get("scene") in si and os.path.exists(f"/data/patches/{m['id'].replace(':', '_')}.npy")]
@@ -205,7 +207,7 @@ def robust_batch(batch, model: str = "embed_live.pt"):
 
 
 @app.local_entrypoint()
-def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0, tag: str = ""):
+def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0, tag: str = "", ckpt: str = ""):
     man = json.load(open(manifest_path))
     if stage in ("all", "extract"):
         batches = [[(m["id"], m["url"]) for m in man[i:i + 40]] for i in range(0, len(man), 40)]
@@ -225,10 +227,10 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
             if k != "clean": res[k + " same call"] = round(sum(r["p"][k] == r["p"]["clean"] for r in ok) / max(1, len(ok)), 3)
         print("::notice title=robustness::" + json.dumps({"model": model, **res}))
     if stage == "calibrate":
-        res = calibrate.remote(man, tag); print("::notice title=calibration::" + json.dumps({"tag": tag, **res}))
+        res = calibrate.remote(man, tag, ckpt); print("::notice title=calibration::" + json.dumps({"tag": tag, **res}))
     if stage == "split":
         res = split.remote(man); json.dump(res, open("split.json", "w")); print("split:", len(res["train"]), "train,", len(res["test"]), "test")
     if stage in ("all", "train", "traincal"):
         res = train.remote(man, epochs, bool(aug), tag); print("::notice title=embedding pilot::" + json.dumps({"tag": tag, "augmented": bool(aug), **res}))
     if stage == "traincal":
-        res = calibrate.remote(man); print("::notice title=calibration::" + json.dumps(res))
+        res = calibrate.remote(man, tag, ckpt); print("::notice title=calibration::" + json.dumps({"tag": tag, **res}))
