@@ -1,25 +1,43 @@
 name: samples
 # Sample matching: openly licensed loops from Freesound, measured as separated parts and matched to scenes.
+# Measuring runs on ten runners at once, each with a time budget, and saves as it goes.
 on:
   workflow_dispatch:
     inputs:
-      fskey: { description: "Freesound API key (masked in the logs)", default: "" }
       pages: { description: "result pages per search", default: "14" }
-      max: { description: "most loops to measure", default: "2000" }
+      max: { description: "most loops per shard", default: "400" }
+      budget: { description: "minutes each shard may measure for", default: "75" }
 jobs:
-  match:
+  measure:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 110
+    strategy:
+      fail-fast: false
+      matrix: { shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] }
     steps:
-      - name: mask the key
-        run: echo "::add-mask::${{ inputs.fskey }}"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: sudo apt-get install -y -q ffmpeg >/dev/null
       - run: pip install -q -r requirements.txt 2>/dev/null || pip install -q numpy librosa soundfile requests scipy
-      - name: collect, measure and match
-        env: { FS_KEY: "${{ secrets.FREESOUND_KEY || inputs.fskey }}" }
-        run: python tools/samples.py --pages ${{ inputs.pages }} --max ${{ inputs.max }} --out sample-matches.json
+      - name: measure this shard's loops
+        env: { FS_KEY: "${{ secrets.FREESOUND_KEY }}" }
+        run: python tools/samples.py --stage measure --shard ${{ matrix.shard }} --of 10 --pages ${{ inputs.pages }} --max ${{ inputs.max }} --budget ${{ inputs.budget }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: "loops-${{ matrix.shard }}", path: "loops-${{ matrix.shard }}.json", if-no-files-found: ignore }
+  match:
+    needs: measure
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -q numpy requests
+      - uses: actions/download-artifact@v4
+        with: { pattern: "loops-*", merge-multiple: true }
+      - name: match loops to scenes
+        run: python tools/samples.py --stage match --out sample-matches.json
       - uses: actions/upload-artifact@v4
         with: { name: sample-matches, path: sample-matches.json }
