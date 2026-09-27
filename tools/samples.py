@@ -178,6 +178,9 @@ def main():
             if len(order) >= 25: break
         out["scenes"][s] = [{k: rows[i][k] for k in ("id", "name", "user", "license", "preview", "tempo", "duration")} | {"sim": round(float(sim[i]), 3), "labelled": bool(named[i])} for i in order]
     json.dump(out, open(a.out, "w"), separators=(",", ":"))
+    # every measured loop's numbers, kept so the matches can be checked independently (does the drums model agree?)
+    json.dump([{"id": r["id"], "tempo": r.get("tempo"), "words": r.get("words", "")[:120], "v": [round(z, 4) for z in r["v"]]} for r in rows],
+              open("loops-measured.json", "w"), separators=(",", ":"))
     for s in ("drum-and-bass", "techno-peak-time", "deep-house", "amapiano"):
         if s in out["scenes"]: print(f"::notice title=matches {s}::" + "; ".join(f"{r['name'][:40]} ({round(r['tempo']) if r['tempo'] else '?'} BPM)" for r in out["scenes"][s][:5]))
     print("::notice title=loops at each scene's tempo::" + json.dumps(fits))

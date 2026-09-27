@@ -57,9 +57,9 @@ jobs:
         run: python tools/samples.py --stage match --out sample-matches.json
       - name: keep the matches in the repository, where they can be read
         run: |
-          mkdir -p data && cp sample-matches.json data/sample-matches.json
+          mkdir -p data && cp sample-matches.json data/sample-matches.json && cp loops-measured.json data/loops-measured.json
           git config user.name sonic-bot; git config user.email sonic@earlysignal.live
-          git add data/sample-matches.json && git commit -qm "sample matches: drums" || exit 0
+          git add data/sample-matches.json data/loops-measured.json && git commit -qm "sample matches: drums" || exit 0
           for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
       - uses: actions/upload-artifact@v4
         with: { name: sample-matches, path: sample-matches.json }
