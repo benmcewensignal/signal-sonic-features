@@ -298,6 +298,39 @@ def partextract(batch):
     vol.commit(); return dict(why)
 
 
+@app.function(image=image, gpu="H100", volumes={"/data": vol}, timeout=3600)
+def fairtest(manifest, ckpts, cutoff_ts: float):
+    """Compare models only on records neither trained on. The split shuffles the whole artist list, so adding
+    artists reshuffles it: records held out now were often training records before. Held out here means held
+    out in yesterday's split (records whose patches predate the cutoff) and in today's, plus artists new today."""
+    import os, random, numpy as np, torch
+    vol.reload()
+    pth = lambda m: f"/data/patches/{m['id'].replace(':', '_')}.npy"
+    items = [m for m in manifest if m.get("scene") and os.path.exists(pth(m))]
+    old = [m for m in items if os.path.getmtime(pth(m)) < cutoff_ts]
+    def held(its):
+        arts = sorted({m["artist"] for m in its}); random.Random(0).shuffle(arts); return set(arts[:len(arts) // 5])
+    old_arts = {m["artist"] for m in old}; old_hold = held(old); new_hold = held(items)
+    fair = [m for m in items if m["artist"] in new_hold and (m["artist"] in old_hold or m["artist"] not in old_arts)]
+    out = {"records": len(fair), "artists": len({m["artist"] for m in fair}), "old_records": len(old)}
+    from concurrent.futures import ThreadPoolExecutor
+    ld = lambda m: np.load(pth(m)).astype(np.float32)
+    for ck in ckpts:
+        C = torch.load(f"/data/{ck}", map_location="cuda"); scenes = C["scenes"]; si = {x: i for i, x in enumerate(scenes)}
+        net = make_net(len(scenes)).cuda(); net.load_state_dict(C["state"]); net.eval()
+        te = [m for m in fair if m["scene"] in si]; y = np.array([si[m["scene"]] for m in te]); P = []
+        with torch.no_grad():
+            for i in range(0, len(te), 64):
+                with ThreadPoolExecutor(32) as ex: x = np.stack(list(ex.map(ld, te[i:i + 64])))
+                b = x.shape[0]; x = ((torch.from_numpy(x) - C["mu"]) / C["sd"]).cuda().reshape(-1, 96, W)
+                P.append(torch.softmax(net(x), 1).reshape(b, 8, -1).mean(1).cpu().numpy())
+        P = np.concatenate(P); top = np.argsort(-P, 1)
+        old_only = np.array([m["artist"] in old_hold for m in te]); new_only = ~old_only
+        r = lambda mask: {"n": int(mask.sum()), "first": round(float((top[mask, 0] == y[mask]).mean()), 3), "top3": round(float(np.mean([y[i] in top[i, :3] for i in np.where(mask)[0]])), 3)} if mask.sum() else None
+        out[ck] = {"all": r(np.ones(len(te), bool)), "artists held out in both splits": r(old_only), "artists new today": r(new_only)}
+    return out
+
+
 @app.local_entrypoint()
 def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0, tag: str = "", ckpt: str = ""):
     man = json.load(open(manifest_path))
@@ -335,6 +368,11 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         if epochs and epochs < len(todo): todo = todo[:epochs]   # epochs doubles as a cap for a trial run
         for w_ in partextract.map([todo[i:i + 20] for i in range(0, len(todo), 20)]): tot.update(w_)
         print("::notice title=part extraction::" + json.dumps({"of": len(todo), **dict(tot)}))
+    if stage == "fairtest":
+        import datetime
+        cut = datetime.datetime(2026, 9, 27, 11, 0, tzinfo=datetime.timezone.utc).timestamp()   # today's extraction began at 11:45
+        res = fairtest.remote(man, ["embed_live.pt", ckpt or "embed_aug122k_104842.pt"], cut)
+        print("::notice title=fair test::" + json.dumps(res))
     if stage == "promote":
         print("::notice title=promoted::" + json.dumps(promote.remote(tag)))
     if stage == "confusion":
