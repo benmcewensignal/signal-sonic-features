@@ -71,25 +71,25 @@ def measure(x):
             open(mp3, "wb").write(a)
             subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-i", mp3, "-ar", "44100", "-ac", "2", wav], check=True, timeout=60)
             m = S.measure_stem(wav) or {}; e = S.analyse_stem(wav) or {}; m.update(e)
+            tempo_named = named_tempo(x); tempo_measured = None
+            try:
+                rh = S.rhythm_of_stem(wav) or {}; tempo_measured = rh.get("beats_per_minute")
+            except Exception:
+                pass
+            if not tempo_measured:   # short loops: a beat tracker on the loop itself
+                try:
+                    import librosa
+                    y_, sr_ = librosa.load(wav, sr=22050, mono=True)
+                    bt = librosa.beat.beat_track(y=y_, sr=sr_)[0]
+                    bt = float(bt[0] if hasattr(bt, "__len__") else bt)
+                    while bt < 90: bt *= 2
+                    while bt > 185: bt /= 2
+                    tempo_measured = round(bt, 1) if bt else None
+                except Exception:
+                    pass
         emb = m.get("embedding")
         if not (isinstance(emb, list) and len(emb) == 45): return {"_fail": "no sound profile (" + str(len(emb) if isinstance(emb, list) else type(emb).__name__) + ")"}
         v = [float(z) for z in emb] + [float(m.get(k)) if isinstance(m.get(k), (int, float)) else 0.0 for k in SC]
-        tempo_named = named_tempo(x); tempo_measured = None
-        try:
-            rh = S.rhythm_of_stem(wav) or {}; tempo_measured = rh.get("beats_per_minute")
-        except Exception:
-            pass
-        if not tempo_measured:   # short loops: a beat tracker on the loop itself
-            try:
-                import librosa
-                y_, sr_ = librosa.load(wav, sr=22050, mono=True)
-                bt = librosa.beat.beat_track(y=y_, sr=sr_)[0]
-                bt = float(bt[0] if hasattr(bt, "__len__") else bt)
-                while bt < 90: bt *= 2
-                while bt > 185: bt /= 2
-                tempo_measured = round(bt, 1) if bt else None
-            except Exception:
-                pass
         tempo = tempo_named or tempo_measured
         return {"id": x["id"], "name": x["name"], "user": x["username"], "license": x["license"], "preview": url, "tempo": tempo,
                 "tempo_from": "name" if tempo_named else ("measured" if tempo_measured else None), "duration": x.get("duration"), "v": v,
@@ -110,7 +110,12 @@ def measure_stage(a):
     rows, t0, why = [], time.time(), collections.Counter()
     pool = Pool(4)
     try:
-        for i, r in enumerate(pool.imap_unordered(measure, found, chunksize=2)):
+        jobs = [pool.apply_async(measure, (x,)) for x in found]
+        for i, jb in enumerate(jobs):
+            try:
+                r = jb.get(timeout=120)   # a worker stuck inside a decoder is abandoned, not waited on
+            except Exception as ex:
+                why[type(ex).__name__] += 1; r = None
             if r and "_fail" in r: why[r["_fail"][:60]] += 1
             elif r: rows.append(r)
             if i % 25 == 0:
