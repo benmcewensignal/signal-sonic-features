@@ -28,7 +28,11 @@ def search(pages):
                "psytrance drum loop", "hardstyle kick loop", "hardcore drum loop 160", "amapiano log drum loop", "afro house drum loop",
                "afrobeat drum loop", "baile funk loop", "brazilian funk beat", "gqom drum loop", "trap drum loop", "future bass drum loop",
                "downtempo drum loop", "ambient percussion loop", "electro drum loop", "disco drum loop", "nu disco loop", "latin percussion loop",
-               "reggaeton drum loop", "progressive house drum loop", "big room drum loop", "jackin house loop", "funky house drum loop"]
+               "reggaeton drum loop", "progressive house drum loop", "big room drum loop", "jackin house loop", "funky house drum loop",
+               "amapiano loop", "log drum", "afro house percussion loop", "afro tech loop", "shaker loop", "conga loop", "bongo loop",
+               "tribal house loop", "tech house groove", "house percussion loop", "melodic techno drum loop", "organic house percussion",
+               "latin house loop", "baile funk drums", "gqom beat", "nu disco drum loop", "electro breakbeat loop", "idm drum loop",
+               "chillout drum loop", "hi hat loop", "top loop", "groove loop 124"]
     for q in QUERIES:
         for p in range(1, pages + 1):
             for attempt in range(6):   # Freesound limits requests per minute: wait and retry when told to slow down
@@ -71,25 +75,25 @@ def measure(x):
             open(mp3, "wb").write(a)
             subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-i", mp3, "-ar", "44100", "-ac", "2", wav], check=True, timeout=60)
             m = S.measure_stem(wav) or {}; e = S.analyse_stem(wav) or {}; m.update(e)
+            tempo_named = named_tempo(x); tempo_measured = None
+            try:
+                rh = S.rhythm_of_stem(wav) or {}; tempo_measured = rh.get("beats_per_minute")
+            except Exception:
+                pass
+            if not tempo_measured:   # short loops: a beat tracker on the loop itself
+                try:
+                    import librosa
+                    y_, sr_ = librosa.load(wav, sr=22050, mono=True)
+                    bt = librosa.beat.beat_track(y=y_, sr=sr_)[0]
+                    bt = float(bt[0] if hasattr(bt, "__len__") else bt)
+                    while bt < 90: bt *= 2
+                    while bt > 185: bt /= 2
+                    tempo_measured = round(bt, 1) if bt else None
+                except Exception:
+                    pass
         emb = m.get("embedding")
         if not (isinstance(emb, list) and len(emb) == 45): return {"_fail": "no sound profile (" + str(len(emb) if isinstance(emb, list) else type(emb).__name__) + ")"}
         v = [float(z) for z in emb] + [float(m.get(k)) if isinstance(m.get(k), (int, float)) else 0.0 for k in SC]
-        tempo_named = named_tempo(x); tempo_measured = None
-        try:
-            rh = S.rhythm_of_stem(wav) or {}; tempo_measured = rh.get("beats_per_minute")
-        except Exception:
-            pass
-        if not tempo_measured:   # short loops: a beat tracker on the loop itself
-            try:
-                import librosa
-                y_, sr_ = librosa.load(wav, sr=22050, mono=True)
-                bt = librosa.beat.beat_track(y=y_, sr=sr_)[0]
-                bt = float(bt[0] if hasattr(bt, "__len__") else bt)
-                while bt < 90: bt *= 2
-                while bt > 185: bt /= 2
-                tempo_measured = round(bt, 1) if bt else None
-            except Exception:
-                pass
         tempo = tempo_named or tempo_measured
         return {"id": x["id"], "name": x["name"], "user": x["username"], "license": x["license"], "preview": url, "tempo": tempo,
                 "tempo_from": "name" if tempo_named else ("measured" if tempo_measured else None), "duration": x.get("duration"), "v": v,
@@ -108,9 +112,18 @@ def measure_stage(a):
     print(f"shard {a.shard}: {len(found)} loops to measure", flush=True)
     import collections
     rows, t0, why = [], time.time(), collections.Counter()
-    pool = Pool(4)
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    def one(x):   # each loop in its own process, killed after 90 seconds: a stuck loop costs one loop, not the shard
+        try:
+            p = subprocess.run([sys.executable, "tools/measure_one.py"], input=json.dumps(x), capture_output=True, text=True, timeout=90)
+            lines = [l for l in p.stdout.strip().splitlines() if l.startswith("{")]
+            return json.loads(lines[-1]) if lines else {"_fail": "no output: " + p.stderr.strip()[-60:]}
+        except subprocess.TimeoutExpired:
+            return {"_fail": "took over 90 seconds"}
+    ex_ = ThreadPoolExecutor(4); futs = [ex_.submit(one, x) for x in found]
     try:
-        for i, r in enumerate(pool.imap_unordered(measure, found, chunksize=2)):
+        for i, fu in enumerate(as_completed(futs)):
+            r = fu.result()
             if r and "_fail" in r: why[r["_fail"][:60]] += 1
             elif r: rows.append(r)
             if i % 25 == 0:
@@ -118,7 +131,8 @@ def measure_stage(a):
                 json.dump(rows, open(f"loops-{a.shard}.json", "w"))   # saved as it goes
             if time.time() - t0 > a.budget * 60: print("time budget reached; keeping what is measured", flush=True); break
     finally:
-        pool.terminate()
+        for f_ in futs: f_.cancel()
+        ex_.shutdown(wait=False, cancel_futures=True)
     json.dump(rows, open(f"loops-{a.shard}.json", "w")); print(f"shard {a.shard}: {len(rows)} loops measured", flush=True)
     print(f"::notice title=shard {a.shard}::" + json.dumps({"to measure": len(found), "measured": len(rows), "failed": dict(why.most_common(5)), "minutes": round((time.time() - t0) / 60, 1)}))
 
