@@ -12,9 +12,12 @@ def search(pages):
     out, seen = [], set()
     for q in ("drum loop", "drums loop techno", "house drum loop", "breakbeat loop", "percussion loop"):
         for p in range(1, pages + 1):
-            r = requests.get("https://freesound.org/apiv2/search/text/", timeout=40, params={
+            for attempt in range(6):   # Freesound limits requests per minute: wait and retry when told to slow down
+                r = requests.get("https://freesound.org/apiv2/search/text/", timeout=40, params={
                 "query": q, "filter": 'duration:[2.0 TO 30.0] license:("Creative Commons 0" OR "Attribution")',
-                "fields": "id,name,username,license,previews,tags,duration,ac_analysis", "page_size": 150, "page": p, "token": KEY})
+                    "fields": "id,name,username,license,previews,tags,duration,ac_analysis", "page_size": 150, "page": p, "token": KEY})
+                if r.status_code != 429: break
+                import time; time.sleep(15 + 10 * attempt)
             if r.status_code != 200: print("search stopped:", q, p, r.status_code, flush=True); break
             d = r.json()
             for x in d.get("results", []):
