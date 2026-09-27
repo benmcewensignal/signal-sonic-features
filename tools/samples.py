@@ -2,11 +2,22 @@
 separated drum part, matched to each scene's drums.  FS_KEY in the environment.
   python tools/samples.py --pages 14 --out sample-matches.json
 """
-import os, sys, json, argparse, tempfile, subprocess, numpy as np, requests
+import os, re, sys, json, argparse, tempfile, subprocess, numpy as np, requests
 from multiprocessing import Pool
 sys.path.insert(0, ".")
 SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
 KEY = os.environ.get("FS_KEY", "")
+WORDS = {"drum-and-bass": ["drum and bass", "dnb", "jungle", "d&b", "amen"], "140-deep-dubstep-grime": ["dubstep", "grime", "140"], "dubstep": ["dubstep", "brostep"],
+         "uk-garage-speed-garage": ["garage", "2step", "2-step", "ukg"], "breaks-breakbeat-uk-bass": ["break", "breaks"], "techno-peak-time": ["techno"],
+         "hard-techno": ["techno", "hard"], "techno-raw-deep-hypnotic": ["techno", "hypnotic", "minimal"], "minimal-deep-tech": ["minimal", "tech house"],
+         "tech-house": ["tech house", "tech-house"], "house": ["house"], "deep-house": ["deep house", "house"], "jackin-house": ["jackin", "house"],
+         "funky-house": ["funky", "house"], "bass-house": ["bass house", "house"], "progressive-house": ["progressive"], "organic-house": ["organic", "house"],
+         "afro-house": ["afro"], "african": ["afro", "african", "afrobeat"], "amapiano": ["amapiano", "log drum", "piano"], "uk-funky-gqom": ["gqom", "funky"],
+         "brazilian-funk": ["baile", "funk", "brazil"], "latin-electronic": ["latin", "reggaeton", "salsa"], "psy-trance": ["psy", "trance"],
+         "trance-main-floor": ["trance"], "trance-raw-deep-hypnotic": ["trance"], "hard-dance-hardcore": ["hardstyle", "hardcore", "hard dance", "gabber"],
+         "trap-future-bass": ["trap", "future bass"], "downtempo": ["downtempo", "chill", "trip hop", "trip-hop"], "ambient-experimental": ["ambient", "experimental"],
+         "electro": ["electro"], "electronica": ["electronica", "idm"], "nu-disco-disco": ["disco"], "indie-dance": ["indie", "disco"],
+         "melodic-house-techno": ["melodic"], "mainstage": ["edm", "big room", "bigroom"]}
 
 def search(pages):
     out, seen = [], set()
@@ -32,7 +43,7 @@ def search(pages):
             for x in d.get("results", []):
                 tags = set(x.get("tags") or [])
                 if x["id"] in seen or not (tags & {"drums", "drum", "drum-loop", "drumloop", "beat", "breakbeat", "percussion", "loop"}): continue
-                seen.add(x["id"]); out.append(x)
+                seen.add(x["id"]); x["_q"] = q; out.append(x)
             if not d.get("next"): break
     return out
 
@@ -68,9 +79,21 @@ def measure(x):
             rh = S.rhythm_of_stem(wav) or {}; tempo_measured = rh.get("beats_per_minute")
         except Exception:
             pass
+        if not tempo_measured:   # short loops: a beat tracker on the loop itself
+            try:
+                import librosa
+                y_, sr_ = librosa.load(wav, sr=22050, mono=True)
+                bt = librosa.beat.beat_track(y=y_, sr=sr_)[0]
+                bt = float(bt[0] if hasattr(bt, "__len__") else bt)
+                while bt < 90: bt *= 2
+                while bt > 185: bt /= 2
+                tempo_measured = round(bt, 1) if bt else None
+            except Exception:
+                pass
         tempo = tempo_named or tempo_measured
         return {"id": x["id"], "name": x["name"], "user": x["username"], "license": x["license"], "preview": url, "tempo": tempo,
-                "tempo_from": "name" if tempo_named else ("measured" if tempo_measured else None), "duration": x.get("duration"), "v": v}
+                "tempo_from": "name" if tempo_named else ("measured" if tempo_measured else None), "duration": x.get("duration"), "v": v,
+                "words": ((x.get("name") or "") + " " + " ".join(x.get("tags") or [])).lower()[:400]}
     except Exception as ex:
         return {"_fail": type(ex).__name__ + ": " + str(ex)[:80]}
     finally:
@@ -122,14 +145,25 @@ def main():
     T = P.get("tempo", {}); fits = {}
     for s, m in P["scenes"].items():
         sim = Z @ np.array(m); st = T.get(s)
-        ok = np.array([bool(st and r.get("tempo") and min(abs(r["tempo"] * k - st) / st for k in (1, 2, 0.5)) <= 0.06) for r in rows])
+        ok = np.array([bool(st and r.get("tempo") and abs(r["tempo"] - st) / st <= 0.06) for r in rows])   # the same tempo: a half-tempo loop is a different groove
         fits[s] = int(ok.sum())
-        order = [i for i in np.argsort(-sim) if ok[i]][:25]
-        out["scenes"][s] = [{k: rows[i][k] for k in ("id", "name", "user", "license", "preview", "tempo", "duration")} | {"sim": round(float(sim[i]), 3)} for i in order]
+        kw = WORDS.get(s, [])
+        named = np.array([any(k in (r.get("words") or "") for k in kw) for r in rows])
+        score = sim + 0.25 * named   # sound first; a loop its creator labelled as this kind of music gets a disclosed nudge
+        order, seen_ = [], set()
+        for i in np.argsort(-score):
+            if not ok[i]: continue
+            key = (rows[i]["user"], re.sub(r"[^a-z]", "", (rows[i]["name"] or "").lower())[:10])
+            if key in seen_ or rows[i]["user"] in {rows[j]["user"] for j in order[-3:]}: continue   # one per pack, varied creators
+            seen_.add(key); order.append(i)
+            if len(order) >= 25: break
+        out["scenes"][s] = [{k: rows[i][k] for k in ("id", "name", "user", "license", "preview", "tempo", "duration")} | {"sim": round(float(sim[i]), 3), "labelled": bool(named[i])} for i in order]
     json.dump(out, open(a.out, "w"), separators=(",", ":"))
     for s in ("drum-and-bass", "techno-peak-time", "deep-house", "amapiano"):
         if s in out["scenes"]: print(f"::notice title=matches {s}::" + "; ".join(f"{r['name'][:40]} ({round(r['tempo']) if r['tempo'] else '?'} BPM)" for r in out["scenes"][s][:5]))
     print("::notice title=loops at each scene's tempo::" + json.dumps(fits))
+    lab = {s: sum(1 for x in v[:5] if x.get("labelled")) for s, v in out["scenes"].items()}
+    print("::notice title=top five labelled as the scene's music::" + json.dumps(lab))
     thin = sorted([s for s, n in fits.items() if n < 6]); print("::notice title=scenes with fewer than six loops at their tempo::" + json.dumps(thin))
     src = {}
     for r in rows: src[r.get("tempo_from")] = src.get(r.get("tempo_from"), 0) + 1
