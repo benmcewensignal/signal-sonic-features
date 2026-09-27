@@ -50,7 +50,8 @@ def measure_stage(a):
     """One shard: every loop whose Freesound id falls to this shard, measured until the time budget runs out."""
     import time, glob
     if not KEY: sys.exit("no Freesound key")
-    found = [x for x in search(a.pages) if x["id"] % a.of == a.shard][:a.max]
+    allf = json.load(open("found.json")) if os.path.exists("found.json") else search(a.pages)
+    found = [x for x in allf if x["id"] % a.of == a.shard][:a.max]
     print(f"shard {a.shard}: {len(found)} loops to measure", flush=True)
     import collections
     rows, t0, why = [], time.time(), collections.Counter()
@@ -74,8 +75,8 @@ def main():
     ap.add_argument("--stage", default="all"); ap.add_argument("--shard", type=int, default=0); ap.add_argument("--of", type=int, default=1); ap.add_argument("--budget", type=float, default=80)
     a = ap.parse_args()
     if a.stage == "measure": return measure_stage(a)
-    if a.stage == "search":
-        f = search(a.pages); print("::notice title=search::" + json.dumps({"found": len(f)})); return
+    if a.stage == "search":   # searched once, and the list handed to every shard, so ten runners do not all hit Freesound's limit
+        f = search(a.pages); json.dump(f, open("found.json", "w")); print("::notice title=search::" + json.dumps({"found": len(f)})); return
     if a.stage == "match":
         import glob
         rows = [r for f in sorted(glob.glob("loops-*.json")) for r in json.load(open(f))]

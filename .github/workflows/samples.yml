@@ -9,7 +9,20 @@ on:
       budget: { description: "minutes each shard may measure for", default: "75" }
 permissions: { contents: write }
 jobs:
+  search:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -q numpy requests
+      - name: search Freesound once
+        env: { FS_KEY: "${{ secrets.FREESOUND_KEY }}" }
+        run: python tools/samples.py --stage search --pages ${{ inputs.pages }}
+      - uses: actions/upload-artifact@v4
+        with: { name: found, path: found.json }
   measure:
+    needs: search
     runs-on: ubuntu-latest
     timeout-minutes: 110
     strategy:
@@ -21,6 +34,8 @@ jobs:
         with: { python-version: "3.11" }
       - run: sudo apt-get install -y -q ffmpeg >/dev/null
       - run: pip install -q -r requirements.txt 2>/dev/null || pip install -q numpy librosa soundfile requests scipy
+      - uses: actions/download-artifact@v4
+        with: { name: found }
       - name: measure this shard's loops
         env: { FS_KEY: "${{ secrets.FREESOUND_KEY }}" }
         run: python tools/samples.py --stage measure --shard ${{ matrix.shard }} --of 10 --pages ${{ inputs.pages }} --max ${{ inputs.max }} --budget ${{ inputs.budget }}
