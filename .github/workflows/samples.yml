@@ -1,0 +1,24 @@
+name: samples
+# Sample matching: openly licensed loops from Freesound, measured as separated parts and matched to scenes.
+on:
+  workflow_dispatch:
+    inputs:
+      fskey: { description: "Freesound API key (masked in the logs)", default: "" }
+      pages: { description: "result pages per search", default: "14" }
+jobs:
+  match:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: mask the key
+        run: echo "::add-mask::${{ inputs.fskey }}"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: sudo apt-get install -y -q ffmpeg >/dev/null
+      - run: pip install -q -r requirements.txt 2>/dev/null || pip install -q numpy librosa soundfile requests scipy
+      - name: collect, measure and match
+        env: { FS_KEY: "${{ secrets.FREESOUND_KEY || inputs.fskey }}" }
+        run: python tools/samples.py --pages ${{ inputs.pages }} --out sample-matches.json
+      - uses: actions/upload-artifact@v4
+        with: { name: sample-matches, path: sample-matches.json }
