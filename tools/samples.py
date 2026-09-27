@@ -44,10 +44,15 @@ def measure(x):
         return None
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--pages", type=int, default=14); ap.add_argument("--out", default="sample-matches.json"); a = ap.parse_args()
+    ap = argparse.ArgumentParser(); ap.add_argument("--pages", type=int, default=14); ap.add_argument("--max", type=int, default=2000); ap.add_argument("--out", default="sample-matches.json"); a = ap.parse_args()
     if not KEY: sys.exit("no Freesound key")
     found = search(a.pages); print(f"loops found: {len(found)}", flush=True)
-    with Pool(4) as pool: rows = [r for r in pool.map(measure, found) if r]
+    found = found[:a.max]   # a cap, so a run cannot outlast its time limit and lose everything
+    rows = []
+    with Pool(4) as pool:
+        for i, r in enumerate(pool.imap_unordered(measure, found, chunksize=4)):
+            if r: rows.append(r)
+            if i % 200 == 0: print(f"measured {i} of {len(found)}", flush=True)
     print(f"loops measured: {len(rows)}", flush=True)
     P = json.load(open("data/drum-profiles.json")); keep = P["keep"]; mu, sd = np.array(P["mu"]), np.array(P["sd"])
     V = np.array([np.array(r["v"])[keep] for r in rows]); Z = (V - mu) / sd; Z /= (np.linalg.norm(Z, axis=1, keepdims=True) + 1e-9)
