@@ -145,3 +145,25 @@ def part_calls(stems):
         z = (v - M["mu"]) / M["sd"]; pr = M["model"].predict_proba(z[None, :])[0]; order = np.argsort(-pr)
         out[p] = {"scenes": [[str(M["classes"][i]), round(float(pr[i]), 3)] for i in order[:3]], "alone_right": M["held_out_accuracy"]}
     return out or None
+
+
+_AP = None
+
+
+def part_sounds_like(stems, k=3):
+    """For each separated part, the artists whose records' same part sounds most like it."""
+    global _AP
+    import pickle
+    if _AP is None:
+        fp = os.path.join(os.path.dirname(__file__), "artist_parts.pkl")
+        if not os.path.exists(fp): return None
+        with open(fp, "rb") as f: _AP = pickle.load(f)
+    SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
+    out = {}
+    for p in ("drums", "bass", "other", "vocals"):
+        s = (stems or {}).get(p) or {}; e = s.get("embedding"); P = _AP["parts"].get(p)
+        if not P or not (isinstance(e, list) and len(e) == 45): continue
+        v = np.array([float(x) for x in e] + [float(s.get(c)) if isinstance(s.get(c), (int, float)) else 0.0 for c in SC], float)
+        z = (v - P["mu"]) / P["sd"]; z = z / (np.linalg.norm(z) + 1e-9); sim = P["M"].astype(np.float32) @ z.astype(np.float32)
+        top = np.argsort(-sim)[:k]; out[p] = [[_AP["artists"][i], round(float(sim[i]), 3)] for i in top]
+    return out or None

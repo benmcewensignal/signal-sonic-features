@@ -45,6 +45,9 @@ def read(wav_path):
                 from worker.scene import part_calls
                 pc = part_calls(rec)
                 if pc: out["part_calls"] = pc
+                from worker.scene import part_sounds_like
+                pl = part_sounds_like(rec)
+                if pl: out["part_like"] = pl
             except Exception as e_:
                 out["part_calls_error"] = type(e_).__name__
             try:
