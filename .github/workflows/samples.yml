@@ -7,6 +7,7 @@ on:
       pages: { description: "result pages per search", default: "14" }
       max: { description: "most loops per shard", default: "400" }
       budget: { description: "minutes each shard may measure for", default: "75" }
+permissions: { contents: write }
 jobs:
   measure:
     runs-on: ubuntu-latest
@@ -39,5 +40,11 @@ jobs:
         with: { pattern: "loops-*", merge-multiple: true }
       - name: match loops to scenes
         run: python tools/samples.py --stage match --out sample-matches.json
+      - name: keep the matches in the repository, where they can be read
+        run: |
+          mkdir -p data && cp sample-matches.json data/sample-matches.json
+          git config user.name sonic-bot; git config user.email sonic@earlysignal.live
+          git add data/sample-matches.json && git commit -qm "sample matches: drums" || exit 0
+          for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
       - uses: actions/upload-artifact@v4
         with: { name: sample-matches, path: sample-matches.json }
