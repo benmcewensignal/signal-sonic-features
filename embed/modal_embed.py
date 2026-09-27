@@ -264,6 +264,40 @@ def save_condition_tiers(tiers, files):
     vol.commit(); return done
 
 
+sep_image = image.pip_install("demucs==4.0.1")
+
+
+@app.function(image=sep_image, gpu="A10G", volumes={"/data": vol}, timeout=3600, retries=1, max_containers=8)
+def partextract(batch):
+    """Separate each record into drums, bass, melody and voice, and save eight 3-second log-mel patches per part
+    (4 x 8 x 96 x 188, float16), so the learned model can hear the parts as well as the mix."""
+    import os, io, tempfile, numpy as np, requests, librosa, torch, collections
+    from demucs.pretrained import get_model
+    from demucs.apply import apply_model
+    vol.reload(); os.makedirs("/data/partpatches", exist_ok=True); why = collections.Counter()
+    model = get_model("htdemucs").cuda().eval(); ORDER = ["drums", "bass", "other", "vocals"]; idx = [model.sources.index(k) for k in ORDER]
+    for tid, url in batch:
+        out = f"/data/partpatches/{tid.replace(':', '_')}.npy"
+        if os.path.exists(out): why["already"] += 1; continue
+        try:
+            r = requests.get(url, timeout=40, headers={"User-Agent": "signal-sonic"})
+            if r.status_code != 200: why[f"http {r.status_code}"] += 1; continue
+            with tempfile.NamedTemporaryFile(suffix=".mp3") as f:
+                f.write(r.content); f.flush(); y, sr = librosa.load(f.name, sr=model.samplerate, mono=False, duration=120)
+            if y.ndim == 1: y = np.stack([y, y])
+            with torch.no_grad(): S = apply_model(model, torch.from_numpy(y[None]).float().cuda(), split=True, overlap=0.1)[0].cpu().numpy()
+            P = []
+            for k in idx:
+                m = librosa.resample(S[k].mean(0), orig_sr=model.samplerate, target_sr=16000)
+                M = np.log1p(1000 * librosa.feature.melspectrogram(y=m, sr=16000, n_fft=512, hop_length=256, n_mels=96)).astype(np.float16)
+                if M.shape[1] < W: raise ValueError("too short")
+                P.append(np.stack([M[:, s_:s_ + W] for s_ in np.linspace(0, M.shape[1] - W, 8).astype(int)]))
+            np.save(out, np.stack(P)); why["new"] += 1
+        except Exception as e:
+            why[type(e).__name__] += 1
+    vol.commit(); return dict(why)
+
+
 @app.local_entrypoint()
 def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0, tag: str = "", ckpt: str = ""):
     man = json.load(open(manifest_path))
@@ -296,6 +330,11 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
             res[k] = round(sum(r["p"][k][0] == r["y"] for r in ok) / max(1, len(ok)), 3)
             if k != "clean": res[k + " same call"] = round(sum(r["p"][k][0] == r["p"]["clean"][0] for r in ok) / max(1, len(ok)), 3)
         print("::notice title=robustness::" + json.dumps({"model": model, **res}))
+    if stage == "partextract":
+        import collections; tot = collections.Counter(); todo = [(m["id"], m["url"]) for m in man]
+        if epochs and epochs < len(todo): todo = todo[:epochs]   # epochs doubles as a cap for a trial run
+        for w_ in partextract.map([todo[i:i + 20] for i in range(0, len(todo), 20)]): tot.update(w_)
+        print("::notice title=part extraction::" + json.dumps({"of": len(todo), **dict(tot)}))
     if stage == "promote":
         print("::notice title=promoted::" + json.dumps(promote.remote(tag)))
     if stage == "confusion":

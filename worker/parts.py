@@ -13,10 +13,28 @@ def voice_type(v):
     return "air" if fl > 0.015 else "chops" if on > 5 and sh < 0.07 else "singing" if sh > 0.084 and on < 3.8 else "voice"
 
 
-def read(wav_path):
+def _part_audio(st):
+    """Each separated part as a small MP3 (64 kbps mono), base64, for the listener to hear."""
+    import subprocess, base64, os
+    out = {}
+    for k, path in st.items():
+        mp3 = path + ".mp3"
+        try:
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-i", path, "-ac", "1", "-b:a", "64k", mp3], check=True, timeout=60)
+            with open(mp3, "rb") as f: out[k] = base64.b64encode(f.read()).decode()
+        except Exception:
+            pass
+        finally:
+            try: os.remove(mp3)
+            except Exception: pass
+    return out
+
+
+def read(wav_path, with_audio=False):
     work = tempfile.mkdtemp()
     try:
         st = S.separate(wav_path, work)
+        part_audio = _part_audio(st) if with_audio else None
         rec = {k: S.measure_stem(v) for k, v in st.items()}
         for k, v in sorted(st.items(), key=lambda kv: 0 if kv[0] == "drums" else 1):
             emb = S.analyse_stem(v)
@@ -45,6 +63,9 @@ def read(wav_path):
                 from worker.scene import part_calls
                 pc = part_calls(rec)
                 if pc: out["part_calls"] = pc
+                from worker.scene import part_sounds_like
+                pl = part_sounds_like(rec)
+                if pl: out["part_like"] = pl
             except Exception as e_:
                 out["part_calls_error"] = type(e_).__name__
             try:
@@ -58,6 +79,7 @@ def read(wav_path):
             if sl: out["sounds_like"] = sl
         except Exception as e:
             out["scene_error"] = type(e).__name__
+        if part_audio: out["part_audio"] = part_audio
         return out
     finally:
         shutil.rmtree(work, ignore_errors=True)

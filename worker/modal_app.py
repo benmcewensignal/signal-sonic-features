@@ -19,12 +19,12 @@ secret = modal.Secret.from_name("sonic-parts")          # holds PARTS_KEY
 
 
 @app.function(image=image, cpu=4.0, memory=6144, timeout=420, volumes={"/embed": modal.Volume.from_name("sonic-embed", create_if_missing=True)})
-def read_parts(wav: bytes) -> dict:
+def read_parts(wav: bytes, with_audio: bool = False) -> dict:
     import tempfile
     from worker.parts import read
     with tempfile.NamedTemporaryFile(suffix=".wav") as f:
         f.write(wav); f.flush()
-        return read(f.name)
+        return read(f.name, with_audio)
 
 
 
@@ -43,7 +43,9 @@ async def submit(request: Request):
     if not _ok(request): return JSONResponse({"error": "unauthorised"}, 401)
     body = await request.body()
     if not body or len(body) > 6_000_000: return JSONResponse({"error": "clip missing or too large"}, 400)
-    return {"id": read_parts.spawn(body).object_id}
+    # the separated parts come back as audio only when the listener has said the recording is theirs
+    with_audio = request.query_params.get("parts_audio") == "1"
+    return {"id": read_parts.spawn(body, with_audio).object_id}
 
 
 @app.function(image=image, secrets=[secret])
