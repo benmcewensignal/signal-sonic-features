@@ -5,7 +5,6 @@ separated drum part, matched to each scene's drums.  FS_KEY in the environment.
 import os, sys, json, argparse, tempfile, subprocess, numpy as np, requests
 from multiprocessing import Pool
 sys.path.insert(0, ".")
-from features import stems as S
 SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
 KEY = os.environ.get("FS_KEY", "")
 
@@ -13,10 +12,13 @@ def search(pages):
     out, seen = [], set()
     for q in ("drum loop", "drums loop techno", "house drum loop", "breakbeat loop", "percussion loop"):
         for p in range(1, pages + 1):
-            r = requests.get("https://freesound.org/apiv2/search/text/", timeout=40, params={
+            for attempt in range(6):   # Freesound limits requests per minute: wait and retry when told to slow down
+                r = requests.get("https://freesound.org/apiv2/search/text/", timeout=40, params={
                 "query": q, "filter": 'duration:[2.0 TO 30.0] license:("Creative Commons 0" OR "Attribution")',
-                "fields": "id,name,username,license,previews,tags,duration,ac_analysis", "page_size": 150, "page": p, "token": KEY})
-            if r.status_code != 200: print("search stopped:", q, p, r.status_code, flush=True); break
+                    "fields": "id,name,username,license,previews,tags,duration,ac_analysis", "page_size": 150, "page": p, "token": KEY})
+                if r.status_code != 429: break
+                import time; time.sleep(15 + 10 * attempt)
+            if r.status_code != 200: print(f"::notice title=search stopped::{q} page {p}: HTTP {r.status_code}", flush=True); break
             d = r.json()
             for x in d.get("results", []):
                 tags = set(x.get("tags") or [])
@@ -27,8 +29,9 @@ def search(pages):
 
 def measure(x):
     try:
+        from features import stems as S   # loaded only where loops are measured
         url = (x.get("previews") or {}).get("preview-hq-mp3")
-        if not url: return None
+        if not url: return {"_fail": "no preview"}
         a = requests.get(url, timeout=40).content
         with tempfile.TemporaryDirectory() as t:
             mp3, wav = os.path.join(t, "a.mp3"), os.path.join(t, "a.wav")
@@ -36,23 +39,52 @@ def measure(x):
             subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-i", mp3, "-ar", "44100", "-ac", "2", wav], check=True, timeout=60)
             m = S.measure_stem(wav) or {}; e = S.analyse_stem(wav) or {}; m.update(e)
         emb = m.get("embedding")
-        if not (isinstance(emb, list) and len(emb) == 45): return None
+        if not (isinstance(emb, list) and len(emb) == 45): return {"_fail": "no sound profile (" + str(len(emb) if isinstance(emb, list) else type(emb).__name__) + ")"}
         v = [float(z) for z in emb] + [float(m.get(k)) if isinstance(m.get(k), (int, float)) else 0.0 for k in SC]
         tempo = ((x.get("ac_analysis") or {}).get("ac_tempo"))
         return {"id": x["id"], "name": x["name"], "user": x["username"], "license": x["license"], "preview": url, "tempo": tempo, "duration": x.get("duration"), "v": v}
     except Exception as ex:
-        return None
+        return {"_fail": type(ex).__name__ + ": " + str(ex)[:80]}
+
+def measure_stage(a):
+    """One shard: every loop whose Freesound id falls to this shard, measured until the time budget runs out."""
+    import time, glob
+    if not KEY: sys.exit("no Freesound key")
+    allf = json.load(open("found.json")) if os.path.exists("found.json") else search(a.pages)
+    found = [x for x in allf if x["id"] % a.of == a.shard][:a.max]
+    print(f"shard {a.shard}: {len(found)} loops to measure", flush=True)
+    import collections
+    rows, t0, why = [], time.time(), collections.Counter()
+    pool = Pool(4)
+    try:
+        for i, r in enumerate(pool.imap_unordered(measure, found, chunksize=2)):
+            if r and "_fail" in r: why[r["_fail"][:60]] += 1
+            elif r: rows.append(r)
+            if i % 25 == 0:
+                print(f"measured {i} of {len(found)} in {int(time.time() - t0)} s", flush=True)
+                json.dump(rows, open(f"loops-{a.shard}.json", "w"))   # saved as it goes
+            if time.time() - t0 > a.budget * 60: print("time budget reached; keeping what is measured", flush=True); break
+    finally:
+        pool.terminate()
+    json.dump(rows, open(f"loops-{a.shard}.json", "w")); print(f"shard {a.shard}: {len(rows)} loops measured", flush=True)
+    print(f"::notice title=shard {a.shard}::" + json.dumps({"to measure": len(found), "measured": len(rows), "failed": dict(why.most_common(5)), "minutes": round((time.time() - t0) / 60, 1)}))
+
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--pages", type=int, default=14); ap.add_argument("--max", type=int, default=2000); ap.add_argument("--out", default="sample-matches.json"); a = ap.parse_args()
-    if not KEY: sys.exit("no Freesound key")
-    found = search(a.pages); print(f"loops found: {len(found)}", flush=True)
-    found = found[:a.max]   # a cap, so a run cannot outlast its time limit and lose everything
-    rows = []
-    with Pool(4) as pool:
-        for i, r in enumerate(pool.imap_unordered(measure, found, chunksize=4)):
-            if r: rows.append(r)
-            if i % 200 == 0: print(f"measured {i} of {len(found)}", flush=True)
+    ap = argparse.ArgumentParser(); ap.add_argument("--pages", type=int, default=14); ap.add_argument("--max", type=int, default=2000); ap.add_argument("--out", default="sample-matches.json")
+    ap.add_argument("--stage", default="all"); ap.add_argument("--shard", type=int, default=0); ap.add_argument("--of", type=int, default=1); ap.add_argument("--budget", type=float, default=80)
+    a = ap.parse_args()
+    if a.stage == "measure": return measure_stage(a)
+    if a.stage == "search":   # searched once, and the list handed to every shard, so ten runners do not all hit Freesound's limit
+        f = search(a.pages); json.dump(f, open("found.json", "w")); print("::notice title=search::" + json.dumps({"found": len(f)})); return
+    if a.stage == "match":
+        import glob
+        rows = [r for f in sorted(glob.glob("loops-*.json")) for r in json.load(open(f))]
+        print(f"loops measured across shards: {len(rows)}", flush=True)
+    else:
+        if not KEY: sys.exit("no Freesound key")
+        found = search(a.pages)[:a.max]; print(f"loops found: {len(found)}", flush=True)
+        with Pool(4) as pool: rows = [r for r in pool.map(measure, found) if r and "_fail" not in r]
     print(f"loops measured: {len(rows)}", flush=True)
     P = json.load(open("data/drum-profiles.json")); keep = P["keep"]; mu, sd = np.array(P["mu"]), np.array(P["sd"])
     V = np.array([np.array(r["v"])[keep] for r in rows]); Z = (V - mu) / sd; Z /= (np.linalg.norm(Z, axis=1, keepdims=True) + 1e-9)
