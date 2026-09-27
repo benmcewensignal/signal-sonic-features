@@ -28,7 +28,11 @@ def search(pages):
                "psytrance drum loop", "hardstyle kick loop", "hardcore drum loop 160", "amapiano log drum loop", "afro house drum loop",
                "afrobeat drum loop", "baile funk loop", "brazilian funk beat", "gqom drum loop", "trap drum loop", "future bass drum loop",
                "downtempo drum loop", "ambient percussion loop", "electro drum loop", "disco drum loop", "nu disco loop", "latin percussion loop",
-               "reggaeton drum loop", "progressive house drum loop", "big room drum loop", "jackin house loop", "funky house drum loop"]
+               "reggaeton drum loop", "progressive house drum loop", "big room drum loop", "jackin house loop", "funky house drum loop",
+               "amapiano loop", "log drum", "afro house percussion loop", "afro tech loop", "shaker loop", "conga loop", "bongo loop",
+               "tribal house loop", "tech house groove", "house percussion loop", "melodic techno drum loop", "organic house percussion",
+               "latin house loop", "baile funk drums", "gqom beat", "nu disco drum loop", "electro breakbeat loop", "idm drum loop",
+               "chillout drum loop", "hi hat loop", "top loop", "groove loop 124"]
     for q in QUERIES:
         for p in range(1, pages + 1):
             for attempt in range(6):   # Freesound limits requests per minute: wait and retry when told to slow down
@@ -108,14 +112,18 @@ def measure_stage(a):
     print(f"shard {a.shard}: {len(found)} loops to measure", flush=True)
     import collections
     rows, t0, why = [], time.time(), collections.Counter()
-    pool = Pool(4)
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    def one(x):   # each loop in its own process, killed after 90 seconds: a stuck loop costs one loop, not the shard
+        try:
+            p = subprocess.run([sys.executable, "tools/measure_one.py"], input=json.dumps(x), capture_output=True, text=True, timeout=90)
+            lines = [l for l in p.stdout.strip().splitlines() if l.startswith("{")]
+            return json.loads(lines[-1]) if lines else {"_fail": "no output: " + p.stderr.strip()[-60:]}
+        except subprocess.TimeoutExpired:
+            return {"_fail": "took over 90 seconds"}
+    ex_ = ThreadPoolExecutor(4); futs = [ex_.submit(one, x) for x in found]
     try:
-        jobs = [pool.apply_async(measure, (x,)) for x in found]
-        for i, jb in enumerate(jobs):
-            try:
-                r = jb.get(timeout=120)   # a worker stuck inside a decoder is abandoned, not waited on
-            except Exception as ex:
-                why[type(ex).__name__] += 1; r = None
+        for i, fu in enumerate(as_completed(futs)):
+            r = fu.result()
             if r and "_fail" in r: why[r["_fail"][:60]] += 1
             elif r: rows.append(r)
             if i % 25 == 0:
@@ -123,7 +131,8 @@ def measure_stage(a):
                 json.dump(rows, open(f"loops-{a.shard}.json", "w"))   # saved as it goes
             if time.time() - t0 > a.budget * 60: print("time budget reached; keeping what is measured", flush=True); break
     finally:
-        pool.terminate()
+        for f_ in futs: f_.cancel()
+        ex_.shutdown(wait=False, cancel_futures=True)
     json.dump(rows, open(f"loops-{a.shard}.json", "w")); print(f"shard {a.shard}: {len(rows)} loops measured", flush=True)
     print(f"::notice title=shard {a.shard}::" + json.dumps({"to measure": len(found), "measured": len(rows), "failed": dict(why.most_common(5)), "minutes": round((time.time() - t0) / 60, 1)}))
 
