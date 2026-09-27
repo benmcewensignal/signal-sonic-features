@@ -117,9 +117,14 @@ def measure_stage(a):
         try:
             p = subprocess.run([sys.executable, "tools/measure_one.py"], input=json.dumps(x), capture_output=True, text=True, timeout=90)
             lines = [l for l in p.stdout.strip().splitlines() if l.startswith("{")]
-            return json.loads(lines[-1]) if lines else {"_fail": "no output: " + p.stderr.strip()[-60:]}
+            return json.loads(lines[-1]) if lines else {"_fail": f"crashed (code {p.returncode}): " + p.stderr.strip()[-50:]}
         except subprocess.TimeoutExpired:
             return {"_fail": "took over 90 seconds"}
+    # compile the audio library's code once, before four processes start at once: simultaneous first runs can corrupt its
+    # shared compiled-code cache, after which every loop's process on that runner crashes without a word
+    subprocess.run([sys.executable, "-c", "import numpy as np, librosa; y=np.random.randn(22050).astype('float32'); "
+                    "oe=librosa.onset.onset_strength(y=y, sr=22050); f=getattr(librosa.feature,'rhythm',None); (f.tempo if f else librosa.beat.tempo)(onset_envelope=oe, sr=22050); "
+                    "librosa.feature.melspectrogram(y=y, sr=22050); import sys; sys.path.insert(0,'.'); from features import stems"], timeout=600)
     ex_ = ThreadPoolExecutor(4); futs = [ex_.submit(one, x) for x in found]
     try:
         for i, fu in enumerate(as_completed(futs)):
