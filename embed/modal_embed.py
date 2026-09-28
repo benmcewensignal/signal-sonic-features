@@ -535,6 +535,7 @@ def fairtest(manifest, ckpts, cutoff_ts: float):
 
 
 dsep_image = image.pip_install("demucs==4.0.1", "audio-separator[gpu]", "soundfile")
+st_image = image.pip_install("demucs==4.0.1", "soundfile", "scipy").add_local_python_source("features")   # the pipeline's own part measures
 TEMPO_MEDIANS = {"uk-garage-speed-garage": 134.7, "uk-funky-gqom": 139.9, "afro-house": 123.0, "amapiano": 112.8, "140-deep-dubstep-grime": 139.9, "breaks-breakbeat-uk-bass": 135.3, "tech-house": 127.0, "techno-peak-time": 135.3, "techno-raw-deep-hypnotic": 136.7, "house": 126.8, "deep-house": 123.1, "melodic-house-techno": 125.3, "drum-and-bass": 173.4, "hard-techno": 154.4, "bass-house": 128.3, "trance-main-floor": 138.2, "progressive-house": 123.7, "psy-trance": 143.9, "indie-dance": 125.2, "organic-house": 122.3, "african": 136.5, "ambient-experimental": 144.8, "brazilian-funk": 129.7, "downtempo": 135.6, "dubstep": 142.6, "electro": 129.8, "electronica": 135.0, "funky-house": 126.0, "hard-dance-hardcore": 154.2, "jackin-house": 125.2, "latin-electronic": 129.8, "mainstage": 128.4, "minimal-deep-tech": 126.8, "nu-disco-disco": 123.1, "trance-raw-deep-hypnotic": 132.8, "trap-future-bass": 143.9}
 
 
@@ -652,6 +653,62 @@ def drumcheck(items, tempos):
     return _json.loads(_json.dumps(rows, default=float))   # plain numbers: the launcher has no numpy to unpack numpy's own types
 
 
+@app.function(image=st_image, gpu="A10G", timeout=3600, max_containers=6)
+def selftest_batch(batch):
+    """Each record separated; each whole part measured as the pipeline measures it; an 8-second loop cut from each part
+    and measured as a loop. Returns both, so the matcher can be asked whether it finds a part's own loop."""
+    import os, tempfile, numpy as np, requests, librosa, torch, soundfile as sf
+    from demucs.pretrained import get_model
+    from demucs.apply import apply_model
+    from features import stems as S
+    SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
+    dm = get_model("htdemucs").cuda().eval(); names = dm.sources; rng = np.random.default_rng(0); out = []
+    def vec(path):
+        m = S.measure_stem(path) or {}; m.update(S.analyse_stem(path) or {}); e = m.get("embedding")
+        if not (isinstance(e, list) and len(e) == 45): return None
+        return [float(z) for z in e] + [float(m.get(k)) if isinstance(m.get(k), (int, float)) else 0.0 for k in SC]
+    for tid, url in batch:
+        try:
+            work = tempfile.mkdtemp(); mp3 = os.path.join(work, "a.mp3"); open(mp3, "wb").write(requests.get(url, timeout=40).content)
+            y, sr = librosa.load(mp3, sr=dm.samplerate, mono=False, duration=120)
+            if y.ndim == 1: y = np.stack([y, y])
+            with torch.no_grad(): P = apply_model(dm, torch.from_numpy(y[None]).float().cuda(), split=True)[0].cpu().numpy()
+            rec = {"id": tid, "parts": {}}
+            for fam, src in (("drums", "drums"), ("bass", "bass"), ("melody", "other"), ("vocals", "vocals")):
+                a_ = P[names.index(src)]; full = os.path.join(work, fam + ".wav"); sf.write(full, a_.T, dm.samplerate)
+                n = a_.shape[1]; L = 8 * dm.samplerate
+                if n < 3 * L or float(np.sqrt(np.mean(a_ ** 2))) < 1e-3: continue   # a silent part has nothing to find
+                st_ = int(rng.integers(L, n - 2 * L)); cut = os.path.join(work, fam + "_loop.wav"); sf.write(cut, a_[:, st_:st_ + L].T, dm.samplerate)
+                vf, vl = vec(full), vec(cut)
+                if vf and vl: rec["parts"][fam] = {"full": vf, "loop": vl}
+            if rec["parts"]: out.append(rec)
+        except Exception as e:
+            print("skip", tid, type(e).__name__)
+    import json as _j
+    return _j.loads(_j.dumps(out))
+
+
+@app.function(image=image, timeout=1800, cpu=4, memory=8192)
+def selftest_score(recs, library, stats):
+    """Hide every cut loop in the library, then ask, for each record part, where its own loop ranks."""
+    import numpy as np, json as _j
+    keep = stats["keep"]; res = {}
+    for fam, st in stats["families"].items():
+        mu, sd = np.array(st["mu"]), np.array(st["sd"])
+        z = lambda v: (lambda a: a / (np.linalg.norm(a) + 1e-9))((np.array(v)[keep] - mu) / sd)
+        lib = [z(v) for v in library.get(fam, [])]
+        R = [r for r in recs if fam in r["parts"]]
+        if len(R) < 20: continue
+        hidden = [z(r["parts"][fam]["loop"]) for r in R]; C = np.array(lib + hidden); off = len(lib)
+        ranks = []
+        for i, r in enumerate(R):
+            q = z(r["parts"][fam]["full"]); sim = C @ q; own = sim[off + i]; ranks.append(int((sim > own).sum()))
+        ranks = np.array(ranks); n = len(C)
+        res[fam] = {"records": len(R), "library": n, "own loop first": round(float(np.mean(ranks < 1)), 3), "top 3": round(float(np.mean(ranks < 3)), 3),
+                    "top 10": round(float(np.mean(ranks < 10)), 3), "median rank": int(np.median(ranks)) + 1, "chance of top 10": round(10 / n, 4)}
+    return _j.loads(_j.dumps(res))
+
+
 @app.local_entrypoint()
 def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0, tag: str = "", ckpt: str = ""):
     man = json.load(open(manifest_path))
@@ -758,6 +815,15 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         print("::notice title=drum pilot::" + json.dumps({"records": len(rows), "separated": len(ok), "errors": dict(errs.most_common(3)),
               "seconds per record": med([r["secs"] for r in ok]), "median energy shares": shares}))
         print("::notice title=drum pilot by scene::" + json.dumps(by))
+    if stage == "selftest":
+        import random
+        pool = [m for m in man if m.get("scene") and m.get("url")]; random.Random(9).shuffle(pool); pool = pool[:(epochs or 150)]
+        recs = [r for res in selftest_batch.map([[(m["id"], m["url"]) for m in pool[i:i + 10]] for i in range(0, len(pool), 10)]) for r in res]
+        L = json.load(open("data/loops-measured.json")); lib = {}
+        for l in L:
+            if isinstance(l.get("v"), list) and len(l["v"]) == 53: lib.setdefault(l.get("cat") or "drums", []).append(l["v"])
+        res = selftest_score.remote(recs, lib, json.load(open("data/part-stats.json")))
+        print("::notice title=matcher self-test::" + json.dumps(res))
     if stage == "promote":
         print("::notice title=promoted::" + json.dumps(promote.remote(tag)))
     if stage == "confusion":
