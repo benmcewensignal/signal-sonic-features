@@ -439,7 +439,8 @@ def drumcheck(items, tempos):
             rows.append(rec)
         except Exception:
             pass
-    return rows
+    import json as _json
+    return _json.loads(_json.dumps(rows, default=float))   # plain numbers: the launcher has no numpy to unpack numpy's own types
 
 
 @app.local_entrypoint()
