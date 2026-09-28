@@ -207,6 +207,107 @@ def robust_batch(batch, model: str = "embed_live.pt"):
     return out
 
 
+@app.function(image=image, volumes={"/data": vol}, timeout=3600, cpu=4, max_containers=24)
+def pos_batch(batch, model: str = "embed_live.pt"):
+    """The live model's internal description of each record, from clean audio and as a phone would hear it."""
+    import os, tempfile, numpy as np, librosa, requests, torch
+    vol.reload(); C = torch.load(f"/data/{model}", map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval()
+    rng = np.random.default_rng(0); out = []
+    def patches(y, a=0.0, b=1.0):
+        M = np.log1p(1000 * librosa.feature.melspectrogram(y=y, sr=16000, n_fft=512, hop_length=256, n_mels=96)).astype(np.float32)
+        lo, hi = int(a * M.shape[1]), int(b * M.shape[1]); M = M[:, lo:hi]
+        if M.shape[1] < W: return None
+        return np.stack([M[:, s_:s_ + W] for s_ in np.linspace(0, M.shape[1] - W, 8).astype(int)])
+    def emb(x):
+        if x is None: return None
+        with torch.no_grad(): e = net.embed((torch.from_numpy(x) - C["mu"]) / C["sd"]).mean(0).numpy()
+        return [round(float(v), 4) for v in e]
+    def phone(y):
+        F = np.fft.rfft(y); f = np.fft.rfftfreq(len(y), 1 / 16000); F[(f < 200) | (f > 6000)] = 0; z = np.fft.irfft(F, len(y))
+        ir = rng.standard_normal(2400) * np.exp(-np.arange(2400) / 500); ir[0] = 1; z = np.convolve(z, ir / np.abs(ir).sum() * 4, mode="same")
+        return (z + rng.standard_normal(len(z)) * np.std(z) * 0.1).astype(np.float32)
+    for tid, url, scene, artist in batch:
+        try:
+            r = requests.get(url, timeout=40, headers={"User-Agent": "signal-sonic"}); r.raise_for_status()
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f: f.write(r.content); fn = f.name
+            y, _ = librosa.load(fn, sr=16000, mono=True, duration=120); os.remove(fn); L = len(y) / 16000
+            yp = phone(y); m30 = (max(0, (L - 30) / 2) / L, min(1, (L + 30) / 2 / L))
+            E = {"clean": emb(patches(y)), "phone": emb(patches(yp)), "phone 30 s": emb(patches(yp, *m30)), "12 dB quieter": emb(patches(y * 10 ** (-12 / 20)))}
+            if E["clean"] is None: continue
+            out.append({"id": tid, "scene": scene, "artist": artist, "e": E})
+        except Exception as e:
+            print("skip", tid, type(e).__name__)
+    return out
+
+
+@app.function(image=image, timeout=1800, cpu=8, memory=16384)
+def pos_fit(rows, targets):
+    """Fit map position from the model's description on clean records of some artists; test on other artists,
+    clean and as a phone hears them; compare with placing each record at its scene's centre."""
+    import numpy as np, hashlib, collections
+    rows = [r for r in rows if r["id"] in targets]
+    test = np.array([int(hashlib.md5(r["artist"].encode()).hexdigest(), 16) % 4 == 0 for r in rows]); tr = ~test
+    Y = np.array([targets[r["id"]] for r in rows], float)
+    def X(cond): return np.array([r["e"][cond] if r["e"].get(cond) else [np.nan] * len(rows[0]["e"]["clean"]) for r in rows], float)
+    Xc = X("clean"); mu, sd = Xc[tr].mean(0), Xc[tr].std(0) + 1e-6; Z = lambda A: np.hstack([(A - mu) / sd, np.ones((len(A), 1))])
+    lam = 30.0; A = Z(Xc[tr]); Wt = np.linalg.solve(A.T @ A + lam * np.eye(A.shape[1]), A.T @ Y[tr])
+    span = np.array([targets.get("_span", [1, 1])[0], targets.get("_span", [1, 1])[1]], float)
+    sc = np.array([r["scene"] for r in rows]); cen = {s_: Y[tr & (sc == s_)].mean(0) for s_ in set(sc) if (tr & (sc == s_)).sum() >= 5}
+    def within(pred, mask):   # does it order records correctly inside their own scene? (Spearman, averaged over scenes)
+        vals = []
+        for s_ in set(sc[mask]):
+            m = mask & (sc == s_)
+            if m.sum() < 8: continue
+            for k in (0, 1):
+                a_ = np.argsort(np.argsort(pred[m, k])); b_ = np.argsort(np.argsort(Y[m, k])); vals.append(float(np.corrcoef(a_, b_)[0, 1]))
+        return round(float(np.nanmean(vals)), 3) if vals else None
+    out = {"records": len(rows), "test": int(test.sum())}
+    for cond in ("clean", "phone", "phone 30 s", "12 dB quieter"):
+        Xk = X(cond); ok = test & ~np.isnan(Xk).any(1)
+        pred = Z(np.nan_to_num(Xk)) @ Wt
+        err = np.abs(pred[ok] - Y[ok]) / span
+        r2 = [round(float(1 - ((pred[ok, k] - Y[ok, k]) ** 2).sum() / ((Y[ok, k] - Y[ok, k].mean()) ** 2).sum()), 3) for k in (0, 1)]
+        out[cond] = {"n": int(ok.sum()), "R2 driving": r2[0], "R2 defined": r2[1], "median error, share of map width": [round(float(np.median(err[:, k])), 3) for k in (0, 1)], "order within scene": within(pred, ok)}
+    cp = np.array([cen.get(s_, Y[tr].mean(0)) for s_ in sc]); ok = test
+    out["scene centre (live fallback)"] = {"median error, share of map width": [round(float(np.median(np.abs(cp[ok, k] - Y[ok, k]) / span[k])), 3) for k in (0, 1)], "order within scene": 0.0}
+    return out
+
+
+@app.function(image=image, volumes={"/data": vol}, timeout=600)
+def save_rows(rows, name):
+    import json as _j
+    _j.dump(rows, open(f"/data/{name}", "w")); vol.commit(); return len(rows)
+
+
+@app.function(image=image, timeout=1800, cpu=8, memory=16384)
+def robust_axes(rows, targets, measures, names):
+    """A map a phone can read: the two directions in the model's description that most separate records while moving
+    least between clean and phone audio (a generalised eigenproblem), fitted on some artists, tested on others."""
+    import numpy as np, hashlib
+    rows = [r for r in rows if r["e"].get("clean") and r["e"].get("phone 30 s")]
+    test = np.array([int(hashlib.md5(r["artist"].encode()).hexdigest(), 16) % 4 == 0 for r in rows]); tr = ~test
+    C = np.array([r["e"]["clean"] for r in rows]); Pn = np.array([r["e"]["phone 30 s"] for r in rows]); sc = np.array([r["scene"] for r in rows])
+    mu = C[tr].mean(0); Sb = np.cov((C[tr] - mu).T) + 1e-4 * np.eye(C.shape[1]); D = (Pn - C)[tr]; Sn = np.cov(D.T) + 1e-3 * np.eye(C.shape[1])
+    Ln = np.linalg.cholesky(Sn); Li = np.linalg.inv(Ln); w, V = np.linalg.eigh(Li @ Sb @ Li.T); V = Li.T @ V[:, ::-1]   # most record-to-record spread per unit of phone disturbance first
+    pca_w, pca_V = np.linalg.eigh(Sb); pca_V = pca_V[:, ::-1]
+    def evaluate(Vx, label):
+        pc, pp = (C - mu) @ Vx[:, :2], (Pn - mu) @ Vx[:, :2]; out = {}
+        for k in (0, 1):
+            a_, b_ = pc[test, k], pp[test, k]
+            within = []
+            for s_ in set(sc[test]):
+                m = test & (sc == s_)
+                if m.sum() >= 8:
+                    ra = np.argsort(np.argsort(pc[m, k])); rb = np.argsort(np.argsort(pp[m, k])); within.append(float(np.corrcoef(ra, rb)[0, 1]))
+            # what the axis means: its correlation, on clean audio, with the measures the corpus already has
+            mm = {n: round(float(np.corrcoef(pc[:, k], [measures[r["id"]][j] if r["id"] in measures else np.nan for r in rows])[0, 1]), 2) for j, n in enumerate(names)}
+            mm["old driving"] = round(float(np.corrcoef(pc[:, k], [targets[r["id"]][0] for r in rows])[0, 1]), 2); mm["old defined"] = round(float(np.corrcoef(pc[:, k], [targets[r["id"]][1] for r in rows])[0, 1]), 2)
+            out[f"axis {k + 1}"] = {"clean vs phone, all records": round(float(np.corrcoef(a_, b_)[0, 1]), 3), "clean vs phone, order within scene": round(float(np.nanmean(within)), 3),
+                                   "scenes separate (share of spread between scenes)": round(float(np.var([pc[sc == s_, k].mean() for s_ in set(sc)]) / np.var(pc[:, k])), 3), "means": mm}
+        return out
+    return {"records": len(rows), "test": int(test.sum()), "phone-stable axes": evaluate(V, "robust"), "plain largest-spread axes": evaluate(pca_V, "pca")}
+
+
 @app.function(image=image, volumes={"/data": vol}, timeout=600)
 def restore_live():
     """Put back the live model's calibration from its first, clean run (26 September, 07:00): the split it
@@ -485,6 +586,21 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         cut = datetime.datetime(2026, 9, 27, 11, 0, tzinfo=datetime.timezone.utc).timestamp()   # today's extraction began at 11:45
         res = fairtest.remote(man, ["embed_live.pt", ckpt or "embed_aug122k_104842.pt"], cut)
         print("::notice title=fair test::" + json.dumps(res))
+    if stage == "posprobe":
+        import random
+        P = json.load(open("data/pos-targets.json")); sp_ = P["spread"]; T = P["pos"]; T["_span"] = [sp_[1] - sp_[0], sp_[3] - sp_[2]]
+        pool = [m for m in man if m["id"] in T and m.get("scene") and m.get("url")]; random.Random(5).shuffle(pool); pool = pool[:(epochs or 3000)]
+        rows = [r for res in pos_batch.map([[(m["id"], m["url"], m["scene"], m.get("artist") or m["id"]) for m in pool[i:i + 25]] for i in range(0, len(pool), 25)]) for r in res]
+        res = pos_fit.remote(rows, {**{r["id"]: T[r["id"]] for r in rows}, "_span": T["_span"]})
+        print("::notice title=map position probe::" + json.dumps(res))
+    if stage == "robustmap":
+        import random
+        P = json.load(open("data/pos-targets.json")); T = P["pos"]
+        pool = [m for m in man if m["id"] in T and m.get("scene") and m.get("url")]; random.Random(11).shuffle(pool); pool = pool[:(epochs or 3000)]
+        rows = [r for res in pos_batch.map([[(m["id"], m["url"], m["scene"], m.get("artist") or m["id"]) for m in pool[i:i + 25]] for i in range(0, len(pool), 25)]) for r in res]
+        save_rows.remote(rows, "robustmap-rows.json")
+        res = robust_axes.remote(rows, {r["id"]: T[r["id"]] for r in rows}, {r["id"]: P["measures"][r["id"]] for r in rows if r["id"] in P["measures"]}, P["measure_names"])
+        print("::notice title=phone map::" + json.dumps(res))
     if stage == "drumcheck":
         import random, collections, statistics as st_
         want = ["techno-peak-time", "tech-house", "house", "deep-house", "hard-techno", "drum-and-bass", "breaks-breakbeat-uk-bass", "uk-garage-speed-garage", "140-deep-dubstep-grime", "amapiano"]
