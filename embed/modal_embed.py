@@ -628,12 +628,18 @@ def drumcheck(items, tempos):
         d = f"/data/drumpilot/{tid.replace(':', '_')}"
         if not os.path.exists(d + "/kick.mp3"): continue
         try:
-            k, _ = librosa.load(d + "/kick.mp3", sr=22050, mono=True); ko = librosa.onset.onset_detect(y=k, sr=22050, units="time", backtrack=True)
+            k, _ = librosa.load(d + "/kick.mp3", sr=22050, mono=True); med = tempos.get(scene) or 125.0
+            # kicks from the lowest frequencies only, never closer than 60% of a beat: a rumble or tail cannot count as more hits
+            oe = librosa.onset.onset_strength(y=k, sr=22050, fmax=150, n_mels=32)
+            gap = max(1, int(0.6 * (60.0 / med) * 22050 / 512))
+            ko = librosa.onset.onset_detect(onset_envelope=oe, sr=22050, units="time", backtrack=False, wait=gap)
+            ko_old = librosa.onset.onset_detect(y=k, sr=22050, units="time", backtrack=True)
             if len(ko) < 16: continue
-            med = tempos.get(scene) or 125.0; L, T = best_lock(ko, med); P = 60.0 / T
+            L, T = best_lock(ko, med); P = 60.0 / T
+            L_old, _ = best_lock(ko_old, med) if len(ko_old) >= 16 else (None, None)
             Lr, _ = best_lock(np.sort(rng.uniform(0, len(k) / 22050, len(ko))), med)
             kph = float(np.angle(np.mean(np.exp(2j * np.pi * (ko % P) / P))) / (2 * np.pi) % 1)
-            rec = {"scene": scene, "kick_lock": round(L, 3), "random_lock": round(Lr, 3), "tempo": round(T, 2), "kicks_per_beat": round(len(ko) / ((len(k) / 22050) / P), 2)}
+            rec = {"scene": scene, "kick_lock": round(L, 3), "kick_lock_before": round(L_old, 3) if L_old is not None else None, "random_lock": round(Lr, 3), "tempo": round(T, 2), "kicks_per_beat": round(len(ko) / ((len(k) / 22050) / P), 2)}
             if os.path.exists(d + "/hh.mp3"):
                 h, _ = librosa.load(d + "/hh.mp3", sr=22050, mono=True); ho = librosa.onset.onset_detect(y=h, sr=22050, units="time", backtrack=True)
                 if len(ho) >= 16:
@@ -722,6 +728,7 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         rows = [r for res in drumcheck.map([pick[i:i + 20] for i in range(0, len(pick), 20)], kwargs={"tempos": TEMPO_MEDIANS}) for r in res]
         med = lambda xs: round(st_.median(xs), 2) if xs else None
         by = {sc: {"n": len([r for r in rows if r["scene"] == sc]), "kick lock": med([r["kick_lock"] for r in rows if r["scene"] == sc]),
+                   "kick lock before": med([r["kick_lock_before"] for r in rows if r["scene"] == sc and r.get("kick_lock_before") is not None]),
                    "random": med([r["random_lock"] for r in rows if r["scene"] == sc]), "kicks per beat": med([r["kicks_per_beat"] for r in rows if r["scene"] == sc]),
                    "hats off beat": med([r["hats_offbeat"] for r in rows if r["scene"] == sc and "hats_offbeat" in r]),
                    "hats on 16ths": med([r["hats_on_16ths"] for r in rows if r["scene"] == sc and "hats_on_16ths" in r])} for sc in want}

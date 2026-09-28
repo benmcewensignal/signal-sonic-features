@@ -159,13 +159,17 @@ def part_sounds_like(stems, k=3):
         if not os.path.exists(fp): return None
         with open(fp, "rb") as f: _AP = pickle.load(f)
     SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
-    out = {}
+    out = {}; total = None; used = 0
     for p in ("drums", "bass", "other", "vocals"):
         s = (stems or {}).get(p) or {}; e = s.get("embedding"); P = _AP["parts"].get(p)
         if not P or not (isinstance(e, list) and len(e) == 45): continue
         v = np.array([float(x) for x in e] + [float(s.get(c)) if isinstance(s.get(c), (int, float)) else 0.0 for c in SC], float)
         z = (v - P["mu"]) / P["sd"]; z = z / (np.linalg.norm(z) + 1e-9); sim = P["M"].astype(np.float32) @ z.astype(np.float32)
         top = np.argsort(-sim)[:k]; out[p] = [[_AP["artists"][i], round(float(sim[i]), 3)] for i in top]
+        total = sim if total is None else total + sim; used += 1
+    # all four parts together: in a held-out test, a record's own artist is among these five 22 times in 100 (drums alone, 16)
+    if total is not None and used >= 3:
+        top = np.argsort(-total)[:5]; out["all"] = [[_AP["artists"][i], round(float(total[i] / used), 3)] for i in top]
     return out or None
 
 
@@ -191,3 +195,27 @@ def key_from_parts(stems):
     k, margin = sc[0][1], sc[0][0] - sc[1][0]
     rel = 0.77 if margin >= 0.108 else (0.61 if margin >= 0.048 else 0.43)
     return {"key": k, "camelot": _CAMELOT.get(k), "margin": round(margin, 3), "matches_beatport": rel}
+
+
+_PC = None
+
+
+def part_residuals(stems, scene):
+    """How far each separated part sits from its scene's typical part, as a percentile of how far the scene's own
+    records stray: 90 means its drums are further from the scene's typical drums than 90 in 100 of its records."""
+    global _PC
+    import pickle
+    if _PC is None:
+        fp = os.path.join(os.path.dirname(__file__), "part_centroids.pkl")
+        if not os.path.exists(fp): return None
+        with open(fp, "rb") as f: _PC = pickle.load(f)
+    SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
+    out = {}
+    for p in ("drums", "bass", "other", "vocals"):
+        s = (stems or {}).get(p) or {}; e = s.get("embedding"); P = _PC.get(p); S = (P or {}).get("scenes", {}).get(scene)
+        if not S or not (isinstance(e, list) and len(e) == 45): continue
+        v = np.array([float(x) for x in e] + [float(s.get(c)) if isinstance(s.get(c), (int, float)) else 0.0 for c in SC], float)
+        z = (v - P["mu"]) / P["sd"]; z = z / (np.linalg.norm(z) + 1e-9); d = 1 - float(z @ S["c"])
+        q = S["q"]; pct = float(np.interp(d, q, np.linspace(0, 100, len(q))))
+        out[p] = {"pct": round(pct), "scene": scene}
+    return out or None

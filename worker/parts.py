@@ -83,6 +83,16 @@ def read(wav_path, with_audio=False):
         except Exception as e:
             out["scene_error"] = type(e).__name__
         if part_audio: out["part_audio"] = part_audio
+        try:   # which part pulls it away from its scene: against the best scene call available
+            from worker.scene import part_residuals
+            sc0 = None
+            for k_ in ("scene_learned", "scene_parts", "scene"):
+                v_ = out.get(k_) or {}
+                if isinstance(v_, dict) and v_.get("scenes"): sc0 = v_["scenes"][0][0]; break
+            pr = part_residuals(rec, sc0) if sc0 else None
+            if pr: out["part_residuals"] = pr
+        except Exception as e_:
+            out["part_residuals_error"] = type(e_).__name__
         return out
     finally:
         shutil.rmtree(work, ignore_errors=True)
