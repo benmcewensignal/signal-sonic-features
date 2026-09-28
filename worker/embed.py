@@ -36,6 +36,26 @@ def _load():
     C = torch.load(fp, map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval(); C["net"] = net; C["_mtime"] = os.path.getmtime(fp); _M = C
     return _M
 
+_P = None
+def _proj():
+    """The 16-direction projection ear_walk saved beside the model (mean, directions, scale), so a clip lands in the
+    same space as the catalogue's ear in dj-index. Reloaded when the file changes; None until it exists."""
+    global _P
+    fp = "/embed/ear_proj.npz"
+    try:
+        if _P and os.path.getmtime(fp) == _P.get("_mtime"): return _P
+    except Exception:
+        return _P
+    if not os.path.exists(fp):
+        try:
+            import modal; modal.Volume.from_name("sonic-embed").reload()
+        except Exception:
+            pass
+    if not os.path.exists(fp): return None
+    Z = np.load(fp, allow_pickle=True); _P = {"mean": Z["mean"].astype(np.float32), "V": Z["V"].astype(np.float32), "scale": Z["scale"].astype(np.float32),
+                                            "built": str(Z["built"]) if "built" in Z else "", "_mtime": os.path.getmtime(fp)}
+    return _P
+
 def learned_call(wav_path):
     C = _load()
     if not C: return None
@@ -45,7 +65,13 @@ def learned_call(wav_path):
     if M.shape[1] < 2 * W: return None
     x = np.stack([M[:, s:s + W] for s in np.linspace(0, M.shape[1] - W, 8).astype(int)])
     with torch.no_grad():
-        p = torch.softmax(C["net"]((torch.from_numpy(x) - C["mu"]) / C["sd"]), 1).mean(0).numpy()
+        xn = (torch.from_numpy(x) - C["mu"]) / C["sd"]
+        p = torch.softmax(C["net"](xn), 1).mean(0).numpy()
+        e = C["net"].embed(xn).mean(0).numpy(); e = e / (np.linalg.norm(e) + 1e-9)   # the clip's place in the learned ear
+    ear = None; P = _proj()
+    if P is not None and P["V"].shape[1] == e.shape[0]:
+        yv = (e - P["mean"]) @ P["V"].T   # the same 16 directions as the catalogue's ear; the site normalises before comparing
+        ear = {"v": [round(float(v), 5) for v in yv], "dims": int(P["V"].shape[0]), "built": P["built"]}
     q = np.power(np.clip(p, 1e-9, 1), 1 / C.get("temperature", 1.0)); q = q / q.sum(); order = np.argsort(-q); top = C["scenes"][order[0]]; conf = float(q[order[0]])
     # the full reading always sends a 60-second clip: its reliability is measured on 60-second clips
     rel, basis = None, "overall"
@@ -59,7 +85,8 @@ def learned_call(wav_path):
         for lo, hi, r in C.get("tiers") or []:
             if lo <= conf < hi and r is not None: rel = r
     return {"scenes": [[C["scenes"][i], round(float(q[i]), 3)] for i in order[:5]], "confidence": round(conf, 3), "right_at_this_confidence": rel, "reliability_basis": basis,
-            "inputs": "the whole mix, heard by the learned model", "model": {"trained_on": C.get("trained_on"), "built": C.get("built"), "held_out_accuracy": C.get("held_out_accuracy")}}
+            "inputs": "the whole mix, heard by the learned model", "model": {"trained_on": C.get("trained_on"), "built": C.get("built"), "held_out_accuracy": C.get("held_out_accuracy")},
+            "ear": ear}
 
 
 
