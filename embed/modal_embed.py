@@ -279,6 +279,108 @@ def save_rows(rows, name):
     _j.dump(rows, open(f"/data/{name}", "w")); vol.commit(); return len(rows)
 
 
+@app.function(image=image, volumes={"/data": vol}, timeout=1800, cpu=8, memory=16384)
+def named_probe(targets, measures, names):
+    """From the saved descriptions: can each named measure be predicted from the phone-robust description, fitted on
+    clean audio of some artists, and does the prediction survive a phone on other artists' records?"""
+    import json as _j, numpy as np, hashlib
+    vol.reload(); rows = [r for r in _j.load(open("/data/robustmap-rows.json")) if r["e"].get("clean") and r["e"].get("phone 30 s") and r["id"] in measures]
+    test = np.array([int(hashlib.md5(r["artist"].encode()).hexdigest(), 16) % 4 == 0 for r in rows]); tr = ~test
+    C = np.array([r["e"]["clean"] for r in rows]); Pn = np.array([r["e"]["phone 30 s"] for r in rows]); sc = np.array([r["scene"] for r in rows])
+    mu, sd = C[tr].mean(0), C[tr].std(0) + 1e-6; Z = lambda A: np.hstack([(A - mu) / sd, np.ones((len(A), 1))])
+    Ys = {n: np.array([measures[r["id"]][j] for r in rows], float) for j, n in enumerate(names)}
+    Ys["old driving"] = np.array([targets[r["id"]][0] for r in rows]); Ys["old defined"] = np.array([targets[r["id"]][1] for r in rows])
+    out = {"records": len(rows), "test": int(test.sum())}
+    for n, y in Ys.items():
+        ok = ~np.isnan(y)
+        A = Z(C[tr & ok]); lam = 30.0; w = np.linalg.solve(A.T @ A + lam * np.eye(A.shape[1]), A.T @ y[tr & ok])
+        pc, pp = Z(C) @ w, Z(Pn) @ w; m = test & ok
+        r2 = lambda p_: round(float(1 - ((p_[m] - y[m]) ** 2).sum() / ((y[m] - y[m].mean()) ** 2).sum()), 3)
+        within = []
+        for s_ in set(sc[m]):
+            mm = m & (sc == s_)
+            if mm.sum() >= 8: within.append(float(np.corrcoef(np.argsort(np.argsort(pp[mm])), np.argsort(np.argsort(y[mm])))[0, 1]))
+        out[n] = {"R2 clean": r2(pc), "R2 phone 30 s": r2(pp), "phone ranks records within scene (vs truth)": round(float(np.nanmean(within)), 3) if within else None}
+    return out
+
+
+@app.function(image=image, volumes={"/data": vol}, timeout=1800, cpu=8, memory=16384)
+def named_robust(measures):
+    """Named axes kept phone-stable: within only the k most phone-stable directions, the combinations that best track
+    tempo and drum-led against vocal-led. For each k: how much each axis explains (clean and through a phone), how well a
+    phone ranks records within their scene against the truth, and how well clean and phone agree with each other."""
+    import json as _j, numpy as np, hashlib
+    vol.reload(); rows = [r for r in _j.load(open("/data/robustmap-rows.json")) if r["e"].get("clean") and r["e"].get("phone 30 s") and r["id"] in measures]
+    test = np.array([int(hashlib.md5(r["artist"].encode()).hexdigest(), 16) % 4 == 0 for r in rows]); tr = ~test
+    C = np.array([r["e"]["clean"] for r in rows]); Pn = np.array([r["e"]["phone 30 s"] for r in rows]); sc = np.array([r["scene"] for r in rows])
+    M = np.array([measures[r["id"]] for r in rows], float)
+    zs = lambda v: (v - np.nanmean(v[tr])) / (np.nanstd(v[tr]) + 1e-9)
+    targets = {"tempo": M[:, 0], "drum-led vs vocal-led": zs(M[:, 3]) - zs(M[:, 4])}
+    mu = C[tr].mean(0); Sb = np.cov((C[tr] - mu).T) + 1e-4 * np.eye(C.shape[1]); Sn = np.cov((Pn - C)[tr].T) + 1e-3 * np.eye(C.shape[1])
+    Li = np.linalg.inv(np.linalg.cholesky(Sn)); w_, V = np.linalg.eigh(Li @ Sb @ Li.T); V = Li.T @ V[:, ::-1]
+    def within(a_, b_, m):
+        v = []
+        for s_ in set(sc[m]):
+            mm = m & (sc == s_)
+            if mm.sum() >= 8: v.append(float(np.corrcoef(np.argsort(np.argsort(a_[mm])), np.argsort(np.argsort(b_[mm])))[0, 1]))
+        return round(float(np.nanmean(v)), 3) if v else None
+    out = {"records": len(rows), "test": int(test.sum())}
+    for k in (2, 4, 8, 16, 32, C.shape[1]):
+        Vk = V[:, :k] if k < C.shape[1] else np.eye(C.shape[1]); Fc, Fp = (C - mu) @ Vk, (Pn - mu) @ Vk
+        fm, fs = Fc[tr].mean(0), Fc[tr].std(0) + 1e-9; Zc = np.hstack([(Fc - fm) / fs, np.ones((len(Fc), 1))]); Zp = np.hstack([(Fp - fm) / fs, np.ones((len(Fp), 1))])
+        res = {}
+        for n, y in targets.items():
+            ok = ~np.isnan(y); A = Zc[tr & ok]; wt = np.linalg.solve(A.T @ A + 10.0 * np.eye(A.shape[1]), A.T @ y[tr & ok])
+            pc, pp = Zc @ wt, Zp @ wt; m = test & ok
+            r2 = lambda p_: round(float(1 - ((p_[m] - y[m]) ** 2).sum() / ((y[m] - y[m].mean()) ** 2).sum()), 3)
+            res[n] = {"R2 clean": r2(pc), "R2 phone": r2(pp), "phone vs truth, within scene": within(pp, y, m), "clean vs phone, within scene": within(pc, pp, m)}
+        out[f"k={k if k < C.shape[1] else 'all'}"] = res
+    return out
+
+
+@app.function(image=image, gpu="H100", volumes={"/data": vol}, timeout=7200, memory=32768)
+def phonemap(manifest, measures):
+    """The phone map's vertical axis, drum-led against vocal-led, fitted within the 16 most phone-stable directions of the
+    live model's description (as accurate from a 30-second phone capture as from the file), then every record scored from
+    its stored slices, and each scene's spread of scores and a sample of its records kept for drawing."""
+    import json as _j, os, random, time, numpy as np, torch
+    from concurrent.futures import ThreadPoolExecutor
+    vol.reload()
+    rows = [r for r in _j.load(open("/data/robustmap-rows.json")) if r["e"].get("clean") and r["e"].get("phone 30 s") and r["id"] in measures]
+    Cc = np.array([r["e"]["clean"] for r in rows]); Pn = np.array([r["e"]["phone 30 s"] for r in rows]); M = np.array([measures[r["id"]] for r in rows], float)
+    mu = Cc.mean(0); Sb = np.cov((Cc - mu).T) + 1e-4 * np.eye(Cc.shape[1]); Sn = np.cov((Pn - Cc).T) + 1e-3 * np.eye(Cc.shape[1])
+    Li = np.linalg.inv(np.linalg.cholesky(Sn)); w_, V = np.linalg.eigh(Li @ Sb @ Li.T); V = (Li.T @ V[:, ::-1])[:, :16]
+    F = (Cc - mu) @ V; fm, fs = F.mean(0), F.std(0) + 1e-9; Z = np.hstack([(F - fm) / fs, np.ones((len(F), 1))])
+    d, v = M[:, 3], M[:, 4]; y = (d - d.mean()) / d.std() - (v - v.mean()) / v.std()
+    wt = np.linalg.solve(Z.T @ Z + 10.0 * np.eye(Z.shape[1]), Z.T @ y)
+    axis = {"note": "drum-led (+) against vocal-led (-): the 16 most phone-stable directions of the live model's description, then a fitted line",
+            "mu": [round(float(x), 6) for x in mu], "V": [[round(float(x), 6) for x in row] for row in V], "fm": [round(float(x), 6) for x in fm],
+            "fs": [round(float(x), 6) for x in fs], "w": [round(float(x), 6) for x in wt], "fitted_on": len(rows)}
+    _j.dump(axis, open("/data/phone_axis.json", "w"))
+    C = torch.load("/data/embed_live.pt", map_location="cuda"); net = make_net(len(C["scenes"])).cuda(); net.load_state_dict(C["state"]); net.eval()
+    pth = lambda m: f"/data/patches/{m['id'].replace(':', '_')}.npy"
+    items = [m for m in manifest if m.get("scene") and os.path.exists(pth(m))]
+    ld = lambda m: np.load(pth(m)).astype(np.float32)
+    Vt, mut, fmt, fst, wt_ = [torch.tensor(np.asarray(x, np.float32)).cuda() for x in (V, mu, fm, fs, wt)]
+    score = {}; t0 = time.time()
+    with torch.no_grad():
+        for i in range(0, len(items), 128):
+            chunk = items[i:i + 128]
+            with ThreadPoolExecutor(32) as ex: x = np.stack(list(ex.map(ld, chunk)))
+            b = x.shape[0]; xx = ((torch.from_numpy(x) - C["mu"]) / C["sd"]).cuda().reshape(-1, 96, W)
+            e = net.embed(xx).reshape(b, 8, -1).mean(1); f = ((e - mut) @ Vt - fmt) / fst; sc_ = f @ wt_[:-1] + wt_[-1]
+            for m, val in zip(chunk, sc_.cpu().numpy()): score[m["id"]] = float(val)
+    by = {}
+    for m in items: by.setdefault(m["scene"], []).append(m["id"])
+    rng = random.Random(3); out = {"built": time.strftime("%Y-%m-%d"), "axis": "drum-led (+) against vocal-led (-)", "records": len(score), "scenes": {}}
+    for s_, ids in by.items():
+        vals = np.array([score[t] for t in ids]); smp = rng.sample(ids, min(300, len(ids)))
+        out["scenes"][s_] = {"n": len(ids), "score_q": [round(float(q), 4) for q in np.quantile(vals, np.linspace(0, 1, 11))],
+                             "points": [[round(float(measures[t][0]), 1) if t in measures else None, round(score[t], 3)] for t in smp]}
+    _j.dump(out, open("/data/phone-map.json", "w")); vol.commit()
+    return {"scored": len(score), "scenes": len(out["scenes"]), "minutes": round((time.time() - t0) / 60, 1)}
+
+
 @app.function(image=image, timeout=1800, cpu=8, memory=16384)
 def robust_axes(rows, targets, measures, names):
     """A map a phone can read: the two directions in the model's description that most separate records while moving
@@ -601,6 +703,16 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         save_rows.remote(rows, "robustmap-rows.json")
         res = robust_axes.remote(rows, {r["id"]: T[r["id"]] for r in rows}, {r["id"]: P["measures"][r["id"]] for r in rows if r["id"] in P["measures"]}, P["measure_names"])
         print("::notice title=phone map::" + json.dumps(res))
+    if stage == "namedprobe":
+        P = json.load(open("data/pos-targets.json"))
+        res = named_probe.remote(P["pos"], P["measures"], P["measure_names"])
+        print("::notice title=named measures through a phone::" + json.dumps(res))
+    if stage == "namedrobust":
+        P = json.load(open("data/pos-targets.json"))
+        print("::notice title=named robust axes::" + json.dumps(named_robust.remote(P["measures"])))
+    if stage == "phonemap":
+        P = json.load(open("data/pos-targets.json"))
+        print("::notice title=phone map::" + json.dumps(phonemap.remote(man, P["measures"])))
     if stage == "drumcheck":
         import random, collections, statistics as st_
         want = ["techno-peak-time", "tech-house", "house", "deep-house", "hard-techno", "drum-and-bass", "breaks-breakbeat-uk-bass", "uk-garage-speed-garage", "140-deep-dubstep-grime", "amapiano"]

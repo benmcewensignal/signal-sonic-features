@@ -60,3 +60,28 @@ def learned_call(wav_path):
             if lo <= conf < hi and r is not None: rel = r
     return {"scenes": [[C["scenes"][i], round(float(q[i]), 3)] for i in order[:5]], "confidence": round(conf, 3), "right_at_this_confidence": rel, "reliability_basis": basis,
             "inputs": "the whole mix, heard by the learned model", "model": {"trained_on": C.get("trained_on"), "built": C.get("built"), "held_out_accuracy": C.get("held_out_accuracy")}}
+
+
+
+def learned_from_slices(x, condition="phone"):
+    """The learned model's call from spectrogram slices a device computed itself (8 x 96 x 188, the same slices the
+    model trained on), with the reliability measured for that condition; and the phone map's drum-led to vocal-led
+    score, from the 16 most phone-stable directions of the model's description."""
+    C = _load()
+    if not C: return None
+    import json, os, torch
+    x = np.asarray(x, np.float32)
+    if x.shape != (8, 96, W): return {"error": f"slices must be 8 x 96 x {W}, got {list(x.shape)}"}
+    with torch.no_grad():
+        xn = (torch.from_numpy(x) - C["mu"]) / C["sd"]
+        p = torch.softmax(C["net"](xn), 1).mean(0).numpy(); e = C["net"].embed(xn).mean(0).numpy()
+    q = np.power(np.clip(p, 1e-9, 1), 1 / C.get("temperature", 1.0)); q = q / q.sum(); order = np.argsort(-q); top = C["scenes"][order[0]]; conf = float(q[order[0]])
+    rel = None
+    for row in (C.get("condition_tiers") or {}).get(condition, []):
+        if row[0] <= conf < row[1] and row[2] is not None: rel = row[2]
+    out = {"scene_learned": {"scenes": [[C["scenes"][i], round(float(q[i]), 4)] for i in order[:3]], "confidence": round(conf, 4), "reliability": rel, "condition": condition}}
+    fp = "/embed/phone_axis.json"
+    if os.path.exists(fp):
+        A = json.load(open(fp)); f = ((e - np.array(A["mu"])) @ np.array(A["V"]) - np.array(A["fm"])) / np.array(A["fs"]); w = np.array(A["w"])
+        out["drum_voice"] = round(float(f @ w[:-1] + w[-1]), 4)
+    return out

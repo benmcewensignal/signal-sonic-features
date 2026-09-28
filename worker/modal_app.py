@@ -61,6 +61,22 @@ async def numbers(request: Request):
         return JSONResponse({"error": type(e).__name__}, 400)
 
 
+@app.function(image=image, secrets=[secret], cpu=2.0, memory=3072, volumes={"/embed": modal.Volume.from_name("sonic-embed", create_if_missing=True)})
+@modal.fastapi_endpoint(method="POST")
+async def slices(request: Request):
+    """The learned model's call from spectrogram slices a phone computed itself: JSON {"x": base64 of 8 x 96 x 188
+    little-endian float16, "condition": "phone"}. The audio never leaves the phone; only these numbers do."""
+    if not _ok(request): return JSONResponse({"error": "unauthorised"}, 401)
+    import base64, numpy as np
+    body = await request.json()
+    try:
+        x = np.frombuffer(base64.b64decode(body.get("x") or ""), dtype="<f2").astype(np.float32).reshape(8, 96, -1)
+        from worker.embed import learned_from_slices
+        return learned_from_slices(x, body.get("condition") or "phone") or JSONResponse({"error": "no model"}, 503)
+    except Exception as e:
+        return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:80]}, 400)
+
+
 @app.function(image=image, secrets=[secret])
 @modal.fastapi_endpoint(method="GET")
 def result(request: Request, id: str):
