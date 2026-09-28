@@ -95,6 +95,14 @@ def read(wav_path, with_audio=False):
             tempo_ = ((rec.get("drums") or {}).get("beats_per_minute")) if isinstance(rec.get("drums"), dict) else None
             lp = licensed_parts(rec, tempo_, (out.get("key") or {}).get("key"))
             if lp: out["licensed_parts"] = lp
+            # each part's measures (no audio), so the page can compare this track with any record, part by part
+            SC_ = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
+            pv = {}
+            for p_ in ("drums", "bass", "other", "vocals"):
+                s_ = rec.get(p_) or {}; e_ = s_.get("embedding")
+                if isinstance(e_, list) and len(e_) == 45:
+                    pv[p_] = [round(float(x), 5) for x in e_] + [round(float(s_.get(c)), 5) if isinstance(s_.get(c), (int, float)) else 0.0 for c in SC_]
+            if pv: out["part_vectors"] = pv; out["tempo_read"] = tempo_
         except Exception as e_:
             out["part_residuals_error"] = type(e_).__name__
         return out

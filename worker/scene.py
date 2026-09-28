@@ -299,3 +299,44 @@ def record_loops(tid, scene=None, path="/embed/record-parts.npz"):
     out = {"id": tid, "tempo": tempo, "key": key, "licensed_parts": licensed_parts(stems, tempo, key)}
     if scene: out["part_residuals"] = part_residuals(stems, scene)
     return out
+
+
+
+def compare_parts(upload, ref_id, upload_tempo=None, upload_key=None, path="/embed/record-parts.npz"):
+    """An uploaded track against a record Sonic has already separated, part by part: how close each part is (the same
+    closeness as the loop matching, within each part's own family), and in plain words how the upload's part differs."""
+    r = record_loops(ref_id, None, path)   # loads the record parts once; tells us whether the reference is separated
+    if "error" in r: return r
+    import pickle
+    stats_path = os.path.join(os.path.dirname(__file__), "loop_index.pkl")
+    global _LI
+    if _LI is None:
+        with open(stats_path, "rb") as f: _LI = pickle.load(f)
+    SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
+    FAM = {"drums": "drums", "bass": "bass", "other": "melody", "vocals": "vocals"}
+    words = {"centroid_hz": ("brighter", "darker"), "onsets_per_s": ("busier", "sparser"), "crest": ("punchier", "softer"), "flatness": ("noisier", "more tonal"),
+             "share_of_energy": ("louder in the mix", "quieter in the mix")}
+    i = _RP["at"][ref_id]; out = {"id": ref_id, "tempo": r.get("tempo"), "key": r.get("key"), "parts": {}}
+    for j, (p, fam) in enumerate(FAM.items()):
+        u = (upload or {}).get(p)
+        if not (isinstance(u, list) and len(u) == 53): continue
+        L = _LI.get(fam)
+        if not L: continue
+        keep = L["keep"]; mu, sd = L["mu"], L["sd"]
+        a = (np.array(u, float)[keep] - mu) / sd; b = (_RP["V"][i, j].astype(float)[keep] - mu) / sd
+        sim = float(a @ b / ((np.linalg.norm(a) * np.linalg.norm(b)) or 1))
+        diffs = []
+        for k, (up, dn) in words.items():
+            x, y = float(u[45 + SC.index(k)]), float(_RP["V"][i, j][45 + SC.index(k)])
+            if x > 0 and y > 0:
+                q = x / y
+                if q >= 1.25: diffs.append((np.log(q), up))
+                elif q <= 0.8: diffs.append((-np.log(q), dn))
+        diffs.sort(reverse=True)
+        out["parts"][p] = {"sim": round(sim, 3), "words": [w for _, w in diffs[:2]]}
+    if out["parts"]:
+        far = min(out["parts"], key=lambda p: out["parts"][p]["sim"]); out["furthest"] = far
+    if upload_tempo and out["tempo"]:
+        t, T = float(upload_tempo), float(out["tempo"]); f = min((1, 2, 0.5), key=lambda m: abs(T * m - t)); out["tempo_gap"] = round(t - T * f, 1)
+    if upload_key and out["key"]: out["key_mixes"] = _mixes(upload_key, out["key"])
+    return out

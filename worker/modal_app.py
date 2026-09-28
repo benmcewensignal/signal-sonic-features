@@ -92,6 +92,21 @@ async def loops(request: Request):
         return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:80]}, 400)
 
 
+@app.function(image=image, secrets=[secret], cpu=1.0, memory=2048, volumes={"/embed": modal.Volume.from_name("sonic-embed", create_if_missing=True)})
+@modal.fastapi_endpoint(method="POST")
+async def compare(request: Request):
+    """An uploaded track's parts (their measures, from its full reading) against a record Sonic has already separated:
+    JSON {"id": the record, "parts": {part: 53 numbers}, "tempo": ..., "key": ...}. No audio moves."""
+    if not _ok(request): return JSONResponse({"error": "unauthorised"}, 401)
+    body = await request.json()
+    try:
+        from worker.scene import compare_parts
+        r = compare_parts(body.get("parts") or {}, str(body.get("id") or ""), body.get("tempo"), body.get("key"))
+        return r if "error" not in r else JSONResponse(r, 404)
+    except Exception as e:
+        return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:80]}, 400)
+
+
 @app.function(image=image, secrets=[secret])
 @modal.fastapi_endpoint(method="GET")
 def result(request: Request, id: str):
