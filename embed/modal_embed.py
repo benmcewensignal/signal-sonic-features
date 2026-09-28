@@ -980,3 +980,44 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         res = train.remote(man, epochs, bool(aug), tag); print("::notice title=embedding pilot::" + json.dumps({"tag": tag, "augmented": bool(aug), **res}))
     if stage == "traincal":
         res = calibrate.remote(man, tag, ckpt); print("::notice title=calibration::" + json.dumps({"tag": tag, **res}))
+
+
+@app.function(image=image, gpu="A10G", volumes={"/data": vol}, timeout=3600, memory=32768)
+def ear_test(payload):
+    """Which ear hears what DJs hear: the live model's embedding of each record (from its stored patches),
+    scored on pairs DJs played together against pairs from the same scene or from anywhere. Saves every
+    embedding to /data/ear_emb.npz so the winning ear can be used straight away."""
+    import os, numpy as np, torch
+    vol.reload(); C = torch.load("/data/embed_live.pt", map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval()
+    dev = "cuda" if torch.cuda.is_available() else "cpu"; net.to(dev); mu = C["mu"].to(dev); sd = C["sd"].to(dev)
+    ids = payload["ids"]; E = {}; miss = 0; buf = []
+    def flush():
+        if not buf: return
+        X = torch.from_numpy(np.stack([x for _, x in buf]).astype(np.float32)).to(dev)   # records x 8 patches x mels x frames
+        n = X.shape[0]
+        with torch.no_grad(): e = net.embed(((X.reshape(n * 8, *X.shape[2:])) - mu) / sd).reshape(n, 8, -1).mean(1).cpu().numpy()
+        for (t, _), v in zip(buf, e): E[t] = v / (np.linalg.norm(v) + 1e-9)
+        buf.clear()
+    for t in ids:
+        p = f"/data/patches/{t.replace(':', '_')}.npy"
+        if not os.path.exists(p): miss += 1; continue
+        try: buf.append((t, np.load(p)))
+        except Exception: miss += 1; continue
+        if len(buf) >= 256: flush()
+    flush()
+    ks = sorted(E); np.savez("/data/ear_emb.npz", ids=np.array(ks), E=np.stack([E[k] for k in ks]).astype(np.float16)); vol.commit()
+    def auc(pos, neg):
+        pos, neg = np.asarray(pos), np.asarray(neg)
+        if not len(pos) or not len(neg): return None
+        r = np.concatenate([pos, neg]).argsort().argsort() + 1
+        return float(1 - (r[:len(pos)].sum() - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg)))
+    P = payload["pairs"]; d = lambda L: [1 - float(E[a] @ E[b]) for a, b in L if a in E and b in E]
+    out = {k: auc(d(P[a]), d(P[b])) for k, (a, b) in {"adjacent vs same scene": ("adjacent", "adjacent_ctrl_scene"), "same set vs same scene": ("same_set", "same_set_ctrl_scene"), "same set vs anywhere": ("same_set", "same_set_ctrl_any"), "adjacent vs same set": ("adjacent", "same_set")}.items()}
+    return {"embedded": len(E), "missing": miss, "auc": out}
+
+
+@app.local_entrypoint()
+def ear_main():
+    import json
+    r = ear_test.remote(json.load(open("data/ear_pairs.json")))
+    print("EAR_RESULT " + json.dumps(r)); open("ear_result.json", "w").write(json.dumps(r))
