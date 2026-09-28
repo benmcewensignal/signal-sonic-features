@@ -304,6 +304,40 @@ def named_probe(targets, measures, names):
     return out
 
 
+@app.function(image=image, volumes={"/data": vol}, timeout=1800, cpu=8, memory=16384)
+def named_robust(measures):
+    """Named axes kept phone-stable: within only the k most phone-stable directions, the combinations that best track
+    tempo and drum-led against vocal-led. For each k: how much each axis explains (clean and through a phone), how well a
+    phone ranks records within their scene against the truth, and how well clean and phone agree with each other."""
+    import json as _j, numpy as np, hashlib
+    vol.reload(); rows = [r for r in _j.load(open("/data/robustmap-rows.json")) if r["e"].get("clean") and r["e"].get("phone 30 s") and r["id"] in measures]
+    test = np.array([int(hashlib.md5(r["artist"].encode()).hexdigest(), 16) % 4 == 0 for r in rows]); tr = ~test
+    C = np.array([r["e"]["clean"] for r in rows]); Pn = np.array([r["e"]["phone 30 s"] for r in rows]); sc = np.array([r["scene"] for r in rows])
+    M = np.array([measures[r["id"]] for r in rows], float)
+    zs = lambda v: (v - np.nanmean(v[tr])) / (np.nanstd(v[tr]) + 1e-9)
+    targets = {"tempo": M[:, 0], "drum-led vs vocal-led": zs(M[:, 3]) - zs(M[:, 4])}
+    mu = C[tr].mean(0); Sb = np.cov((C[tr] - mu).T) + 1e-4 * np.eye(C.shape[1]); Sn = np.cov((Pn - C)[tr].T) + 1e-3 * np.eye(C.shape[1])
+    Li = np.linalg.inv(np.linalg.cholesky(Sn)); w_, V = np.linalg.eigh(Li @ Sb @ Li.T); V = Li.T @ V[:, ::-1]
+    def within(a_, b_, m):
+        v = []
+        for s_ in set(sc[m]):
+            mm = m & (sc == s_)
+            if mm.sum() >= 8: v.append(float(np.corrcoef(np.argsort(np.argsort(a_[mm])), np.argsort(np.argsort(b_[mm])))[0, 1]))
+        return round(float(np.nanmean(v)), 3) if v else None
+    out = {"records": len(rows), "test": int(test.sum())}
+    for k in (2, 4, 8, 16, 32, C.shape[1]):
+        Vk = V[:, :k] if k < C.shape[1] else np.eye(C.shape[1]); Fc, Fp = (C - mu) @ Vk, (Pn - mu) @ Vk
+        fm, fs = Fc[tr].mean(0), Fc[tr].std(0) + 1e-9; Zc = np.hstack([(Fc - fm) / fs, np.ones((len(Fc), 1))]); Zp = np.hstack([(Fp - fm) / fs, np.ones((len(Fp), 1))])
+        res = {}
+        for n, y in targets.items():
+            ok = ~np.isnan(y); A = Zc[tr & ok]; wt = np.linalg.solve(A.T @ A + 10.0 * np.eye(A.shape[1]), A.T @ y[tr & ok])
+            pc, pp = Zc @ wt, Zp @ wt; m = test & ok
+            r2 = lambda p_: round(float(1 - ((p_[m] - y[m]) ** 2).sum() / ((y[m] - y[m].mean()) ** 2).sum()), 3)
+            res[n] = {"R2 clean": r2(pc), "R2 phone": r2(pp), "phone vs truth, within scene": within(pp, y, m), "clean vs phone, within scene": within(pc, pp, m)}
+        out[f"k={k if k < C.shape[1] else 'all'}"] = res
+    return out
+
+
 @app.function(image=image, timeout=1800, cpu=8, memory=16384)
 def robust_axes(rows, targets, measures, names):
     """A map a phone can read: the two directions in the model's description that most separate records while moving
@@ -630,6 +664,9 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         P = json.load(open("data/pos-targets.json"))
         res = named_probe.remote(P["pos"], P["measures"], P["measure_names"])
         print("::notice title=named measures through a phone::" + json.dumps(res))
+    if stage == "namedrobust":
+        P = json.load(open("data/pos-targets.json"))
+        print("::notice title=named robust axes::" + json.dumps(named_robust.remote(P["measures"])))
     if stage == "drumcheck":
         import random, collections, statistics as st_
         want = ["techno-peak-time", "tech-house", "house", "deep-house", "hard-techno", "drum-and-bass", "breaks-breakbeat-uk-bass", "uk-garage-speed-garage", "140-deep-dubstep-grime", "amapiano"]
