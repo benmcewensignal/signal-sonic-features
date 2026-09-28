@@ -535,7 +535,7 @@ def fairtest(manifest, ckpts, cutoff_ts: float):
 
 
 dsep_image = image.pip_install("demucs==4.0.1", "audio-separator[gpu]", "soundfile")
-st_image = image.pip_install("demucs==4.0.1", "soundfile", "scipy").add_local_python_source("features")   # the pipeline's own part measures
+st_image = image.pip_install("demucs==4.0.1", "soundfile", "scipy", "torchaudio==2.4.1").add_local_python_source("features")   # torchaudio pinned to the image's torch: a newer one pulled in a CUDA the machines lack   # the pipeline's own part measures
 TEMPO_MEDIANS = {"uk-garage-speed-garage": 134.7, "uk-funky-gqom": 139.9, "afro-house": 123.0, "amapiano": 112.8, "140-deep-dubstep-grime": 139.9, "breaks-breakbeat-uk-bass": 135.3, "tech-house": 127.0, "techno-peak-time": 135.3, "techno-raw-deep-hypnotic": 136.7, "house": 126.8, "deep-house": 123.1, "melodic-house-techno": 125.3, "drum-and-bass": 173.4, "hard-techno": 154.4, "bass-house": 128.3, "trance-main-floor": 138.2, "progressive-house": 123.7, "psy-trance": 143.9, "indie-dance": 125.2, "organic-house": 122.3, "african": 136.5, "ambient-experimental": 144.8, "brazilian-funk": 129.7, "downtempo": 135.6, "dubstep": 142.6, "electro": 129.8, "electronica": 135.0, "funky-house": 126.0, "hard-dance-hardcore": 154.2, "jackin-house": 125.2, "latin-electronic": 129.8, "mainstage": 128.4, "minimal-deep-tech": 126.8, "nu-disco-disco": 123.1, "trance-raw-deep-hypnotic": 132.8, "trap-future-bass": 143.9}
 
 
