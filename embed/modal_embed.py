@@ -1074,6 +1074,21 @@ def ear_main2():
     print("EAR_RESULT " + json.dumps(r)); open("ear_result.json", "w").write(json.dumps(r))
 
 
+@app.function(image=image, volumes={"/data": vol}, timeout=120)
+def ear_proj_stat():
+    import os, numpy as np
+    vol.reload(); fp = "/data/ear_proj.npz"
+    if not os.path.exists(fp): return {"exists": False}
+    Z = np.load(fp, allow_pickle=True); return {"exists": True, "dims": int(Z["V"].shape[0]), "width": int(Z["V"].shape[1]), "built": str(Z["built"]), "bytes": os.path.getsize(fp)}
+
+
+@app.local_entrypoint()
+def ear_check():
+    """Is the projection the worker needs on the volume?"""
+    import json
+    r = ear_proj_stat.remote(); print("EAR_PROJ " + json.dumps(r)); print("::notice title=ear proj::" + json.dumps(r))
+
+
 @app.local_entrypoint()
 def ear_walk():
     """Every walkable record's learned embedding, compressed for the phone: the 16 strongest directions of
