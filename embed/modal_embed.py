@@ -764,6 +764,61 @@ def packmatch(records, stats):
     return _j.loads(_j.dumps(out))
 
 
+@app.function(image=image, volumes={"/data": vol}, timeout=1800, cpu=4, memory=8192)
+def packgaps(chart, stats):
+    """What each scene's charting records need that a privately stored pack lacks: each part against the pack's closest
+    loop (workable tempo; a key that mixes for bass and melody), the share close, some way off and with nothing close,
+    what the missing sounds have in common against the pack, and examples. Returns only shares, words and record titles."""
+    import json as _j, glob, numpy as np, collections
+    vol.reload()
+    if not glob.glob("/data/private/*.json"): return {"error": "no pack measured"}
+    loops = [l for f in glob.glob("/data/private/*.json") for l in (_j.load(open(f)).get("loops") or []) if isinstance(l.get("v"), list) and len(l["v"]) == 53]
+    RP = np.load("/data/record-parts.npz"); at = {t: i for i, t in enumerate(RP["ids"].tolist())}; V = RP["V"].astype(np.float32); TEMPO = RP["tempo"]; KEY = RP["key"]
+    CAM = {"G#m": "1A", "D#m": "2A", "A#m": "3A", "Fm": "4A", "Cm": "5A", "Gm": "6A", "Dm": "7A", "Am": "8A", "Em": "9A", "Bm": "10A", "F#m": "11A", "C#m": "12A",
+           "B": "1B", "F#": "2B", "C#": "3B", "G#": "4B", "D#": "5B", "A#": "6B", "F": "7B", "C": "8B", "G": "9B", "D": "10B", "A": "11B", "E": "12B"}
+    def mixes(a, b):
+        ca, cb = CAM.get(a), CAM.get(b)
+        if not ca or not cb: return True
+        return int(ca[:-1]) == int(cb[:-1]) or (ca[-1] == cb[-1] and (int(ca[:-1]) - int(cb[:-1])) % 12 in (1, 11))
+    keep = stats["keep"]; FAM = {"drums": "drums", "bass": "bass", "other": "melody", "vocals": "vocals"}; PI = {"drums": 0, "bass": 1, "other": 2, "vocals": 3}
+    PLAIN = {"crest": 46, "centroid_hz": 48, "flatness": 50, "onsets_per_s": 51}
+    WORDS = {"centroid_hz": ("brighter", "darker"), "onsets_per_s": ("busier", "sparser"), "crest": ("punchier", "softer"), "flatness": ("noisier", "more tonal")}
+    out = {"pack loops": len(loops), "scenes": {}}
+    for sc, rows in chart.items():
+        ids = [(t, rk, name) for t, rk, name in rows if t in at]
+        if len(ids) < 15: continue
+        S = {"records": len(ids), "parts": {}}
+        for part, fam in FAM.items():
+            F = stats["families"][fam]; mu, sd = np.array(F["mu"], np.float32), np.array(F["sd"], np.float32)
+            cand = [l for l in loops if (l.get("cat") or "drums") == fam]
+            if not cand: S["parts"][part] = {"close": 0, "some": 0, "far": 1.0, "none_in_pack": True}; continue
+            Z = (np.array([np.array(l["v"], np.float32)[keep] for l in cand]) - mu) / sd; Z /= np.linalg.norm(Z, axis=1, keepdims=True) + 1e-9
+            lt = np.array([l.get("tempo") or 0 for l in cand], np.float32); lk = [l.get("key") for l in cand]
+            best, far = [], []
+            for t, rk, name in ids:
+                i = at[t]; v = V[i, PI[part]][keep]; z = (v - mu) / sd; z /= np.linalg.norm(z) + 1e-9; sim = Z @ z; T = float(TEMPO[i]) or 0
+                ok = np.ones(len(cand), bool)
+                if T:
+                    ok = np.zeros(len(cand), bool)
+                    for f in (1, 2, 0.5): ok |= (lt > 0) & (np.abs(lt * f - T) / T <= 0.08)
+                if fam in ("bass", "melody") and str(KEY[i]): ok &= np.array([mixes(str(KEY[i]), x) if x else True for x in lk])
+                b = float(sim[ok].max()) if ok.any() else -1.0; best.append(b)
+                if b < 0.45: far.append((t, rk, name))
+            best = np.array(best); words = []
+            if far:
+                for k, (up, dn) in WORDS.items():
+                    a = np.median([float(V[at[t], PI[part], PLAIN[k]]) for t, _, _ in far]); b_ = np.median([float(l["v"][PLAIN[k]]) for l in cand])
+                    if a and b_:
+                        r = a / b_
+                        if r >= 1.2: words.append((np.log(r), up))
+                        elif r <= 1 / 1.2: words.append((-np.log(r), dn))
+                words = [w for _, w in sorted(words, reverse=True)[:3]]
+            S["parts"][part] = {"close": round(float((best >= 0.7).mean()), 3), "some": round(float(((best >= 0.45) & (best < 0.7)).mean()), 3), "far": round(float((best < 0.45).mean()), 3),
+                                "gap_words": words, "examples": [n for _, _, n in sorted(far, key=lambda x: x[1])[:3]]}
+        out["scenes"][sc] = S
+    return _j.loads(_j.dumps(out))
+
+
 @app.local_entrypoint()
 def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0, tag: str = "", ckpt: str = ""):
     man = json.load(open(manifest_path))
@@ -893,6 +948,12 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         print("::notice title=pack match::" + json.dumps({"packs": res.get("packs"), "error": res.get("error"), "records": len(res.get("records", []))}))
         for r in res.get("records", []):   # one note per record: notes are cut at 4,096 characters
             print("::notice title=pack match " + r["id"] + "::" + json.dumps(r["parts"])[:4000])
+    if stage == "packgaps":
+        chart = {sc: rows for sc, rows in json.load(open("data/chart-records-2026.json"))["scenes"].items()}
+        res = packgaps.remote(chart, json.load(open("data/part-stats.json")))
+        print("::notice title=pack gaps::" + json.dumps({"pack loops": res.get("pack loops"), "error": res.get("error"), "scenes": len(res.get("scenes", {}))}))
+        for sc, S in (res.get("scenes") or {}).items():   # one note per scene: notes are cut at 4,096 characters
+            print("::notice title=pack gaps " + sc + "::" + json.dumps(S)[:4000])
     if stage == "promote":
         print("::notice title=promoted::" + json.dumps(promote.remote(tag)))
     if stage == "confusion":
