@@ -1022,3 +1022,70 @@ def ear_main():
     import json
     r = ear_test.remote(json.load(open("data/ear_pairs.json")))
     print("EAR_RESULT " + json.dumps(r)); open("ear_result.json", "w").write(json.dumps(r))
+
+
+@app.function(image=image, volumes={"/data": vol}, timeout=1800, cpu=4, memory=8192, max_containers=24)
+def ear_chunk(ids):
+    """One chunk of the ear test: each record's learned embedding from its stored patches."""
+    import os, numpy as np, torch
+    C = torch.load("/data/embed_live.pt", map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval()
+    mu = C["mu"] if not hasattr(C["mu"], "numpy") else C["mu"]; sd = C["sd"] if not hasattr(C["sd"], "numpy") else C["sd"]
+    out = []
+    for t in ids:
+        p = f"/data/patches/{t.replace(':', '_')}.npy"
+        if not os.path.exists(p): continue
+        try:
+            x = torch.from_numpy(np.load(p).astype(np.float32))
+            with torch.no_grad(): e = net.embed((x - mu) / sd).mean(0).numpy()
+            out.append([t, [round(float(v), 5) for v in e]])
+        except Exception: continue
+    return out
+
+
+@app.function(image=image, volumes={"/data": vol}, timeout=600)
+def ear_save(ids, E):
+    import numpy as np
+    np.savez("/data/ear_emb.npz", ids=np.array(ids), E=np.array(E, dtype=np.float16)); vol.commit(); return len(ids)
+
+
+@app.local_entrypoint()
+def ear_main2():
+    import json, numpy as np
+    P = json.load(open("data/ear_pairs.json")); ids = P["ids"]; chunks = [ids[i:i + 800] for i in range(0, len(ids), 800)]
+    E = {}
+    for part in ear_chunk.map(chunks):
+        for t, v in part: v = np.array(v, dtype=np.float32); E[t] = v / (np.linalg.norm(v) + 1e-9)
+    ks = sorted(E); ear_save.remote(ks, [E[k].tolist() for k in ks])
+    def auc(pos, neg):
+        pos, neg = np.asarray(pos), np.asarray(neg)
+        r = np.concatenate([pos, neg]).argsort().argsort() + 1
+        return float(1 - (r[:len(pos)].sum() - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg)))
+    PP = P["pairs"]; d = lambda L: [1 - float(E[a] @ E[b]) for a, b in L if a in E and b in E]
+    r = {"embedded": len(E), "missing": len(ids) - len(E), "auc": {k: auc(d(PP[a]), d(PP[b])) for k, (a, b) in {"adjacent vs same scene": ("adjacent", "adjacent_ctrl_scene"), "same set vs same scene": ("same_set", "same_set_ctrl_scene"), "same set vs anywhere": ("same_set", "same_set_ctrl_any"), "adjacent vs same set": ("adjacent", "same_set")}.items()}}
+    print("EAR_RESULT " + json.dumps(r)); open("ear_result.json", "w").write(json.dumps(r))
+
+
+@app.local_entrypoint()
+def ear_walk():
+    """Every walkable record's learned embedding, compressed for the phone: the 16 strongest directions of
+    the learned space, each as a signed byte. Checked on the ear-test pairs before it is written."""
+    import json, base64, numpy as np
+    ids = json.load(open("data/walk_ids.json")); chunks = [ids[i:i + 800] for i in range(0, len(ids), 800)]
+    E = {}
+    for part in ear_chunk.map(chunks):
+        for t, v in part: v = np.array(v, dtype=np.float32); E[t] = v / (np.linalg.norm(v) + 1e-9)
+    ks = [t for t in ids if t in E]; M = np.stack([E[t] for t in ks]); mean = M.mean(0)
+    U, S, Vt = np.linalg.svd(M - mean, full_matrices=False); D = 16
+    Y = (M - mean) @ Vt[:D].T; scale = np.abs(Y).max(0) + 1e-9; Q = np.clip(np.round(Y / scale * 127), -127, 127).astype(np.int8)
+    P = json.load(open("data/ear_pairs.json"))["pairs"]; at = {t: i for i, t in enumerate(ks)}
+    Yq = Q.astype(np.float32) * scale / 127; Yq /= np.linalg.norm(Yq, axis=1, keepdims=True) + 1e-9
+    def auc(pos, neg):
+        pos, neg = np.asarray(pos), np.asarray(neg); r = np.concatenate([pos, neg]).argsort().argsort() + 1
+        return float(1 - (r[:len(pos)].sum() - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg)))
+    d = lambda L: [1 - float(Yq[at[a]] @ Yq[at[b]]) for a, b in L if a in at and b in at]
+    chk = {"adjacent vs same scene": auc(d(P["adjacent"]), d(P["adjacent_ctrl_scene"])), "same set vs same scene": auc(d(P["same_set"]), d(P["same_set_ctrl_scene"]))}
+    json.dump({"note": "each walkable record's learned embedding compressed to its 16 strongest directions, signed bytes; multiply by scale/127", "dims": D,
+               "kept": float((S[:D] ** 2).sum() / (S ** 2).sum()), "check": chk, "ids": ks, "scale": [float(x) for x in scale],
+               "ear": base64.b64encode(Q.tobytes()).decode()}, open("data/walk_ear.json", "w"), separators=(",", ":"))
+    r = {"embedded": len(ks), "of": len(ids), "kept": float((S[:D] ** 2).sum() / (S ** 2).sum()), "check": chk}
+    print("EAR_RESULT " + json.dumps(r)); open("ear_result.json", "w").write(json.dumps(r))

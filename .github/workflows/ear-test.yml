@@ -1,7 +1,10 @@
 name: ear-test
 # Which ear hears what DJs hear: the learned model scored on pairs from published sets.
-on: { workflow_dispatch: {} }
-permissions: { contents: read }
+on:
+  workflow_dispatch:
+    inputs:
+      entry: { description: "ear_main or ear_main2", required: false, default: "ear_main" }
+permissions: { contents: write }
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -10,11 +13,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
-      - run: pip install -q modal
+      - run: pip install -q modal numpy
       - name: run on Modal
         env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
         run: |
-          modal run embed/modal_embed.py::ear_main > out.txt 2>&1 || true
+          modal run embed/modal_embed.py::${{ inputs.entry || 'ear_main' }} > out.txt 2>&1 || true
           echo "::notice title=modal errors::$(grep -E 'Error|Exception|error:|No such|not found|Traceback' out.txt | grep -v '^│ *│' | tail -8 | cut -c1-240 | sed ':a;N;$!ba;s/\n/%0A/g')"
           echo "::notice title=modal last lines::$(grep -v '^[│╭╰ ]*$' out.txt | tail -6 | cut -c1-240 | sed ':a;N;$!ba;s/\n/%0A/g')"
           [ -f ear_result.json ] && echo "::notice title=ear result::$(cat ear_result.json)" || exit 1
+      - name: keep the compressed ear
+        if: ${{ inputs.entry == 'ear_walk' }}
+        run: |
+          [ -f data/walk_ear.json ] || exit 0
+          git config user.name "signal-bot"; git config user.email "bot@earlysignal.live"
+          git add data/walk_ear.json && git commit -qm "the learned ear for every walkable record, compressed" && git pull -q --rebase origin main && git push -q origin HEAD:main
