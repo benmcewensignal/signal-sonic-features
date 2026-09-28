@@ -21,11 +21,14 @@ jobs:
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          PARTS_KEY: ${{ secrets.PARTS_KEY }}
         run: |
           if [ -z "$MODAL_TOKEN_ID" ]; then echo "::notice::no Modal token yet; the worker is not deployed"; exit 0; fi
           pip install -q modal "fastapi[standard]"
           # the deploy log is not readable from outside, so its last lines become an annotation
           set +e
+          # the shared password with the site: written from the pipeline's copy on every deploy, so the two cannot drift apart again
+          if [ -n "$PARTS_KEY" ]; then modal secret create sonic-parts PARTS_KEY="$PARTS_KEY" --force >/dev/null && echo "worker password synced"; fi
           modal deploy worker/modal_app.py 2>&1 | tee /tmp/deploy.log
           rc=${PIPESTATUS[0]}
           if [ "$rc" -ne 0 ]; then

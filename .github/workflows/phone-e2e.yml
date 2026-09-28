@@ -1,0 +1,17 @@
+name: phone-e2e
+# End to end, as a phone: real previews degraded as a phone hears them, sliced by the page's own code, through the live site.
+on:
+  workflow_dispatch: {}
+  schedule: [{ cron: "20 6 * * *" }]   # every morning: fails, and so emails, if the site and the worker stop talking
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: sudo apt-get install -y -q ffmpeg >/dev/null; pip install -q numpy "librosa==0.10.2" soundfile requests
+      - run: python tools/phone_e2e.py
