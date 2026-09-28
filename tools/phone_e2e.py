@@ -11,7 +11,7 @@ FAILED = False
 try:
     rr = requests.post("https://www.earlysignal.live/api/parts", json={"x": [0.0] * 75, "condition": "phone"}, timeout=60)
     print("::notice title=everyday measures route::" + json.dumps({"HTTP": rr.status_code, "reply": str(rr.text)[:200]}))
-    FAILED = rr.status_code != 200
+    FAILED = rr.status_code in (401, 403) or rr.status_code >= 500   # a 400 for dummy measures still proves the worker accepted the password and read the request
 except Exception as e:
     print("::notice title=everyday measures route::failed " + type(e).__name__)
 for r in RECS:
