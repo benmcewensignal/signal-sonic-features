@@ -15,5 +15,6 @@ jobs:
         env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
         run: |
           modal run embed/modal_embed.py::ear_main > out.txt 2>&1 || true
-          echo "::notice title=modal output::$(tail -30 out.txt | cut -c1-300 | sed ':a;N;$!ba;s/\n/%0A/g')"
+          echo "::notice title=modal errors::$(grep -E 'Error|Exception|error:|No such|not found|Traceback' out.txt | grep -v '^│ *│' | tail -8 | cut -c1-240 | sed ':a;N;$!ba;s/\n/%0A/g')"
+          echo "::notice title=modal last lines::$(grep -v '^[│╭╰ ]*$' out.txt | tail -6 | cut -c1-240 | sed ':a;N;$!ba;s/\n/%0A/g')"
           [ -f ear_result.json ] && echo "::notice title=ear result::$(cat ear_result.json)" || exit 1
