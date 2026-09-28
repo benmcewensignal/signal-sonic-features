@@ -29,6 +29,8 @@ jobs:
           set +e
           # the shared password with the site: written from the pipeline's copy on every deploy, so the two cannot drift apart again
           if [ -n "$PARTS_KEY" ]; then modal secret create sonic-parts PARTS_KEY="$PARTS_KEY" --force >/dev/null && echo "worker password synced"; fi
+          # every separated record's part measures, for the loops endpoint (kept privately with the model weights)
+          python -m pip install -q numpy >/dev/null 2>&1; python tools/build_record_parts.py --out /tmp/record-parts.npz && modal volume put sonic-embed /tmp/record-parts.npz /record-parts.npz --force || echo "::warning title=record parts::not built"
           modal deploy worker/modal_app.py 2>&1 | tee /tmp/deploy.log
           rc=${PIPESTATUS[0]}
           if [ "$rc" -ne 0 ]; then

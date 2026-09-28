@@ -275,3 +275,27 @@ def _why(a, b):
     diff.sort(reverse=True)
     parts = (["similar " + " and ".join(same[:2])] if same else []) + ([diff[0][1]] if diff else [])
     return ", ".join(parts)
+
+
+_RP = None
+
+
+def record_loops(tid, scene=None, path="/embed/record-parts.npz"):
+    """For a record Sonic has already separated, looked up by id: the licensed loops closest to each of its parts,
+    and how far each part sits from its scene."""
+    global _RP
+    if _RP is None:
+        if not os.path.exists(path): return {"error": "record parts not available"}
+        d = np.load(path, allow_pickle=False)
+        _RP = {"at": {t: i for i, t in enumerate(d["ids"].tolist())}, "V": d["V"], "tempo": d["tempo"], "key": d["key"]}
+    i = _RP["at"].get(tid)
+    if i is None: return {"error": "not separated"}
+    SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
+    stems = {}
+    for j, p in enumerate(("drums", "bass", "other", "vocals")):
+        v = _RP["V"][i, j].astype(float)
+        stems[p] = dict({"embedding": [float(x) for x in v[:45]]}, **{c: float(v[45 + k]) for k, c in enumerate(SC)})
+    tempo = float(_RP["tempo"][i]) or None; key = str(_RP["key"][i]) or None
+    out = {"id": tid, "tempo": tempo, "key": key, "licensed_parts": licensed_parts(stems, tempo, key)}
+    if scene: out["part_residuals"] = part_residuals(stems, scene)
+    return out
