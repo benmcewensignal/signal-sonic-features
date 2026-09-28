@@ -6,20 +6,30 @@ from concurrent.futures import ThreadPoolExecutor
 FAM = [("vocals", r"vocal|vox|acapella|a-capella|chant|spoken|phrase"), ("bass", r"bass|sub|reese|808"),
        ("melody", r"synth|chord|pad|lead|keys|piano|stab|arp|melod|music|rhodes|organ|string"), ("drums", r"drum|kick|snare|hat|perc|top|break|beat|groove|clap|ride|cymbal|full")]
 def family(path):
-    p = path.lower().replace("\\\\", "/")
+    p = path.lower().replace(chr(92), "/")
     for fam, pat in FAM:
         if re.search(pat, p): return fam
     return None
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--zip"); ap.add_argument("--pack"); ap.add_argument("--out"); a = ap.parse_args()
-    work = tempfile.mkdtemp(); z = zipfile.ZipFile(a.zip); items = []
-    for n in z.namelist():
-        if not re.search(r"\\.(wav|aif|aiff|mp3|flac)$", n, re.I) or "__MACOSX" in n: continue
-        fam = family(n)
-        if not fam: continue
+    import io
+    work = tempfile.mkdtemp(); items = []
+    def walk(z, prefix=""):   # sound files, including inside zips within the zip (pack bundles often nest them)
+        for n in z.namelist():
+            if "__MACOSX" in n: continue
+            if n.lower().endswith(".zip"):
+                try: walk(zipfile.ZipFile(io.BytesIO(z.read(n))), prefix + os.path.splitext(os.path.basename(n))[0] + "/")
+                except Exception as e: print("inner zip not read:", n, type(e).__name__, flush=True)
+                continue
+            if not re.search(r"[.](wav|aif|aiff|mp3|flac)$", n, re.I): continue
+            yield_file(z, prefix + n, n)
+    def yield_file(z, full, n):
+        fam = family(full)
+        if not fam: return
         dest = os.path.join(work, str(len(items)) + os.path.splitext(n)[1]); open(dest, "wb").write(z.read(n))
-        items.append({"id": "pack:" + str(len(items)), "name": os.path.basename(n), "username": a.pack, "license": "pack licence (private demo)", "path": dest,
-                      "tags": re.split(r"[/_\\- ]+", os.path.dirname(n)), "_cat": fam, "_page": "", "_src": "pack:" + a.pack, "rel": n})
+        items.append({"id": "pack:" + str(len(items)), "name": os.path.basename(full), "username": a.pack, "license": "pack licence (private demo)", "path": dest,
+                      "tags": re.split(r"[/_ -]+", os.path.dirname(full)), "_cat": fam, "_page": "", "_src": "pack:" + a.pack, "rel": full})
+    walk(zipfile.ZipFile(a.zip))
     print(f"sounds in the pack by family: " + json.dumps({f: sum(1 for i in items if i["_cat"] == f) for f, _ in FAM}), flush=True)
     def one(x):
         try:
