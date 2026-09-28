@@ -1043,6 +1043,15 @@ def ear_chunk(ids):
 
 
 @app.function(image=image, volumes={"/data": vol}, timeout=600)
+def ear_proj_save(mean, V, scale, built):
+    """The 16-direction projection of the learned ear, saved beside the model so the parts worker can place a clip
+    in the same space as the catalogue's ear."""
+    import numpy as np
+    np.savez("/data/ear_proj.npz", mean=np.array(mean, np.float32), V=np.array(V, np.float32), scale=np.array(scale, np.float32), built=np.array(built)); vol.commit()
+    return {"dims": len(V), "built": built}
+
+
+@app.function(image=image, volumes={"/data": vol}, timeout=600)
 def ear_save(ids, E):
     import numpy as np
     np.savez("/data/ear_emb.npz", ids=np.array(ids), E=np.array(E, dtype=np.float16)); vol.commit(); return len(ids)
@@ -1077,6 +1086,8 @@ def ear_walk():
     ks = [t for t in ids if t in E]; M = np.stack([E[t] for t in ks]); mean = M.mean(0)
     U, S, Vt = np.linalg.svd(M - mean, full_matrices=False); D = 16
     Y = (M - mean) @ Vt[:D].T; scale = np.abs(Y).max(0) + 1e-9; Q = np.clip(np.round(Y / scale * 127), -127, 127).astype(np.int8)
+    import datetime as _dt; built = _dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")
+    ear_proj_save.remote(mean.astype(np.float32).tolist(), Vt[:D].astype(np.float32).tolist(), scale.astype(np.float32).tolist(), built)   # the worker projects a clip with this
     P = json.load(open("data/ear_pairs.json"))["pairs"]; at = {t: i for i, t in enumerate(ks)}
     Yq = Q.astype(np.float32) * scale / 127; Yq /= np.linalg.norm(Yq, axis=1, keepdims=True) + 1e-9
     def auc(pos, neg):
@@ -1085,7 +1096,7 @@ def ear_walk():
     d = lambda L: [1 - float(Yq[at[a]] @ Yq[at[b]]) for a, b in L if a in at and b in at]
     chk = {"adjacent vs same scene": auc(d(P["adjacent"]), d(P["adjacent_ctrl_scene"])), "same set vs same scene": auc(d(P["same_set"]), d(P["same_set_ctrl_scene"]))}
     json.dump({"note": "each walkable record's learned embedding compressed to its 16 strongest directions, signed bytes; multiply by scale/127", "dims": D,
-               "kept": float((S[:D] ** 2).sum() / (S ** 2).sum()), "check": chk, "ids": ks, "scale": [float(x) for x in scale],
+               "kept": float((S[:D] ** 2).sum() / (S ** 2).sum()), "check": chk, "ids": ks, "scale": [float(x) for x in scale], "built": built,
                "ear": base64.b64encode(Q.tobytes()).decode()}, open("data/walk_ear.json", "w"), separators=(",", ":"))
     r = {"embedded": len(ks), "of": len(ids), "kept": float((S[:D] ** 2).sum() / (S ** 2).sum()), "check": chk}
     print("EAR_RESULT " + json.dumps(r)); open("ear_result.json", "w").write(json.dumps(r))
