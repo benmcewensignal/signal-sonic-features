@@ -5,7 +5,7 @@ on:
     inputs:
       drive_id: { description: "the Drive file id of the pack's zip (shared as anyone with the link)", default: "" }
       pack: { description: "the pack's name", default: "pack" }
-permissions: { contents: read }
+permissions: { contents: read, actions: write }
 jobs:
   ingest:
     runs-on: ubuntu-latest
@@ -27,3 +27,8 @@ jobs:
         run: |
           pip install -q modal
           for f in data/private/*.json; do modal volume put sonic-embed "$f" "/private/$(basename "$f")" --force && echo "kept privately: $(basename "$f")"; done
+      - name: match the demo records against the pack
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run embed-pilot.yml --ref main -f per_scene=100000 -f stage=packmatch -f scope=all && echo "pack matching started"
