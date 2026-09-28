@@ -63,6 +63,9 @@ def read(wav_path, with_audio=False):
                 from worker.scene import part_calls
                 pc = part_calls(rec)
                 if pc: out["part_calls"] = pc
+                from worker.scene import key_from_parts
+                kf = key_from_parts(rec)
+                if kf: out["key"] = kf
                 from worker.scene import part_sounds_like
                 pl = part_sounds_like(rec)
                 if pl: out["part_like"] = pl

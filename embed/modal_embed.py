@@ -331,6 +331,65 @@ def fairtest(manifest, ckpts, cutoff_ts: float):
     return out
 
 
+dsep_image = image.pip_install("demucs==4.0.1", "audio-separator[gpu]", "soundfile")
+
+
+@app.function(image=dsep_image, gpu="A10G", volumes={"/data": vol}, timeout=3600, retries=0, max_containers=4)
+def drumpilot(batch):
+    """Finer separation pilot: each record's drums (htdemucs) split into kick, snare, toms, hi-hats, ride and crash
+    (MDX23C DrumSep), then checked: does the kick sit on the beat where it should, do the hats sit off it, do they leak."""
+    import os, tempfile, time, numpy as np, requests, librosa, torch, soundfile as sf
+    from demucs.pretrained import get_model
+    from demucs.apply import apply_model
+    from audio_separator.separator import Separator
+    work = tempfile.mkdtemp(); rows = []
+    dm = get_model("htdemucs").cuda().eval(); di = dm.sources.index("drums")
+    sep = Separator(output_dir=work, output_format="WAV")
+    try:
+        sep.load_model(model_filename="MDX23C-DrumSep-aufr33-jarredou.ckpt")
+    except Exception as e:
+        return {"error": f"drum model: {type(e).__name__}: {e}"[:400]}
+    for tid, url, scene in batch:
+        try:
+            t0 = time.time(); mp3 = os.path.join(work, "a.mp3"); open(mp3, "wb").write(requests.get(url, timeout=40).content)
+            y, sr = librosa.load(mp3, sr=dm.samplerate, mono=False, offset=20, duration=60)
+            if y.ndim == 1: y = np.stack([y, y])
+            with torch.no_grad(): S = apply_model(dm, torch.from_numpy(y[None]).float().cuda(), split=True)[0].cpu().numpy()
+            dpath = os.path.join(work, "drums.wav"); sf.write(dpath, S[di].T, dm.samplerate)
+            files = sep.separate(dpath); t1 = time.time()
+            parts = {}
+            for f in files:
+                fp = f if os.path.isabs(f) else os.path.join(work, f); fn = os.path.basename(fp).lower()
+                for k in ("kick", "snare", "toms", "hh", "ride", "crash"):
+                    if f"({k})" in fn: parts[k] = fp
+            dmono = librosa.to_mono(S[di]); dmono = librosa.resample(dmono, orig_sr=dm.samplerate, target_sr=22050)
+            tempo, beats = librosa.beat.beat_track(y=dmono, sr=22050, units="time")
+            beats = np.asarray(beats); bp = float(np.median(np.diff(beats))) if len(beats) > 4 else None
+            def load(k):
+                if k not in parts: return None
+                v, _ = librosa.load(parts[k], sr=22050, mono=True); return v
+            def near(on, grid, tol=0.07): return float(np.mean([np.min(np.abs(grid - o)) < tol for o in on])) if len(on) and len(grid) else None
+            rec = {"id": tid, "scene": scene, "secs": round(t1 - t0, 1), "found": sorted(parts)}
+            lev = {}
+            for k in parts:
+                v = load(k); lev[k] = float(np.sqrt(np.mean(v ** 2))) if v is not None else 0.0
+            tot = sum(lev.values()) or 1; rec["share"] = {k: round(v / tot, 3) for k, v in lev.items()}
+            kick = load("kick"); hh = load("hh")
+            if kick is not None and bp:
+                ko = librosa.onset.onset_detect(y=kick, sr=22050, units="time", backtrack=False)
+                rec["kick_per_beat"] = round(len(ko) / max(1, len(beats)), 2); rec["kick_on_beat"] = near(ko, beats)
+            if hh is not None and bp:
+                ho = librosa.onset.onset_detect(y=hh, sr=22050, units="time"); off = beats[:-1] + np.diff(beats) / 2
+                rec["hats_offbeat"] = near(ho, off); rec["hats_on_beat"] = near(ho, beats)
+            if kick is not None and hh is not None:
+                a_ = librosa.onset.onset_strength(y=kick, sr=22050); b_ = librosa.onset.onset_strength(y=hh, sr=22050); n_ = min(len(a_), len(b_))
+                rec["kick_hat_overlap"] = round(float(np.corrcoef(a_[:n_], b_[:n_])[0, 1]), 3)
+            rows.append(rec)
+        except Exception as e:
+            rows.append({"id": tid, "scene": scene, "error": type(e).__name__ + ": " + str(e)[:80]})
+    return rows
+
+
 @app.local_entrypoint()
 def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0, tag: str = "", ckpt: str = ""):
     man = json.load(open(manifest_path))
@@ -373,6 +432,29 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         cut = datetime.datetime(2026, 9, 27, 11, 0, tzinfo=datetime.timezone.utc).timestamp()   # today's extraction began at 11:45
         res = fairtest.remote(man, ["embed_live.pt", ckpt or "embed_aug122k_104842.pt"], cut)
         print("::notice title=fair test::" + json.dumps(res))
+    if stage == "drumpilot":
+        import random, collections, statistics as st_
+        want = ["techno-peak-time", "tech-house", "house", "deep-house", "hard-techno", "drum-and-bass", "breaks-breakbeat-uk-bass", "uk-garage-speed-garage", "140-deep-dubstep-grime", "amapiano"]
+        pool = [m for m in man if m.get("scene") in want]; random.Random(1).shuffle(pool); per = collections.Counter(); pick = []
+        for m in pool:
+            if per[m["scene"]] < 20: pick.append((m["id"], m["url"], m["scene"])); per[m["scene"]] += 1
+        rows = []
+        for res in drumpilot.map([pick[i:i + 25] for i in range(0, len(pick), 25)]):
+            if isinstance(res, dict): print("::notice title=drum pilot::" + json.dumps(res)); break
+            rows += res
+        ok = [r for r in rows if "error" not in r]; errs = collections.Counter(r["error"][:50] for r in rows if "error" in r)
+        med = lambda xs: round(st_.median(xs), 2) if xs else None
+        by = {}
+        for sc in want:
+            R = [r for r in ok if r["scene"] == sc]
+            by[sc] = {"n": len(R), "kick on beat": med([r["kick_on_beat"] for r in R if r.get("kick_on_beat") is not None]),
+                      "kicks per beat": med([r["kick_per_beat"] for r in R if r.get("kick_per_beat") is not None]),
+                      "hats off beat": med([r["hats_offbeat"] for r in R if r.get("hats_offbeat") is not None]),
+                      "kick-hat overlap": med([r["kick_hat_overlap"] for r in R if r.get("kick_hat_overlap") is not None])}
+        shares = {k: med([r["share"].get(k, 0) for r in ok]) for k in ("kick", "snare", "toms", "hh", "ride", "crash")}
+        print("::notice title=drum pilot::" + json.dumps({"records": len(rows), "separated": len(ok), "errors": dict(errs.most_common(3)),
+              "seconds per record": med([r["secs"] for r in ok]), "median energy shares": shares}))
+        print("::notice title=drum pilot by scene::" + json.dumps(by))
     if stage == "promote":
         print("::notice title=promoted::" + json.dumps(promote.remote(tag)))
     if stage == "confusion":

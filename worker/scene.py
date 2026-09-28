@@ -167,3 +167,27 @@ def part_sounds_like(stems, k=3):
         z = (v - P["mu"]) / P["sd"]; z = z / (np.linalg.norm(z) + 1e-9); sim = P["M"].astype(np.float32) @ z.astype(np.float32)
         top = np.argsort(-sim)[:k]; out[p] = [[_AP["artists"][i], round(float(sim[i]), 3)] for i in top]
     return out or None
+
+
+# Key, from the separated parts: melody, with bass and voice, matched to dance-music key templates (EDMA).
+# Against Beatport's key on 3,996 records: exact 60% overall; 77% when the detection is clearest (margin >= 0.108),
+# 61% in the middle, 43% when least clear (margin < 0.048).
+_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+_EDMA_MAJ = np.array([.1652, .0475, .0829, .0669, .0999, .0927, .0529, .1316, .0522, .0744, .0694, .0643])
+_EDMA_MIN = np.array([.1724, .0400, .0761, .1253, .0567, .0822, .0626, .1435, .0810, .0571, .0836, .0551])
+_CAMELOT = {"G#m": "1A", "D#m": "2A", "A#m": "3A", "Fm": "4A", "Cm": "5A", "Gm": "6A", "Dm": "7A", "Am": "8A", "Em": "9A", "Bm": "10A", "F#m": "11A", "C#m": "12A",
+            "B": "1B", "F#": "2B", "C#": "3B", "G#": "4B", "D#": "5B", "A#": "6B", "F": "7B", "C": "8B", "G": "9B", "D": "10B", "A": "11B", "E": "12B"}
+
+
+def key_from_parts(stems):
+    def ch(p):
+        e = ((stems or {}).get(p) or {}).get("embedding")
+        if not (isinstance(e, list) and len(e) == 45): return None
+        v = np.array(e[26:38], float); return (v - v.mean()) / (v.std() + 1e-9)
+    o = ch("other")
+    if o is None: return None
+    v = o + sum(0.5 * x for x in (ch("bass"), ch("vocals")) if x is not None)
+    sc = sorted(((float(np.corrcoef(np.roll(v, -i), prof)[0, 1]), _KEYS[i] + suf) for i in range(12) for prof, suf in ((_EDMA_MAJ, ""), (_EDMA_MIN, "m"))), reverse=True)
+    k, margin = sc[0][1], sc[0][0] - sc[1][0]
+    rel = 0.77 if margin >= 0.108 else (0.61 if margin >= 0.048 else 0.43)
+    return {"key": k, "camelot": _CAMELOT.get(k), "margin": round(margin, 3), "matches_beatport": rel}
