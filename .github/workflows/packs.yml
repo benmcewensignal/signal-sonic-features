@@ -5,7 +5,7 @@ on:
     inputs:
       drive_id: { description: "the Drive file id of the pack's zip (shared as anyone with the link)", default: "" }
       pack: { description: "the pack's name", default: "pack" }
-permissions: { contents: read }
+permissions: { contents: read, actions: write }
 jobs:
   ingest:
     runs-on: ubuntu-latest
@@ -17,7 +17,7 @@ jobs:
       - run: sudo apt-get install -y -q ffmpeg >/dev/null
       - run: pip install -q gdown numpy "librosa==0.10.2" soundfile requests scipy; pip install -q -r requirements.txt 2>/dev/null || true
       - name: fetch the pack from Drive
-        run: gdown --id "${{ inputs.drive_id }}" -O pack.zip && ls -la pack.zip
+        run: gdown "https://drive.google.com/uc?id=${{ inputs.drive_id }}" -O pack.zip && ls -la pack.zip   # current gdown takes the address, not --id
       - name: measure it
         run: python tools/pack_ingest.py --zip pack.zip --pack "${{ inputs.pack }}" --out "data/private/$(echo '${{ inputs.pack }}' | tr -cs 'A-Za-z0-9' '-').json"
       - name: keep the measurements privately (Modal storage, not this public repository)
@@ -27,3 +27,8 @@ jobs:
         run: |
           pip install -q modal
           for f in data/private/*.json; do modal volume put sonic-embed "$f" "/private/$(basename "$f")" --force && echo "kept privately: $(basename "$f")"; done
+      - name: match the demo records against the pack
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run embed-pilot.yml --ref main -f per_scene=100000 -f stage=packmatch -f scope=all && echo "pack matching started"
