@@ -408,6 +408,40 @@ def drumpilot(batch, tempos=None):
     vol.commit(); return rows
 
 
+@app.function(image=dsep_image, volumes={"/data": vol}, timeout=1800, cpu=4)
+def drumcheck(items, tempos):
+    """On the kept kick and hat parts: each record's exact tempo found from its kicks (a fine search within 8% of the
+    scene's tempo, never half or double), then beat-locking and hats relative to the kick; and the same search on
+    random onsets, so a fine search cannot flatter the result."""
+    import os, numpy as np, librosa
+    rng = np.random.default_rng(0); rows = []
+    def best_lock(on, med):
+        best = (0.0, None)
+        for T in np.linspace(med * 0.92, med * 1.08, 641):
+            P = 60.0 / T; L = float(abs(np.mean(np.exp(2j * np.pi * (on % P) / P))))
+            if L > best[0]: best = (L, T)
+        return best
+    for tid, scene in items:
+        d = f"/data/drumpilot/{tid.replace(':', '_')}"
+        if not os.path.exists(d + "/kick.mp3"): continue
+        try:
+            k, _ = librosa.load(d + "/kick.mp3", sr=22050, mono=True); ko = librosa.onset.onset_detect(y=k, sr=22050, units="time", backtrack=True)
+            if len(ko) < 16: continue
+            med = tempos.get(scene) or 125.0; L, T = best_lock(ko, med); P = 60.0 / T
+            Lr, _ = best_lock(np.sort(rng.uniform(0, len(k) / 22050, len(ko))), med)
+            kph = float(np.angle(np.mean(np.exp(2j * np.pi * (ko % P) / P))) / (2 * np.pi) % 1)
+            rec = {"scene": scene, "kick_lock": round(L, 3), "random_lock": round(Lr, 3), "tempo": round(T, 2), "kicks_per_beat": round(len(ko) / ((len(k) / 22050) / P), 2)}
+            if os.path.exists(d + "/hh.mp3"):
+                h, _ = librosa.load(d + "/hh.mp3", sr=22050, mono=True); ho = librosa.onset.onset_detect(y=h, sr=22050, units="time", backtrack=True)
+                if len(ho) >= 16:
+                    rel = ((ho % P) / P - kph) % 1
+                    rec["hats_offbeat"] = round(float(np.mean(np.abs(rel - 0.5) < 0.1)), 3); rec["hats_on_16ths"] = round(float(abs(np.mean(np.exp(2j * np.pi * 4 * rel)))), 3)
+            rows.append(rec)
+        except Exception:
+            pass
+    return rows
+
+
 @app.local_entrypoint()
 def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0, tag: str = "", ckpt: str = ""):
     man = json.load(open(manifest_path))
@@ -450,6 +484,19 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         cut = datetime.datetime(2026, 9, 27, 11, 0, tzinfo=datetime.timezone.utc).timestamp()   # today's extraction began at 11:45
         res = fairtest.remote(man, ["embed_live.pt", ckpt or "embed_aug122k_104842.pt"], cut)
         print("::notice title=fair test::" + json.dumps(res))
+    if stage == "drumcheck":
+        import random, collections, statistics as st_
+        want = ["techno-peak-time", "tech-house", "house", "deep-house", "hard-techno", "drum-and-bass", "breaks-breakbeat-uk-bass", "uk-garage-speed-garage", "140-deep-dubstep-grime", "amapiano"]
+        pool = [m for m in man if m.get("scene") in want]; random.Random(1).shuffle(pool); per = collections.Counter(); pick = []
+        for m in pool:
+            if per[m["scene"]] < 20: pick.append((m["id"], m["scene"])); per[m["scene"]] += 1
+        rows = [r for res in drumcheck.map([pick[i:i + 20] for i in range(0, len(pick), 20)], kwargs={"tempos": TEMPO_MEDIANS}) for r in res]
+        med = lambda xs: round(st_.median(xs), 2) if xs else None
+        by = {sc: {"n": len([r for r in rows if r["scene"] == sc]), "kick lock": med([r["kick_lock"] for r in rows if r["scene"] == sc]),
+                   "random": med([r["random_lock"] for r in rows if r["scene"] == sc]), "kicks per beat": med([r["kicks_per_beat"] for r in rows if r["scene"] == sc]),
+                   "hats off beat": med([r["hats_offbeat"] for r in rows if r["scene"] == sc and "hats_offbeat" in r]),
+                   "hats on 16ths": med([r["hats_on_16ths"] for r in rows if r["scene"] == sc and "hats_on_16ths" in r])} for sc in want}
+        print("::notice title=drum check::" + json.dumps({"records": len(rows), "by scene": by}))
     if stage == "drumpilot":
         import random, collections, statistics as st_
         want = ["techno-peak-time", "tech-house", "house", "deep-house", "hard-techno", "drum-and-bass", "breaks-breakbeat-uk-bass", "uk-garage-speed-garage", "140-deep-dubstep-grime", "amapiano"]
