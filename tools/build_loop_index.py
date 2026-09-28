@@ -2,6 +2,18 @@
 page shows (name, creator, licence, preview, tempo, key) and four plain measures for saying why a loop matched."""
 import json, pickle, numpy as np
 L = json.load(open("data/loops-measured.json")); S = json.load(open("data/part-stats.json")); keep = S["keep"]
+# an older run kept only the numbers: fill names, creators, licences and previews from the published drum matches,
+# and leave out any loop still missing them, rather than show a nameless loop with no player
+try:
+    known = {x["id"]: x for L_ in json.load(open("data/sample-matches.json"))["scenes"].values() for x in L_}
+except Exception:
+    known = {}
+for l in L:
+    k = known.get(l.get("id"))
+    if k:
+        for f in ("name", "user", "license", "preview"):
+            if not l.get(f): l[f] = k.get(f)
+L = [l for l in L if l.get("name") and l.get("preview") and l.get("license")]
 SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
 out = {}
 for fam, st in S["families"].items():
