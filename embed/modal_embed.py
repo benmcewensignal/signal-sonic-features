@@ -1022,3 +1022,44 @@ def ear_main():
     import json
     r = ear_test.remote(json.load(open("data/ear_pairs.json")))
     print("EAR_RESULT " + json.dumps(r)); open("ear_result.json", "w").write(json.dumps(r))
+
+
+@app.function(image=image, volumes={"/data": vol}, timeout=1800, cpu=4, memory=8192, max_containers=24)
+def ear_chunk(ids):
+    """One chunk of the ear test: each record's learned embedding from its stored patches."""
+    import os, numpy as np, torch
+    C = torch.load("/data/embed_live.pt", map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval()
+    mu = C["mu"] if not hasattr(C["mu"], "numpy") else C["mu"]; sd = C["sd"] if not hasattr(C["sd"], "numpy") else C["sd"]
+    out = []
+    for t in ids:
+        p = f"/data/patches/{t.replace(':', '_')}.npy"
+        if not os.path.exists(p): continue
+        try:
+            x = torch.from_numpy(np.load(p).astype(np.float32))
+            with torch.no_grad(): e = net.embed((x - mu) / sd).mean(0).numpy()
+            out.append([t, [round(float(v), 5) for v in e]])
+        except Exception: continue
+    return out
+
+
+@app.function(image=image, volumes={"/data": vol}, timeout=600)
+def ear_save(ids, E):
+    import numpy as np
+    np.savez("/data/ear_emb.npz", ids=np.array(ids), E=np.array(E, dtype=np.float16)); vol.commit(); return len(ids)
+
+
+@app.local_entrypoint()
+def ear_main2():
+    import json, numpy as np
+    P = json.load(open("data/ear_pairs.json")); ids = P["ids"]; chunks = [ids[i:i + 800] for i in range(0, len(ids), 800)]
+    E = {}
+    for part in ear_chunk.map(chunks):
+        for t, v in part: v = np.array(v, dtype=np.float32); E[t] = v / (np.linalg.norm(v) + 1e-9)
+    ks = sorted(E); ear_save.remote(ks, [E[k].tolist() for k in ks])
+    def auc(pos, neg):
+        pos, neg = np.asarray(pos), np.asarray(neg)
+        r = np.concatenate([pos, neg]).argsort().argsort() + 1
+        return float(1 - (r[:len(pos)].sum() - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg)))
+    PP = P["pairs"]; d = lambda L: [1 - float(E[a] @ E[b]) for a, b in L if a in E and b in E]
+    r = {"embedded": len(E), "missing": len(ids) - len(E), "auc": {k: auc(d(PP[a]), d(PP[b])) for k, (a, b) in {"adjacent vs same scene": ("adjacent", "adjacent_ctrl_scene"), "same set vs same scene": ("same_set", "same_set_ctrl_scene"), "same set vs anywhere": ("same_set", "same_set_ctrl_any"), "adjacent vs same set": ("adjacent", "same_set")}.items()}}
+    print("EAR_RESULT " + json.dumps(r)); open("ear_result.json", "w").write(json.dumps(r))

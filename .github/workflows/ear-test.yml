@@ -1,6 +1,9 @@
 name: ear-test
 # Which ear hears what DJs hear: the learned model scored on pairs from published sets.
-on: { workflow_dispatch: {} }
+on:
+  workflow_dispatch:
+    inputs:
+      entry: { description: "ear_main or ear_main2", required: false, default: "ear_main" }
 permissions: { contents: read }
 jobs:
   test:
@@ -14,7 +17,7 @@ jobs:
       - name: run on Modal
         env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
         run: |
-          modal run embed/modal_embed.py::ear_main > out.txt 2>&1 || true
+          modal run embed/modal_embed.py::${{ inputs.entry || 'ear_main' }} > out.txt 2>&1 || true
           echo "::notice title=modal errors::$(grep -E 'Error|Exception|error:|No such|not found|Traceback' out.txt | grep -v '^│ *│' | tail -8 | cut -c1-240 | sed ':a;N;$!ba;s/\n/%0A/g')"
           echo "::notice title=modal last lines::$(grep -v '^[│╭╰ ]*$' out.txt | tail -6 | cut -c1-240 | sed ':a;N;$!ba;s/\n/%0A/g')"
           [ -f ear_result.json ] && echo "::notice title=ear result::$(cat ear_result.json)" || exit 1
