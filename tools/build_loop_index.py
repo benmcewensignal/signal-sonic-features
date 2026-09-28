@@ -1,7 +1,8 @@
 """The worker's loop library: every measured loop, standardised with its family's corpus part statistics, plus what the
 page shows (name, creator, licence, preview, tempo, key) and four plain measures for saying why a loop matched."""
 import json, pickle, numpy as np
-L = json.load(open("data/loops-measured.json")); S = json.load(open("data/part-stats.json")); keep = S["keep"]
+import os
+L = json.load(open(os.environ.get("LOOPS", "data/loops-measured.json"))); S = json.load(open("data/part-stats.json")); keep = S["keep"]
 # an older run kept only the numbers: fill names, creators, licences and previews from the published drum matches,
 # and leave out any loop still missing them, rather than show a nameless loop with no player
 try:
