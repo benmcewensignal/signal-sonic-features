@@ -257,5 +257,21 @@ def licensed_parts(stems, tempo=None, key=None, k=3):
             if m_.get("user") in users: continue
             users.add(m_.get("user")); order.append(i)
             if len(order) >= k: break
-        out[p] = [dict(L["meta"][i], sim=round(float(sim[i]), 3)) for i in order]
+        rec_plain = {n: float(s.get(n)) for n in ("crest", "centroid_hz", "flatness", "onsets_per_s") if isinstance(s.get(n), (int, float))}
+        out[p] = [dict(L["meta"][i], sim=round(float(sim[i]), 3), why=_why(rec_plain, L["meta"][i].get("plain") or {})) for i in order]
     return out or None
+
+
+def _why(a, b):
+    """Why a loop matched a part, in a producer's words: which plain measures are alike, and which differ most."""
+    words = {"centroid_hz": ("brightness", "brighter", "darker"), "onsets_per_s": ("hit density", "busier", "sparser"),
+             "crest": ("punch", "punchier", "softer"), "flatness": ("noisiness", "noisier", "more tonal")}
+    same, diff = [], []
+    for k, (name, up, dn) in words.items():
+        if k not in a or k not in b or not a[k]: continue
+        r = b[k] / a[k] if a[k] else 1.0
+        if 0.8 <= r <= 1.25: same.append(name)
+        else: diff.append((abs(np.log(max(r, 1e-6))), up if r > 1 else dn))
+    diff.sort(reverse=True)
+    parts = (["similar " + " and ".join(same[:2])] if same else []) + ([diff[0][1]] if diff else [])
+    return ", ".join(parts)
