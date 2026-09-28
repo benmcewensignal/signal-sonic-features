@@ -473,6 +473,17 @@ def pick(db, have, limit):
     todo = [r[0] for r in c.execute("select track_id from tracks where source='tracklist' and analyser_id='local' and track_id like 'bp:%'")
             if r[0] not in have][:limit]
     left_tl = sum(1 for r in c.execute("select track_id from tracks where source='tracklist' and analyser_id='local'") if r[0] not in have) - len(todo)
+    # the weekly chart snapshots (since September) carry no scene-month either, so the sweep never reached the charts'
+    # own records: drum & bass had 187 charting records and one of them separated. They come next, newest week first.
+    seen_ = set(todo); charted = []
+    for r in c.execute("""select ts.track_id from track_scenes ts join tracks t on t.track_id=ts.track_id and t.analyser_id='local'
+                          where ts.chart_rank is not null and ts.track_id like 'bp:%' order by ts.week desc, ts.chart_rank"""):
+        if r[0] not in have and r[0] not in seen_: seen_.add(r[0]); charted.append(r[0])
+    for t_ in charted:
+        if len(todo) >= limit: break
+        todo.append(t_)
+    left_tl += max(0, len(charted) - sum(1 for t_ in todo if t_ in set(charted)))
+    for k in keys: pool[k] = [t_ for t_ in pool[k] if t_ not in seen_]
     while len(todo) < limit and any(pool[k] for k in keys):
         for k in keys:
             if pool[k] and len(todo) < limit: todo.append(pool[k].pop())

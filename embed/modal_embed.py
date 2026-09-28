@@ -949,13 +949,15 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         for r in res.get("records", []):   # one note per record: notes are cut at 4,096 characters
             print("::notice title=pack match " + r["id"] + "::" + json.dumps(r["parts"])[:4000])
     if stage == "packgaps":
-        chart = {sc: rows for sc, rows in json.load(open("data/chart-records-2026.json"))["scenes"].items()}
+        # "records": a scene's records released this year, for scenes whose charting records are not yet separated
+        src = "data/scene-records-2026.json" if (tag or "").startswith("records") else "data/chart-records-2026.json"
+        chart = {sc: rows for sc, rows in json.load(open(src))["scenes"].items()}
         res = packgaps.remote(chart, json.load(open("data/part-stats.json")))
         print("::notice title=pack gaps::" + json.dumps({"pack loops": res.get("pack loops"), "error": res.get("error"), "scenes": len(res.get("scenes", {}))}))
         # GitHub keeps ten notes per step: one compact note for every scene, full detail for the scenes nearest the pack
         comp = {sc: [S["parts"].get(p, {}).get("far") for p in ("drums", "bass", "other", "vocals")] + [S["records"]] for sc, S in (res.get("scenes") or {}).items()}
         print("::notice title=pack gaps all::" + json.dumps(comp)[:4000])
-        for sc in ("drum-and-bass", "breaks-breakbeat-uk-bass", "dubstep", "uk-garage-speed-garage", "bass-house", "uk-funky-gqom", "140-deep-dubstep-grime"):
+        for sc in ("drum-and-bass", "breaks-breakbeat-uk-bass", "dubstep", "uk-garage-speed-garage", "techno-peak-time", "tech-house", "house", "deep-house"):
             if sc in (res.get("scenes") or {}): print("::notice title=pack gaps " + sc + "::" + json.dumps(res["scenes"][sc])[:4000])
     if stage == "promote":
         print("::notice title=promoted::" + json.dumps(promote.remote(tag)))
