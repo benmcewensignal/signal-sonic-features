@@ -279,6 +279,31 @@ def save_rows(rows, name):
     _j.dump(rows, open(f"/data/{name}", "w")); vol.commit(); return len(rows)
 
 
+@app.function(image=image, volumes={"/data": vol}, timeout=1800, cpu=8, memory=16384)
+def named_probe(targets, measures, names):
+    """From the saved descriptions: can each named measure be predicted from the phone-robust description, fitted on
+    clean audio of some artists, and does the prediction survive a phone on other artists' records?"""
+    import json as _j, numpy as np, hashlib
+    vol.reload(); rows = [r for r in _j.load(open("/data/robustmap-rows.json")) if r["e"].get("clean") and r["e"].get("phone 30 s") and r["id"] in measures]
+    test = np.array([int(hashlib.md5(r["artist"].encode()).hexdigest(), 16) % 4 == 0 for r in rows]); tr = ~test
+    C = np.array([r["e"]["clean"] for r in rows]); Pn = np.array([r["e"]["phone 30 s"] for r in rows]); sc = np.array([r["scene"] for r in rows])
+    mu, sd = C[tr].mean(0), C[tr].std(0) + 1e-6; Z = lambda A: np.hstack([(A - mu) / sd, np.ones((len(A), 1))])
+    Ys = {n: np.array([measures[r["id"]][j] for r in rows], float) for j, n in enumerate(names)}
+    Ys["old driving"] = np.array([targets[r["id"]][0] for r in rows]); Ys["old defined"] = np.array([targets[r["id"]][1] for r in rows])
+    out = {"records": len(rows), "test": int(test.sum())}
+    for n, y in Ys.items():
+        ok = ~np.isnan(y)
+        A = Z(C[tr & ok]); lam = 30.0; w = np.linalg.solve(A.T @ A + lam * np.eye(A.shape[1]), A.T @ y[tr & ok])
+        pc, pp = Z(C) @ w, Z(Pn) @ w; m = test & ok
+        r2 = lambda p_: round(float(1 - ((p_[m] - y[m]) ** 2).sum() / ((y[m] - y[m].mean()) ** 2).sum()), 3)
+        within = []
+        for s_ in set(sc[m]):
+            mm = m & (sc == s_)
+            if mm.sum() >= 8: within.append(float(np.corrcoef(np.argsort(np.argsort(pp[mm])), np.argsort(np.argsort(y[mm])))[0, 1]))
+        out[n] = {"R2 clean": r2(pc), "R2 phone 30 s": r2(pp), "phone ranks records within scene (vs truth)": round(float(np.nanmean(within)), 3) if within else None}
+    return out
+
+
 @app.function(image=image, timeout=1800, cpu=8, memory=16384)
 def robust_axes(rows, targets, measures, names):
     """A map a phone can read: the two directions in the model's description that most separate records while moving
@@ -601,6 +626,10 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         save_rows.remote(rows, "robustmap-rows.json")
         res = robust_axes.remote(rows, {r["id"]: T[r["id"]] for r in rows}, {r["id"]: P["measures"][r["id"]] for r in rows if r["id"] in P["measures"]}, P["measure_names"])
         print("::notice title=phone map::" + json.dumps(res))
+    if stage == "namedprobe":
+        P = json.load(open("data/pos-targets.json"))
+        res = named_probe.remote(P["pos"], P["measures"], P["measure_names"])
+        print("::notice title=named measures through a phone::" + json.dumps(res))
     if stage == "drumcheck":
         import random, collections, statistics as st_
         want = ["techno-peak-time", "tech-house", "house", "deep-house", "hard-techno", "drum-and-bass", "breaks-breakbeat-uk-bass", "uk-garage-speed-garage", "140-deep-dubstep-grime", "amapiano"]
