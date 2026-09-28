@@ -91,6 +91,10 @@ def read(wav_path, with_audio=False):
                 if isinstance(v_, dict) and v_.get("scenes"): sc0 = v_["scenes"][0][0]; break
             pr = part_residuals(rec, sc0) if sc0 else None
             if pr: out["part_residuals"] = pr
+            from worker.scene import licensed_parts
+            tempo_ = ((rec.get("drums") or {}).get("beats_per_minute")) if isinstance(rec.get("drums"), dict) else None
+            lp = licensed_parts(rec, tempo_, (out.get("key") or {}).get("key"))
+            if lp: out["licensed_parts"] = lp
         except Exception as e_:
             out["part_residuals_error"] = type(e_).__name__
         return out

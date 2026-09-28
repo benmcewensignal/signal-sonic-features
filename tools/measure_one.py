@@ -17,7 +17,7 @@ FLAT = {"Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#"}
 
 def named_key(x):   # a key its creator put in the name or tags: "Am", "A minor", "C# min", "F major"
     txt = " " + " ".join([x.get("name") or ""] + list(x.get("tags") or [])) + " "
-    m = re.search(r"[^A-Za-z]([A-G])([#b]?)[ _-]?(minor|min|maj|major|m)?(?=[^A-Za-z])", txt)
+    m = re.search(r"[^A-Za-z]([A-G])([#b]?)[ _-]?((?i:minor|min|maj|major|m))?(?=[^A-Za-z])", txt)
     if not m: return None
     root = FLAT.get(m.group(1) + m.group(2), m.group(1) + m.group(2)); q = (m.group(3) or "").lower()
     if not q: return None   # a bare letter is too often not a key
