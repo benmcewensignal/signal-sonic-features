@@ -63,8 +63,8 @@ def search(pages):
     return out
 
 
-NEG = {"vocals": ("drum", "kick", "perc", "hat", "snare", "clap", "beat"), "bass": ("drum", "kick", "hat", "snare", "clap"), "melody": ("drum", "kick", "hat", "snare", "clap", "vocal", "vox")}
-POS_NAME = {"vocals": ("vocal", "vox", "voice", "acapella", "a capella", "chant", "sing", "spoken", "chop")}
+NEG = {"vocals": ("drum", "kick", "perc", "hat", "snare", "clap", "beat", "fight", "karate", "punch", "impact", "foley", "sfx", "effect"), "bass": ("drum", "kick", "hat", "snare", "clap"), "melody": ("drum", "kick", "hat", "snare", "clap", "vocal", "vox")}
+POS_NAME = {"vocals": ("vocal", "vox", "voice", "acapella", "a capella", "chant", "sing", "sung", "spoken", "choir")}   # not "chop": a karate chop is not a voice
 
 def clean_family(x):
     """Stricter family rules: vocal loops must name a voice, and no family but drums may name drum sounds."""
