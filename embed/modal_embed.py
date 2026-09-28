@@ -274,6 +274,41 @@ def pos_fit(rows, targets):
 
 
 @app.function(image=image, volumes={"/data": vol}, timeout=600)
+def save_rows(rows, name):
+    import json as _j
+    _j.dump(rows, open(f"/data/{name}", "w")); vol.commit(); return len(rows)
+
+
+@app.function(image=image, timeout=1800, cpu=8, memory=16384)
+def robust_axes(rows, targets, measures, names):
+    """A map a phone can read: the two directions in the model's description that most separate records while moving
+    least between clean and phone audio (a generalised eigenproblem), fitted on some artists, tested on others."""
+    import numpy as np, hashlib
+    rows = [r for r in rows if r["e"].get("clean") and r["e"].get("phone 30 s")]
+    test = np.array([int(hashlib.md5(r["artist"].encode()).hexdigest(), 16) % 4 == 0 for r in rows]); tr = ~test
+    C = np.array([r["e"]["clean"] for r in rows]); Pn = np.array([r["e"]["phone 30 s"] for r in rows]); sc = np.array([r["scene"] for r in rows])
+    mu = C[tr].mean(0); Sb = np.cov((C[tr] - mu).T) + 1e-4 * np.eye(C.shape[1]); D = (Pn - C)[tr]; Sn = np.cov(D.T) + 1e-3 * np.eye(C.shape[1])
+    Ln = np.linalg.cholesky(Sn); Li = np.linalg.inv(Ln); w, V = np.linalg.eigh(Li @ Sb @ Li.T); V = Li.T @ V[:, ::-1]   # most record-to-record spread per unit of phone disturbance first
+    pca_w, pca_V = np.linalg.eigh(Sb); pca_V = pca_V[:, ::-1]
+    def evaluate(Vx, label):
+        pc, pp = (C - mu) @ Vx[:, :2], (Pn - mu) @ Vx[:, :2]; out = {}
+        for k in (0, 1):
+            a_, b_ = pc[test, k], pp[test, k]
+            within = []
+            for s_ in set(sc[test]):
+                m = test & (sc == s_)
+                if m.sum() >= 8:
+                    ra = np.argsort(np.argsort(pc[m, k])); rb = np.argsort(np.argsort(pp[m, k])); within.append(float(np.corrcoef(ra, rb)[0, 1]))
+            # what the axis means: its correlation, on clean audio, with the measures the corpus already has
+            mm = {n: round(float(np.corrcoef(pc[:, k], [measures[r["id"]][j] if r["id"] in measures else np.nan for r in rows])[0, 1]), 2) for j, n in enumerate(names)}
+            mm["old driving"] = round(float(np.corrcoef(pc[:, k], [targets[r["id"]][0] for r in rows])[0, 1]), 2); mm["old defined"] = round(float(np.corrcoef(pc[:, k], [targets[r["id"]][1] for r in rows])[0, 1]), 2)
+            out[f"axis {k + 1}"] = {"clean vs phone, all records": round(float(np.corrcoef(a_, b_)[0, 1]), 3), "clean vs phone, order within scene": round(float(np.nanmean(within)), 3),
+                                   "scenes separate (share of spread between scenes)": round(float(np.var([pc[sc == s_, k].mean() for s_ in set(sc)]) / np.var(pc[:, k])), 3), "means": mm}
+        return out
+    return {"records": len(rows), "test": int(test.sum()), "phone-stable axes": evaluate(V, "robust"), "plain largest-spread axes": evaluate(pca_V, "pca")}
+
+
+@app.function(image=image, volumes={"/data": vol}, timeout=600)
 def restore_live():
     """Put back the live model's calibration from its first, clean run (26 September, 07:00): the split it
     was calibrated on can no longer be reproduced, so any recalibration now leaks training artists."""
@@ -558,6 +593,14 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         rows = [r for res in pos_batch.map([[(m["id"], m["url"], m["scene"], m.get("artist") or m["id"]) for m in pool[i:i + 25]] for i in range(0, len(pool), 25)]) for r in res]
         res = pos_fit.remote(rows, {**{r["id"]: T[r["id"]] for r in rows}, "_span": T["_span"]})
         print("::notice title=map position probe::" + json.dumps(res))
+    if stage == "robustmap":
+        import random
+        P = json.load(open("data/pos-targets.json")); T = P["pos"]
+        pool = [m for m in man if m["id"] in T and m.get("scene") and m.get("url")]; random.Random(11).shuffle(pool); pool = pool[:(epochs or 3000)]
+        rows = [r for res in pos_batch.map([[(m["id"], m["url"], m["scene"], m.get("artist") or m["id"]) for m in pool[i:i + 25]] for i in range(0, len(pool), 25)]) for r in res]
+        save_rows.remote(rows, "robustmap-rows.json")
+        res = robust_axes.remote(rows, {r["id"]: T[r["id"]] for r in rows}, {r["id"]: P["measures"][r["id"]] for r in rows if r["id"] in P["measures"]}, P["measure_names"])
+        print("::notice title=phone map::" + json.dumps(res))
     if stage == "drumcheck":
         import random, collections, statistics as st_
         want = ["techno-peak-time", "tech-house", "house", "deep-house", "hard-techno", "drum-and-bass", "breaks-breakbeat-uk-bass", "uk-garage-speed-garage", "140-deep-dubstep-grime", "amapiano"]
