@@ -7,6 +7,17 @@ def phone(y):   # the same phone in a room the model's robustness was measured o
     ir = rng.standard_normal(2400) * np.exp(-np.arange(2400) / 500); ir[0] = 1; z = np.convolve(z, ir / np.abs(ir).sum() * 4, mode="same")
     return (z + rng.standard_normal(len(z)) * np.std(z) * 0.1).astype(np.float32)
 FAILED = False
+# the loops route: a record looked up by name gets the licensed sounds closest to its parts
+try:
+    ids = __import__("numpy").load("/tmp/record-parts.npz")["ids"][:1].tolist() if __import__("os").path.exists("/tmp/record-parts.npz") else []
+    rid = ids[0] if ids else "bp:10541473"
+    rl = requests.post("https://www.earlysignal.live/api/parts?loops=1", json={"id": rid, "scene": "tech-house"}, timeout=60)
+    jl = rl.json() if rl.headers.get("content-type", "").startswith("application/json") else {}
+    lp = jl.get("licensed_parts") or {}
+    print("::notice title=loops route::" + json.dumps({"HTTP": rl.status_code, "record": rid, "parts with loops": {k: len(v) for k, v in lp.items()}, "error": jl.get("error")}))
+    if rl.status_code != 200 or not lp: print("::warning title=loops route::a record looked up by name got no loops")
+except Exception as e:
+    print("::notice title=loops route::failed " + type(e).__name__)
 # first, the everyday path: a phone's own 75 measures to the older model, which every phone reading uses today
 try:
     rr = requests.post("https://www.earlysignal.live/api/parts", json={"x": [0.0] * 75, "condition": "phone"}, timeout=60)
