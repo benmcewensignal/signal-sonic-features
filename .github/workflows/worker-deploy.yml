@@ -3,6 +3,8 @@ name: worker-deploy
 # so a file's parts are always read by the same code as the corpus. Needs MODAL_TOKEN_ID and
 # MODAL_TOKEN_SECRET; without them it stands down.
 on:
+  schedule:
+    - cron: "40 4 * * *"   # daily: rebuild the separated records' parts file, so newly separated records (classics too) reach the loops and the comparison
   push:
     branches: [main]
     paths: ["worker/**", "features/stems.py", ".github/workflows/worker-deploy.yml"]
