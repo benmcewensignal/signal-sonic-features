@@ -6,10 +6,12 @@ def phone(y):   # the same phone in a room the model's robustness was measured o
     F = np.fft.rfft(y); f = np.fft.rfftfreq(len(y), 1 / 16000); F[(f < 200) | (f > 6000)] = 0; z = np.fft.irfft(F, len(y))
     ir = rng.standard_normal(2400) * np.exp(-np.arange(2400) / 500); ir[0] = 1; z = np.convolve(z, ir / np.abs(ir).sum() * 4, mode="same")
     return (z + rng.standard_normal(len(z)) * np.std(z) * 0.1).astype(np.float32)
+FAILED = False
 # first, the everyday path: a phone's own 75 measures to the older model, which every phone reading uses today
 try:
     rr = requests.post("https://www.earlysignal.live/api/parts", json={"x": [0.0] * 75, "condition": "phone"}, timeout=60)
     print("::notice title=everyday measures route::" + json.dumps({"HTTP": rr.status_code, "reply": str(rr.text)[:200]}))
+    FAILED = rr.status_code != 200
 except Exception as e:
     print("::notice title=everyday measures route::failed " + type(e).__name__)
 for r in RECS:
@@ -24,5 +26,9 @@ for r in RECS:
         sl = d.get("scene_learned") or {}; top = (sl.get("scenes") or [[None]])[0][0]
         print(f"::notice title={r['scene']}::" + json.dumps({"record": (r.get("name") or "")[:40], "HTTP": resp.status_code, "called": top, "right": top == r["scene"],
               "top three": [s for s, _ in (sl.get("scenes") or [])], "confidence": sl.get("confidence"), "reliability": sl.get("reliability"), "drum_voice": d.get("drum_voice"), "error": d.get("error")}))
+        FAILED = FAILED or resp.status_code != 200
     except Exception as e:
         print(f"::notice title={r['scene']}::failed {type(e).__name__}: {str(e)[:150]}")
+if FAILED:
+    print("::error title=phone path broken::the site and the worker are not talking; phone readings are falling back to the page alone")
+    raise SystemExit(1)

@@ -1,6 +1,8 @@
 name: phone-e2e
 # End to end, as a phone: real previews degraded as a phone hears them, sliced by the page's own code, through the live site.
-on: { workflow_dispatch: {} }
+on:
+  workflow_dispatch: {}
+  schedule: [{ cron: "20 6 * * *" }]   # every morning: fails, and so emails, if the site and the worker stop talking
 jobs:
   test:
     runs-on: ubuntu-latest
