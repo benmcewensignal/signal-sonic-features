@@ -989,7 +989,8 @@ def ear_test(payload):
     embedding to /data/ear_emb.npz so the winning ear can be used straight away."""
     import os, numpy as np, torch
     vol.reload(); C = torch.load("/data/embed_live.pt", map_location="cpu"); net = make_net(len(C["scenes"])); net.load_state_dict(C["state"]); net.eval()
-    dev = "cuda" if torch.cuda.is_available() else "cpu"; net.to(dev); mu = C["mu"].to(dev); sd = C["sd"].to(dev)
+    dev = "cuda" if torch.cuda.is_available() else "cpu"; net.to(dev)
+    mu = C["mu"].to(dev) if hasattr(C["mu"], "to") else float(C["mu"]); sd = C["sd"].to(dev) if hasattr(C["sd"], "to") else float(C["sd"])   # stored as plain numbers
     ids = payload["ids"]; E = {}; miss = 0; buf = []
     def flush():
         if not buf: return
