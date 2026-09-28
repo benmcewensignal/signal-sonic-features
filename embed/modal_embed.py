@@ -332,10 +332,11 @@ def fairtest(manifest, ckpts, cutoff_ts: float):
 
 
 dsep_image = image.pip_install("demucs==4.0.1", "audio-separator[gpu]", "soundfile")
+TEMPO_MEDIANS = {"uk-garage-speed-garage": 134.7, "uk-funky-gqom": 139.9, "afro-house": 123.0, "amapiano": 112.8, "140-deep-dubstep-grime": 139.9, "breaks-breakbeat-uk-bass": 135.3, "tech-house": 127.0, "techno-peak-time": 135.3, "techno-raw-deep-hypnotic": 136.7, "house": 126.8, "deep-house": 123.1, "melodic-house-techno": 125.3, "drum-and-bass": 173.4, "hard-techno": 154.4, "bass-house": 128.3, "trance-main-floor": 138.2, "progressive-house": 123.7, "psy-trance": 143.9, "indie-dance": 125.2, "organic-house": 122.3, "african": 136.5, "ambient-experimental": 144.8, "brazilian-funk": 129.7, "downtempo": 135.6, "dubstep": 142.6, "electro": 129.8, "electronica": 135.0, "funky-house": 126.0, "hard-dance-hardcore": 154.2, "jackin-house": 125.2, "latin-electronic": 129.8, "mainstage": 128.4, "minimal-deep-tech": 126.8, "nu-disco-disco": 123.1, "trance-raw-deep-hypnotic": 132.8, "trap-future-bass": 143.9}
 
 
 @app.function(image=dsep_image, gpu="A10G", volumes={"/data": vol}, timeout=3600, retries=0, max_containers=4)
-def drumpilot(batch):
+def drumpilot(batch, tempos=None):
     """Finer separation pilot: each record's drums (htdemucs) split into kick, snare, toms, hi-hats, ride and crash
     (MDX23C DrumSep), then checked: does the kick sit on the beat where it should, do the hats sit off it, do they leak."""
     import os, tempfile, time, numpy as np, requests, librosa, torch, soundfile as sf
@@ -363,30 +364,81 @@ def drumpilot(batch):
                 for k in ("kick", "snare", "toms", "hh", "ride", "crash"):
                     if f"({k})" in fn: parts[k] = fp
             dmono = librosa.to_mono(S[di]); dmono = librosa.resample(dmono, orig_sr=dm.samplerate, target_sr=22050)
-            tempo, beats = librosa.beat.beat_track(y=dmono, sr=22050, units="time")
-            beats = np.asarray(beats); bp = float(np.median(np.diff(beats))) if len(beats) > 4 else None
+            oe = librosa.onset.onset_strength(y=dmono, sr=22050); f_ = getattr(librosa.feature, "rhythm", None)
+            T = float(np.atleast_1d((f_.tempo if f_ else librosa.beat.tempo)(onset_envelope=oe, sr=22050))[0])
+            med = (tempos or {}).get(scene)
+            if med and T:   # fold a half- or double-speed reading into the scene's range
+                while T < med * 0.75: T *= 2
+                while T > med * 1.5: T /= 2
+            P = 60.0 / T if T else None
             def load(k):
                 if k not in parts: return None
                 v, _ = librosa.load(parts[k], sr=22050, mono=True); return v
-            def near(on, grid, tol=0.07): return float(np.mean([np.min(np.abs(grid - o)) < tol for o in on])) if len(on) and len(grid) else None
-            rec = {"id": tid, "scene": scene, "secs": round(t1 - t0, 1), "found": sorted(parts)}
+            def lock(on, period, mult=1):   # how tightly onsets fall at the same point of each beat (1 = always, 0 = anywhere)
+                if len(on) < 8 or not period: return None
+                ph = (np.asarray(on) % period) / period; return float(abs(np.mean(np.exp(2j * np.pi * mult * ph))))
+            rec = {"id": tid, "scene": scene, "secs": round(t1 - t0, 1), "found": sorted(parts), "tempo": round(T, 1) if T else None}
             lev = {}
             for k in parts:
                 v = load(k); lev[k] = float(np.sqrt(np.mean(v ** 2))) if v is not None else 0.0
             tot = sum(lev.values()) or 1; rec["share"] = {k: round(v / tot, 3) for k, v in lev.items()}
-            kick = load("kick"); hh = load("hh")
-            if kick is not None and bp:
-                ko = librosa.onset.onset_detect(y=kick, sr=22050, units="time", backtrack=False)
-                rec["kick_per_beat"] = round(len(ko) / max(1, len(beats)), 2); rec["kick_on_beat"] = near(ko, beats)
-            if hh is not None and bp:
-                ho = librosa.onset.onset_detect(y=hh, sr=22050, units="time"); off = beats[:-1] + np.diff(beats) / 2
-                rec["hats_offbeat"] = near(ho, off); rec["hats_on_beat"] = near(ho, beats)
+            kick = load("kick"); hh = load("hh"); dur = len(dmono) / 22050
+            if kick is not None and P:
+                ko = librosa.onset.onset_detect(y=kick, sr=22050, units="time", backtrack=True)
+                rec["kick_lock"] = lock(ko, P); rec["kicks_per_beat"] = round(len(ko) / (dur / P), 2)
+                kph = float(np.angle(np.mean(np.exp(2j * np.pi * (np.asarray(ko) % P) / P))) / (2 * np.pi) % 1) if len(ko) >= 8 else None
+            else: kph = None
+            if hh is not None and P and kph is not None:
+                ho = librosa.onset.onset_detect(y=hh, sr=22050, units="time", backtrack=True)
+                if len(ho) >= 8:
+                    rel = ((np.asarray(ho) % P) / P - kph) % 1   # hat positions within the beat, measured from the kick
+                    rec["hats_offbeat"] = round(float(np.mean(np.abs(rel - 0.5) < 0.1)), 3); rec["hats_with_kick"] = round(float(np.mean((rel < 0.1) | (rel > 0.9))), 3)
             if kick is not None and hh is not None:
                 a_ = librosa.onset.onset_strength(y=kick, sr=22050); b_ = librosa.onset.onset_strength(y=hh, sr=22050); n_ = min(len(a_), len(b_))
                 rec["kick_hat_overlap"] = round(float(np.corrcoef(a_[:n_], b_[:n_])[0, 1]), 3)
+            keep = f"/data/drumpilot/{tid.replace(':', '_')}"; os.makedirs(keep, exist_ok=True)   # kept, so later tests need no separation
+            for k in ("kick", "snare", "hh"):
+                if k in parts: os.system(f'ffmpeg -y -loglevel quiet -i "{parts[k]}" -ac 1 -b:a 64k "{keep}/{k}.mp3"')
+            for f in files:
+                try: os.remove(f if os.path.isabs(f) else os.path.join(work, f))
+                except Exception: pass
             rows.append(rec)
         except Exception as e:
             rows.append({"id": tid, "scene": scene, "error": type(e).__name__ + ": " + str(e)[:80]})
+    vol.commit(); return rows
+
+
+@app.function(image=dsep_image, volumes={"/data": vol}, timeout=1800, cpu=4)
+def drumcheck(items, tempos):
+    """On the kept kick and hat parts: each record's exact tempo found from its kicks (a fine search within 8% of the
+    scene's tempo, never half or double), then beat-locking and hats relative to the kick; and the same search on
+    random onsets, so a fine search cannot flatter the result."""
+    import os, numpy as np, librosa
+    rng = np.random.default_rng(0); rows = []
+    def best_lock(on, med):
+        best = (0.0, None)
+        for T in np.linspace(med * 0.92, med * 1.08, 641):
+            P = 60.0 / T; L = float(abs(np.mean(np.exp(2j * np.pi * (on % P) / P))))
+            if L > best[0]: best = (L, T)
+        return best
+    for tid, scene in items:
+        d = f"/data/drumpilot/{tid.replace(':', '_')}"
+        if not os.path.exists(d + "/kick.mp3"): continue
+        try:
+            k, _ = librosa.load(d + "/kick.mp3", sr=22050, mono=True); ko = librosa.onset.onset_detect(y=k, sr=22050, units="time", backtrack=True)
+            if len(ko) < 16: continue
+            med = tempos.get(scene) or 125.0; L, T = best_lock(ko, med); P = 60.0 / T
+            Lr, _ = best_lock(np.sort(rng.uniform(0, len(k) / 22050, len(ko))), med)
+            kph = float(np.angle(np.mean(np.exp(2j * np.pi * (ko % P) / P))) / (2 * np.pi) % 1)
+            rec = {"scene": scene, "kick_lock": round(L, 3), "random_lock": round(Lr, 3), "tempo": round(T, 2), "kicks_per_beat": round(len(ko) / ((len(k) / 22050) / P), 2)}
+            if os.path.exists(d + "/hh.mp3"):
+                h, _ = librosa.load(d + "/hh.mp3", sr=22050, mono=True); ho = librosa.onset.onset_detect(y=h, sr=22050, units="time", backtrack=True)
+                if len(ho) >= 16:
+                    rel = ((ho % P) / P - kph) % 1
+                    rec["hats_offbeat"] = round(float(np.mean(np.abs(rel - 0.5) < 0.1)), 3); rec["hats_on_16ths"] = round(float(abs(np.mean(np.exp(2j * np.pi * 4 * rel)))), 3)
+            rows.append(rec)
+        except Exception:
+            pass
     return rows
 
 
@@ -432,6 +484,19 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         cut = datetime.datetime(2026, 9, 27, 11, 0, tzinfo=datetime.timezone.utc).timestamp()   # today's extraction began at 11:45
         res = fairtest.remote(man, ["embed_live.pt", ckpt or "embed_aug122k_104842.pt"], cut)
         print("::notice title=fair test::" + json.dumps(res))
+    if stage == "drumcheck":
+        import random, collections, statistics as st_
+        want = ["techno-peak-time", "tech-house", "house", "deep-house", "hard-techno", "drum-and-bass", "breaks-breakbeat-uk-bass", "uk-garage-speed-garage", "140-deep-dubstep-grime", "amapiano"]
+        pool = [m for m in man if m.get("scene") in want]; random.Random(1).shuffle(pool); per = collections.Counter(); pick = []
+        for m in pool:
+            if per[m["scene"]] < 20: pick.append((m["id"], m["scene"])); per[m["scene"]] += 1
+        rows = [r for res in drumcheck.map([pick[i:i + 20] for i in range(0, len(pick), 20)], kwargs={"tempos": TEMPO_MEDIANS}) for r in res]
+        med = lambda xs: round(st_.median(xs), 2) if xs else None
+        by = {sc: {"n": len([r for r in rows if r["scene"] == sc]), "kick lock": med([r["kick_lock"] for r in rows if r["scene"] == sc]),
+                   "random": med([r["random_lock"] for r in rows if r["scene"] == sc]), "kicks per beat": med([r["kicks_per_beat"] for r in rows if r["scene"] == sc]),
+                   "hats off beat": med([r["hats_offbeat"] for r in rows if r["scene"] == sc and "hats_offbeat" in r]),
+                   "hats on 16ths": med([r["hats_on_16ths"] for r in rows if r["scene"] == sc and "hats_on_16ths" in r])} for sc in want}
+        print("::notice title=drum check::" + json.dumps({"records": len(rows), "by scene": by}))
     if stage == "drumpilot":
         import random, collections, statistics as st_
         want = ["techno-peak-time", "tech-house", "house", "deep-house", "hard-techno", "drum-and-bass", "breaks-breakbeat-uk-bass", "uk-garage-speed-garage", "140-deep-dubstep-grime", "amapiano"]
@@ -439,7 +504,8 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         for m in pool:
             if per[m["scene"]] < 20: pick.append((m["id"], m["url"], m["scene"])); per[m["scene"]] += 1
         rows = []
-        for res in drumpilot.map([pick[i:i + 25] for i in range(0, len(pick), 25)]):
+        TMP = TEMPO_MEDIANS
+        for res in drumpilot.map([pick[i:i + 25] for i in range(0, len(pick), 25)], kwargs={"tempos": TMP}):
             if isinstance(res, dict): print("::notice title=drum pilot::" + json.dumps(res)); break
             rows += res
         ok = [r for r in rows if "error" not in r]; errs = collections.Counter(r["error"][:50] for r in rows if "error" in r)
@@ -447,9 +513,10 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
         by = {}
         for sc in want:
             R = [r for r in ok if r["scene"] == sc]
-            by[sc] = {"n": len(R), "kick on beat": med([r["kick_on_beat"] for r in R if r.get("kick_on_beat") is not None]),
-                      "kicks per beat": med([r["kick_per_beat"] for r in R if r.get("kick_per_beat") is not None]),
+            by[sc] = {"n": len(R), "tempo": med([r["tempo"] for r in R if r.get("tempo")]), "kick lock": med([r["kick_lock"] for r in R if r.get("kick_lock") is not None]),
+                      "kicks per beat": med([r["kicks_per_beat"] for r in R if r.get("kicks_per_beat") is not None]),
                       "hats off beat": med([r["hats_offbeat"] for r in R if r.get("hats_offbeat") is not None]),
+                      "hats with kick": med([r["hats_with_kick"] for r in R if r.get("hats_with_kick") is not None]),
                       "kick-hat overlap": med([r["kick_hat_overlap"] for r in R if r.get("kick_hat_overlap") is not None])}
         shares = {k: med([r["share"].get(k, 0) for r in ok]) for k in ("kick", "snare", "toms", "hh", "ride", "crash")}
         print("::notice title=drum pilot::" + json.dumps({"records": len(rows), "separated": len(ok), "errors": dict(errs.most_common(3)),
