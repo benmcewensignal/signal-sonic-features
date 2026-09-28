@@ -105,7 +105,7 @@ def ccmixter_search(seen):
     out = []
     for fam, tag in Q.items():
         try:
-            r = requests.get("http://ccmixter.org/api/query", params={"f": "json", "tags": tag, "limit": 80, "sort": "rank"}, timeout=40, headers={"User-Agent": "earlysignal.live sonic"})
+            r = requests.get("https://ccmixter.org/api/query", params={"f": "json", "tags": tag, "limit": 80, "sort": "rank"}, timeout=40, headers={"User-Agent": "earlysignal.live sonic"})
             _t.sleep(1.5)
             if r.status_code != 200: print(f"::notice title=ccmixter::{tag}: HTTP {r.status_code}", flush=True); continue
             for it in r.json() if isinstance(r.json(), list) else []:
