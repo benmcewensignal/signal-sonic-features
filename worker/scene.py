@@ -219,3 +219,59 @@ def part_residuals(stems, scene):
         q = S["q"]; pct = float(np.interp(d, q, np.linspace(0, 100, len(q))))
         out[p] = {"pct": round(pct), "scene": scene}
     return out or None
+
+
+_LI = None
+_CAM = {"G#m": "1A", "D#m": "2A", "A#m": "3A", "Fm": "4A", "Cm": "5A", "Gm": "6A", "Dm": "7A", "Am": "8A", "Em": "9A", "Bm": "10A", "F#m": "11A", "C#m": "12A",
+        "B": "1B", "F#": "2B", "C#": "3B", "G#": "4B", "D#": "5B", "A#": "6B", "F": "7B", "C": "8B", "G": "9B", "D": "10B", "A": "11B", "E": "12B"}
+
+
+def _mixes(a, b):   # keys that mix harmonically: the same Camelot code, one step either way, or the relative key
+    ca, cb = _CAM.get(a), _CAM.get(b)
+    if not ca or not cb: return None
+    na, la, nb, lb = int(ca[:-1]), ca[-1], int(cb[:-1]), cb[-1]
+    return na == nb or (la == lb and (na - nb) % 12 in (1, 11))
+
+
+def licensed_parts(stems, tempo=None, key=None, k=3):
+    """For each separated part, the openly licensed loops of the same family whose sound is closest, among loops
+    at a workable tempo (within 8%, or double or half) and, for bass and melody, in a key that mixes with the record's."""
+    global _LI
+    import pickle
+    if _LI is None:
+        fp = os.path.join(os.path.dirname(__file__), "loop_index.pkl")
+        if not os.path.exists(fp): return None
+        with open(fp, "rb") as f: _LI = pickle.load(f)
+    SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
+    FAM = {"drums": "drums", "bass": "bass", "other": "melody", "vocals": "vocals"}; out = {}
+    for p, fam in FAM.items():
+        s = (stems or {}).get(p) or {}; e = s.get("embedding"); L = _LI.get(fam)
+        if not L or not (isinstance(e, list) and len(e) == 45): continue
+        v = np.array([float(x) for x in e] + [float(s.get(c)) if isinstance(s.get(c), (int, float)) else 0.0 for c in SC], float)[L["keep"]]
+        z = (v - L["mu"]) / L["sd"]; z = z / (np.linalg.norm(z) + 1e-9); sim = L["Z"].astype(np.float32) @ z.astype(np.float32)
+        order, users = [], set()
+        for i in np.argsort(-sim):
+            m_ = L["meta"][i]; lt = m_.get("tempo")
+            if tempo and lt and not any(abs(lt * f - tempo) / tempo <= 0.08 for f in (1, 2, 0.5)): continue
+            if fam in ("bass", "melody") and key and m_.get("key") and _mixes(key, m_["key"]) is False: continue
+            if m_.get("user") in users: continue
+            users.add(m_.get("user")); order.append(i)
+            if len(order) >= k: break
+        rec_plain = {n: float(s.get(n)) for n in ("crest", "centroid_hz", "flatness", "onsets_per_s") if isinstance(s.get(n), (int, float))}
+        out[p] = [dict(L["meta"][i], sim=round(float(sim[i]), 3), why=_why(rec_plain, L["meta"][i].get("plain") or {})) for i in order]
+    return out or None
+
+
+def _why(a, b):
+    """Why a loop matched a part, in a producer's words: which plain measures are alike, and which differ most."""
+    words = {"centroid_hz": ("brightness", "brighter", "darker"), "onsets_per_s": ("hit density", "busier", "sparser"),
+             "crest": ("punch", "punchier", "softer"), "flatness": ("noisiness", "noisier", "more tonal")}
+    same, diff = [], []
+    for k, (name, up, dn) in words.items():
+        if k not in a or k not in b or not a[k]: continue
+        r = b[k] / a[k] if a[k] else 1.0
+        if 0.8 <= r <= 1.25: same.append(name)
+        else: diff.append((abs(np.log(max(r, 1e-6))), up if r > 1 else dn))
+    diff.sort(reverse=True)
+    parts = (["similar " + " and ".join(same[:2])] if same else []) + ([diff[0][1]] if diff else [])
+    return ", ".join(parts)

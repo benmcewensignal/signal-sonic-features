@@ -33,22 +33,93 @@ def search(pages):
                "tribal house loop", "tech house groove", "house percussion loop", "melodic techno drum loop", "organic house percussion",
                "latin house loop", "baile funk drums", "gqom beat", "nu disco drum loop", "electro breakbeat loop", "idm drum loop",
                "chillout drum loop", "hi hat loop", "top loop", "groove loop 124"]
-    for q in QUERIES:
-        for p in range(1, pages + 1):
-            for attempt in range(6):   # Freesound limits requests per minute: wait and retry when told to slow down
-                r = requests.get("https://freesound.org/apiv2/search/text/", timeout=40, params={
-                "query": q, "filter": 'duration:[2.0 TO 30.0] license:("Creative Commons 0" OR "Attribution")',
-                    "fields": "id,name,username,license,previews,tags,duration,ac_analysis", "page_size": 150, "page": p, "token": KEY})
-                _t.sleep(1.1)   # stay under sixty requests a minute
-                if r.status_code != 429: break
-                import time; time.sleep(15 + 10 * attempt)
-            if r.status_code != 200: print(f"::notice title=search stopped::{q} page {p}: HTTP {r.status_code}", flush=True); break
-            d = r.json()
-            for x in d.get("results", []):
-                tags = set(x.get("tags") or [])
-                if x["id"] in seen or not (tags & {"drums", "drum", "drum-loop", "drumloop", "beat", "breakbeat", "percussion", "loop"}): continue
-                seen.add(x["id"]); x["_q"] = q; out.append(x)
-            if not d.get("next"): break
+    # beyond drums: bass, melody and vocal loops, so a record's other parts can be matched to licensed sounds too
+    FAMILIES = {"drums": (QUERIES, {"drums", "drum", "drum-loop", "drumloop", "beat", "breakbeat", "percussion", "loop"}),
+                "bass": (["bass loop", "bassline loop", "sub bass loop", "reese bass loop", "acid bassline", "log drum loop", "house bassline", "techno bassline",
+                          "dnb bass loop", "garage bassline", "808 bass loop", "deep house bass"], {"bass", "bassline", "sub", "808", "reese", "acid", "log-drum", "logdrum", "sub-bass"}),
+                "melody": (["synth loop", "chord loop", "piano loop", "pad loop", "arp loop", "lead loop", "keys loop", "rhodes loop", "stab loop",
+                            "amapiano piano loop", "deep house chords", "trance lead loop", "melodic techno loop"], {"synth", "chord", "chords", "piano", "keys", "pad", "arp", "arpeggio", "lead", "melody", "melodic", "rhodes", "organ", "stab"}),
+                "vocals": (["vocal loop", "vocal chop", "acapella", "vocal phrase", "vocal hook", "house vocal", "vocal sample loop", "spoken word loop"],
+                           {"vocal", "vocals", "voice", "acapella", "a-cappella", "vox", "chop", "singing", "sung", "spoken"})}
+    for fam, (qs, _tags) in FAMILIES.items():
+      for q in qs:
+          for p in range(1, pages + 1):
+              for attempt in range(6):   # Freesound limits requests per minute: wait and retry when told to slow down
+                  r = requests.get("https://freesound.org/apiv2/search/text/", timeout=40, params={
+                  "query": q, "filter": 'duration:[2.0 TO 30.0] license:("Creative Commons 0" OR "Attribution")',
+                      "fields": "id,name,username,license,previews,tags,duration,ac_analysis", "page_size": 150, "page": p, "token": KEY})
+                  _t.sleep(1.1)   # stay under sixty requests a minute
+                  if r.status_code != 429: break
+                  import time; time.sleep(15 + 10 * attempt)
+              if r.status_code != 200: print(f"::notice title=search stopped::{q} page {p}: HTTP {r.status_code}", flush=True); break
+              d = r.json()
+              for x in d.get("results", []):
+                  tags = set(x.get("tags") or [])
+                  if x["id"] in seen or not (tags & _tags): continue
+                  x["_q"] = q; x["_cat"] = fam
+                  if fam != "drums" and not clean_family(x): continue
+                  seen.add(x["id"]); out.append(x)
+              if not d.get("next"): break
+    return out
+
+
+NEG = {"vocals": ("drum", "kick", "perc", "hat", "snare", "clap", "beat"), "bass": ("drum", "kick", "hat", "snare", "clap"), "melody": ("drum", "kick", "hat", "snare", "clap", "vocal", "vox")}
+POS_NAME = {"vocals": ("vocal", "vox", "voice", "acapella", "a capella", "chant", "sing", "spoken", "chop")}
+
+def clean_family(x):
+    """Stricter family rules: vocal loops must name a voice, and no family but drums may name drum sounds."""
+    fam = x.get("_cat"); txt = ((x.get("name") or "") + " " + " ".join(x.get("tags") or [])).lower()
+    if any(w in txt for w in NEG.get(fam, ())): return False
+    if fam in POS_NAME and not any(w in txt for w in POS_NAME[fam]): return False
+    return True
+
+def openverse_search(seen):
+    """Openverse: one search across openly licensed audio (Freesound, Jamendo, Wikimedia and others). No key needed."""
+    import time as _t
+    Q = {"bass": ["bass loop", "bassline"], "melody": ["synth loop", "piano loop", "chord loop"], "vocals": ["vocal loop", "acapella"], "drums": ["drum loop"]}
+    out = []
+    for fam, qs in Q.items():
+        for q in qs:
+            for page in (1, 2):
+                try:
+                    r = requests.get("https://api.openverse.org/v1/audio/", params={"q": q, "license": "cc0,by", "page_size": 50, "page": page}, timeout=40, headers={"User-Agent": "earlysignal.live sonic"})
+                    _t.sleep(1.5)
+                    if r.status_code != 200: print(f"::notice title=openverse::{q} p{page}: HTTP {r.status_code}", flush=True); break
+                    for it in r.json().get("results", []):
+                        land = it.get("foreign_landing_url") or ""
+                        if "freesound.org" in land: continue   # already searched at the source
+                        if not it.get("url") or (it.get("duration") or 0) > 60000: continue   # loops, not whole tracks
+                        x = {"id": "ov:" + str(it.get("id")), "name": it.get("title"), "username": it.get("creator"), "license": it.get("license_url") or it.get("license"),
+                             "previews": {"preview-hq-mp3": it.get("url")}, "tags": [t_.get("name") for t_ in (it.get("tags") or []) if isinstance(t_, dict)],
+                             "duration": (it.get("duration") or 0) / 1000, "_cat": fam, "_page": land, "_src": "openverse/" + str(it.get("source"))}
+                        if x["id"] in seen or not clean_family(x): continue
+                        seen.add(x["id"]); out.append(x)
+                except Exception as e:
+                    print(f"::notice title=openverse::{q}: {type(e).__name__}", flush=True); break
+    return out
+
+def ccmixter_search(seen):
+    """ccMixter: stems and a cappellas made for remixing. No key needed. Attribution and CC0 only."""
+    import time as _t
+    Q = {"vocals": "acappella", "bass": "bass", "melody": "synth", "drums": "drums"}
+    out = []
+    for fam, tag in Q.items():
+        try:
+            r = requests.get("http://ccmixter.org/api/query", params={"f": "json", "tags": tag, "limit": 80, "sort": "rank"}, timeout=40, headers={"User-Agent": "earlysignal.live sonic"})
+            _t.sleep(1.5)
+            if r.status_code != 200: print(f"::notice title=ccmixter::{tag}: HTTP {r.status_code}", flush=True); continue
+            for it in r.json() if isinstance(r.json(), list) else []:
+                lic = (it.get("license_url") or "") + " " + (it.get("license_name") or "")
+                if not (("/by/" in lic and "/by-" not in lic) or "zero" in lic.lower()): continue   # Attribution or CC0 only
+                files = [f_ for f_ in (it.get("files") or []) if str(f_.get("download_url", "")).lower().endswith(".mp3")]
+                if not files: continue
+                x = {"id": "ccm:" + str(it.get("upload_id")), "name": it.get("upload_name"), "username": it.get("user_name"), "license": it.get("license_url") or it.get("license_name"),
+                     "previews": {"preview-hq-mp3": files[0]["download_url"]}, "tags": str(it.get("upload_tags") or "").split(","), "duration": None,
+                     "_cat": fam, "_page": it.get("file_page_url") or "", "_src": "ccmixter"}
+                if x["id"] in seen or not clean_family(x): continue
+                seen.add(x["id"]); out.append(x)
+        except Exception as e:
+            print(f"::notice title=ccmixter::{tag}: {type(e).__name__}", flush=True)
     return out
 
 def named_tempo(x):
@@ -108,7 +179,8 @@ def measure_stage(a):
     import time, glob
     if not KEY: sys.exit("no Freesound key")
     allf = json.load(open("found.json")) if os.path.exists("found.json") else search(a.pages)
-    found = [x for x in allf if x["id"] % a.of == a.shard][:a.max]
+    import zlib
+    found = [x for x in allf if (x["id"] if isinstance(x["id"], int) else zlib.crc32(str(x["id"]).encode())) % a.of == a.shard][:a.max]
     print(f"shard {a.shard}: {len(found)} loops to measure", flush=True)
     import collections
     rows, t0, why = [], time.time(), collections.Counter()
@@ -148,7 +220,9 @@ def main():
     a = ap.parse_args()
     if a.stage == "measure": return measure_stage(a)
     if a.stage == "search":   # searched once, and the list handed to every shard, so ten runners do not all hit Freesound's limit
-        f = search(a.pages); json.dump(f, open("found.json", "w")); print("::notice title=search::" + json.dumps({"found": len(f)})); return
+        f = search(a.pages); seen = {x["id"] for x in f}
+        ov = openverse_search(seen); cc = ccmixter_search(seen); f = f + ov + cc
+        json.dump(f, open("found.json", "w")); print("::notice title=search::" + json.dumps({"found": len(f), "openverse": len(ov), "ccmixter": len(cc)})); return
     if a.stage == "match":
         import glob
         rows = [r for f in sorted(glob.glob("loops-*.json")) for r in json.load(open(f))]
@@ -158,6 +232,7 @@ def main():
         found = search(a.pages)[:a.max]; print(f"loops found: {len(found)}", flush=True)
         with Pool(4) as pool: rows = [r for r in pool.map(measure, found) if r and "_fail" not in r]
     print(f"loops measured: {len(rows)}", flush=True)
+    all_rows = rows; rows = [r for r in all_rows if (r.get("cat") or "drums") == "drums"]
     P = json.load(open("data/drum-profiles.json")); keep = P["keep"]; mu, sd = np.array(P["mu"]), np.array(P["sd"])
     V = np.array([np.array(r["v"])[keep] for r in rows]); Z = (V - mu) / sd; Z /= (np.linalg.norm(Z, axis=1, keepdims=True) + 1e-9)
     out = {"part": "drums", "loops": len(rows), "source": "Freesound (Creative Commons 0 and Attribution)", "scenes": {}}
@@ -179,11 +254,15 @@ def main():
         out["scenes"][s] = [{k: rows[i][k] for k in ("id", "name", "user", "license", "preview", "tempo", "duration")} | {"sim": round(float(sim[i]), 3), "labelled": bool(named[i])} for i in order]
     json.dump(out, open(a.out, "w"), separators=(",", ":"))
     # every measured loop's numbers, kept so the matches can be checked independently (does the drums model agree?)
-    json.dump([{"id": r["id"], "tempo": r.get("tempo"), "words": r.get("words", "")[:120], "v": [round(z, 4) for z in r["v"]]} for r in rows],
+    json.dump([{"id": r["id"], "cat": r.get("cat") or "drums", "page": r.get("page"), "src": r.get("src"), "name": r.get("name"), "user": r.get("user"), "license": r.get("license"), "preview": r.get("preview"),
+                "tempo": r.get("tempo"), "key": r.get("key"), "key_from": r.get("key_from"), "duration": r.get("duration"), "words": r.get("words", "")[:120],
+                "v": [round(z, 4) for z in r["v"]]} for r in all_rows],
               open("loops-measured.json", "w"), separators=(",", ":"))
     for s in ("drum-and-bass", "techno-peak-time", "deep-house", "amapiano"):
         if s in out["scenes"]: print(f"::notice title=matches {s}::" + "; ".join(f"{r['name'][:40]} ({round(r['tempo']) if r['tempo'] else '?'} BPM)" for r in out["scenes"][s][:5]))
     print("::notice title=loops at each scene's tempo::" + json.dumps(fits))
+    import collections as _c
+    print("::notice title=loops by family::" + json.dumps(dict(_c.Counter(r.get("cat") or "drums" for r in all_rows))))
     lab = {s: sum(1 for x in v[:5] if x.get("labelled")) for s, v in out["scenes"].items()}
     print("::notice title=top five labelled as the scene's music::" + json.dumps(lab))
     thin = sorted([s for s, n in fits.items() if n < 6]); print("::notice title=scenes with fewer than six loops at their tempo::" + json.dumps(thin))
