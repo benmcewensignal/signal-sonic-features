@@ -100,8 +100,13 @@ async def compare(request: Request):
     if not _ok(request): return JSONResponse({"error": "unauthorised"}, 401)
     body = await request.json()
     try:
-        from worker.scene import compare_parts
-        r = compare_parts(body.get("parts") or {}, str(body.get("id") or ""), body.get("tempo"), body.get("key"))
+        from worker.scene import compare_parts, record_parts
+        parts, tempo, key = body.get("parts") or {}, body.get("tempo"), body.get("key")
+        if body.get("from_id") and not parts:   # "yours" can be a record Sonic has already separated, for a demonstration
+            got = record_parts(str(body.get("from_id")))
+            if "error" in got: return JSONResponse(got, 404)
+            parts, tempo, key = got["parts"], got.get("tempo"), got.get("key")
+        r = compare_parts(parts, str(body.get("id") or ""), tempo, key)
         return r if "error" not in r else JSONResponse(r, 404)
     except Exception as e:
         return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:80]}, 400)

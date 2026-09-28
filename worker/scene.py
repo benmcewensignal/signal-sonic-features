@@ -340,3 +340,13 @@ def compare_parts(upload, ref_id, upload_tempo=None, upload_key=None, path="/emb
         t, T = float(upload_tempo), float(out["tempo"]); f = min((1, 2, 0.5), key=lambda m: abs(T * m - t)); out["tempo_gap"] = round(t - T * f, 1)
     if upload_key and out["key"]: out["key_mixes"] = _mixes(upload_key, out["key"])
     return out
+
+
+
+def record_parts(tid, path="/embed/record-parts.npz"):
+    """A separated record's four parts as the 53 numbers each that a full reading returns, with its tempo and key."""
+    r = record_loops(tid, None, path)   # loads the file once and tells us whether the record is separated
+    if "error" in r: return r
+    i = _RP["at"][tid]
+    parts = {p: [float(x) for x in _RP["V"][i, j]] for j, p in enumerate(("drums", "bass", "other", "vocals"))}
+    return {"parts": parts, "tempo": r.get("tempo"), "key": r.get("key")}
