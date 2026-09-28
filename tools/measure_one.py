@@ -10,6 +10,29 @@ def named_tempo(x):
     v = int(m.group(1)) if m else None
     return v if v and 60 <= v <= 200 else None
 
+EDMA_MAJ = [.1652, .0475, .0829, .0669, .0999, .0927, .0529, .1316, .0522, .0744, .0694, .0643]
+EDMA_MIN = [.1724, .0400, .0761, .1253, .0567, .0822, .0626, .1435, .0810, .0571, .0836, .0551]
+KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+FLAT = {"Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#"}
+
+def named_key(x):   # a key its creator put in the name or tags: "Am", "A minor", "C# min", "F major"
+    txt = " " + " ".join([x.get("name") or ""] + list(x.get("tags") or [])) + " "
+    m = re.search(r"[^A-Za-z]([A-G])([#b]?)[ _-]?(minor|min|maj|major|m)?(?=[^A-Za-z])", txt)
+    if not m: return None
+    root = FLAT.get(m.group(1) + m.group(2), m.group(1) + m.group(2)); q = (m.group(3) or "").lower()
+    if not q: return None   # a bare letter is too often not a key
+    return root + ("m" if q.startswith("m") and q != "maj" and q != "major" else "")
+
+def measured_key(emb):   # from the loop's pitch profile, with the dance-music key templates
+    import numpy as np
+    ch = np.array(emb[26:38], float); best = (None, -2.0)
+    for i in range(12):
+        r = np.roll(ch, -i)
+        for prof, suf in ((EDMA_MAJ, ""), (EDMA_MIN, "m")):
+            c = float(np.corrcoef(r, prof)[0, 1])
+            if c > best[1]: best = (KEYS[i] + suf, c)
+    return best[0]
+
 def main():
     x = json.load(sys.stdin)
     import numpy as np, librosa, requests
@@ -35,7 +58,8 @@ def main():
     emb = m.get("embedding")
     if not (isinstance(emb, list) and len(emb) == 45): print(json.dumps({"_fail": "no sound profile"})); return
     v = [float(z) for z in emb] + [float(m.get(k)) if isinstance(m.get(k), (int, float)) else 0.0 for k in SC]
-    print(json.dumps({"id": x.get("id"), "name": x.get("name"), "user": x.get("username"), "license": x.get("license"),
+    nk = named_key(x); key, key_from = (nk, "name") if nk else (measured_key(emb), "measured")
+    print(json.dumps({"id": x.get("id"), "cat": x.get("_cat") or "drums", "key": key, "key_from": key_from, "name": x.get("name"), "user": x.get("username"), "license": x.get("license"),
                       "preview": (x.get("previews") or {}).get("preview-hq-mp3"), "tempo": tempo, "tempo_from": src, "duration": x.get("duration"), "v": v,
                       "words": ((x.get("name") or "") + " " + " ".join(x.get("tags") or [])).lower()[:400]}))
 
