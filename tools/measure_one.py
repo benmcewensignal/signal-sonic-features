@@ -59,7 +59,7 @@ def main():
     if not (isinstance(emb, list) and len(emb) == 45): print(json.dumps({"_fail": "no sound profile"})); return
     v = [float(z) for z in emb] + [float(m.get(k)) if isinstance(m.get(k), (int, float)) else 0.0 for k in SC]
     nk = named_key(x); key, key_from = (nk, "name") if nk else (measured_key(emb), "measured")
-    print(json.dumps({"id": x.get("id"), "cat": x.get("_cat") or "drums", "key": key, "key_from": key_from, "name": x.get("name"), "user": x.get("username"), "license": x.get("license"),
+    print(json.dumps({"id": x.get("id"), "cat": x.get("_cat") or "drums", "page": x.get("_page"), "src": x.get("_src") or "freesound", "key": key, "key_from": key_from, "name": x.get("name"), "user": x.get("username"), "license": x.get("license"),
                       "preview": (x.get("previews") or {}).get("preview-hq-mp3"), "tempo": tempo, "tempo_from": src, "duration": x.get("duration"), "v": v,
                       "words": ((x.get("name") or "") + " " + " ".join(x.get("tags") or [])).lower()[:400]}))
 

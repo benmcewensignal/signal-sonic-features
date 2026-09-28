@@ -21,7 +21,7 @@ for fam, st in S["families"].items():
     if not rows: continue
     mu, sd = np.array(st["mu"]), np.array(st["sd"])
     V = np.array([np.array(r["v"])[keep] for r in rows]); Z = (V - mu) / sd; Z /= np.linalg.norm(Z, axis=1, keepdims=True) + 1e-9
-    meta = [{k: r.get(k) for k in ("id", "name", "user", "license", "preview", "tempo", "key")} | {"plain": {n: round(float(r["v"][45 + SC.index(n)]), 4) for n in ("crest", "centroid_hz", "flatness", "onsets_per_s")}} for r in rows]
+    meta = [{k: r.get(k) for k in ("id", "name", "user", "license", "preview", "tempo", "key", "page", "src")} | {"plain": {n: round(float(r["v"][45 + SC.index(n)]), 4) for n in ("crest", "centroid_hz", "flatness", "onsets_per_s")}} for r in rows]
     out[fam] = {"keep": keep, "mu": mu, "sd": sd, "Z": Z.astype(np.float16), "meta": meta}
 pickle.dump(out, open("worker/loop_index.pkl", "wb"))
 print("loop library:", {f: len(v["meta"]) for f, v in out.items()})
