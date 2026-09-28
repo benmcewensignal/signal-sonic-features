@@ -14,5 +14,6 @@ jobs:
       - name: run on Modal
         env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
         run: |
-          modal run embed/modal_embed.py::ear_main 2>&1 | tail -20
-          [ -f ear_result.json ] && echo "::notice title=ear result::$(cat ear_result.json)"
+          modal run embed/modal_embed.py::ear_main > out.txt 2>&1 || true
+          echo "::notice title=modal output::$(tail -30 out.txt | cut -c1-300 | sed ':a;N;$!ba;s/\n/%0A/g')"
+          [ -f ear_result.json ] && echo "::notice title=ear result::$(cat ear_result.json)" || exit 1
