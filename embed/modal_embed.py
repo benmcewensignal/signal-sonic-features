@@ -709,6 +709,61 @@ def selftest_score(recs, library, stats):
     return _j.loads(_j.dumps(res))
 
 
+@app.function(image=image, volumes={"/data": vol}, timeout=1800, cpu=4)
+def packmatch(records, stats):
+    """The demo records' separated parts matched against a privately stored pack, exactly as the Freesound matching
+    works: the same measures, a workable tempo, a key that mixes for bass and melody. Returns names, folders and why."""
+    import json as _j, os, glob, numpy as np
+    vol.reload(); keep = stats["keep"]; SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
+    CAM = {"G#m": "1A", "D#m": "2A", "A#m": "3A", "Fm": "4A", "Cm": "5A", "Gm": "6A", "Dm": "7A", "Am": "8A", "Em": "9A", "Bm": "10A", "F#m": "11A", "C#m": "12A",
+           "B": "1B", "F#": "2B", "C#": "3B", "G#": "4B", "D#": "5B", "A#": "6B", "F": "7B", "C": "8B", "G": "9B", "D": "10B", "A": "11B", "E": "12B"}
+    def mixes(a, b):
+        ca, cb = CAM.get(a), CAM.get(b)
+        if not ca or not cb: return None
+        return int(ca[:-1]) == int(cb[:-1]) or (ca[-1] == cb[-1] and (int(ca[:-1]) - int(cb[:-1])) % 12 in (1, 11))
+    words = {"centroid_hz": ("brightness", "brighter", "darker"), "onsets_per_s": ("hit density", "busier", "sparser"), "crest": ("punch", "punchier", "softer"), "flatness": ("noisiness", "noisier", "more tonal")}
+    def why(a, b):
+        same, diff = [], []
+        for k, (name, up, dn) in words.items():
+            if not a.get(k) or not b.get(k): continue
+            r = b[k] / a[k]
+            if 0.8 <= r <= 1.25: same.append(name)
+            else: diff.append((abs(np.log(max(r, 1e-6))), up if r > 1 else dn))
+        diff.sort(reverse=True); return ", ".join((["similar " + " and ".join(same[:2])] if same else []) + ([diff[0][1]] if diff else []))
+    packs = {}
+    for f in glob.glob("/data/private/*.json"):
+        P = _j.load(open(f)); packs[P.get("pack") or os.path.basename(f)] = P.get("loops") or []
+    if not packs: return {"error": "no pack measured yet"}
+    FAM = {"drums": "drums", "bass": "bass", "other": "melody", "vocals": "vocals"}; out = {"packs": {k: len(v) for k, v in packs.items()}, "records": []}
+    loops = [l for L in packs.values() for l in L if isinstance(l.get("v"), list) and len(l["v"]) == 53]
+    for rec in records:
+        res = {"id": rec["id"], "parts": {}}
+        for part, fam in FAM.items():
+            st = (rec.get("stems") or {}).get(part) or {}; e = st.get("embedding")
+            if not (isinstance(e, list) and len(e) == 45): continue
+            F = stats["families"][fam]; mu, sd = np.array(F["mu"]), np.array(F["sd"])
+            v = np.array([float(x) for x in e] + [float(st.get(c)) if isinstance(st.get(c), (int, float)) else 0.0 for c in SC])[keep]
+            z = (v - mu) / sd; z /= np.linalg.norm(z) + 1e-9
+            cand = [l for l in loops if (l.get("cat") or "drums") == fam]
+            if not cand: res["parts"][part] = []; continue
+            Z = (np.array([np.array(l["v"])[keep] for l in cand]) - mu) / sd; Z /= np.linalg.norm(Z, axis=1, keepdims=True) + 1e-9; sim = Z @ z
+            recplain = {k: float(st.get(k)) for k in words if isinstance(st.get(k), (int, float))}
+            picks, folders = [], {}
+            for i in np.argsort(-sim):
+                l = cand[i]; lt = l.get("tempo"); T = rec.get("tempo")
+                if T and lt and not any(abs(lt * f_ - T) / T <= 0.08 for f_ in (1, 2, 0.5)): continue
+                if fam in ("bass", "melody") and rec.get("key") and l.get("key") and mixes(rec["key"], l["key"]) is False: continue
+                top = (l.get("rel") or "").split("/")[0]
+                if folders.get(top, 0) >= 2: continue   # variety across the pack's labels
+                folders[top] = folders.get(top, 0) + 1
+                lp = {k: float(l["v"][45 + SC.index(k)]) for k in words}
+                picks.append({"name": l.get("name"), "folder": "/".join((l.get("rel") or "").split("/")[:-1])[:90], "tempo": round(lt) if lt else None, "key": l.get("key"), "sim": round(float(sim[i]), 3), "why": why(recplain, lp)})
+                if len(picks) >= 3: break
+            res["parts"][part] = picks
+        out["records"].append(res)
+    return _j.loads(_j.dumps(out))
+
+
 @app.local_entrypoint()
 def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0, tag: str = "", ckpt: str = ""):
     man = json.load(open(manifest_path))
@@ -824,6 +879,20 @@ def main(manifest_path: str, stage: str = "all", epochs: int = 20, aug: int = 0,
             if isinstance(l.get("v"), list) and len(l["v"]) == 53: lib.setdefault(l.get("cat") or "drums", []).append(l["v"])
         res = selftest_score.remote(recs, lib, json.load(open("data/part-stats.json")))
         print("::notice title=matcher self-test::" + json.dumps(res))
+    if stage == "packmatch":
+        import glob as _g
+        D = json.load(open("data/demo-records.json"))["records"]; want = {r["id"]: r for r in D}; found = {}
+        for f in _g.glob("out/stems-*.jsonl"):
+            for ln in open(f):
+                if '"embedding"' not in ln: continue
+                try: r = json.loads(ln)
+                except Exception: continue
+                if r.get("track_id") in want: found[r["track_id"]] = r.get("stems") or {}
+        recs = [dict(want[i], stems=found[i]) for i in want if i in found]
+        res = packmatch.remote(recs, json.load(open("data/part-stats.json")))
+        print("::notice title=pack match::" + json.dumps({"packs": res.get("packs"), "error": res.get("error"), "records": len(res.get("records", []))}))
+        for r in res.get("records", []):   # one note per record: notes are cut at 4,096 characters
+            print("::notice title=pack match " + r["id"] + "::" + json.dumps(r["parts"])[:4000])
     if stage == "promote":
         print("::notice title=promoted::" + json.dumps(promote.remote(tag)))
     if stage == "confusion":
