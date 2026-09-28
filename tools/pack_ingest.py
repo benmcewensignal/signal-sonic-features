@@ -5,15 +5,24 @@ import os, sys, json, re, zipfile, argparse, subprocess, tempfile
 from concurrent.futures import ThreadPoolExecutor
 FAM = [("vocals", r"vocal|vox|acapella|a-capella|chant|spoken|phrase"), ("bass", r"bass|sub|reese|808"),
        ("melody", r"synth|chord|pad|lead|keys|piano|stab|arp|melod|music|rhodes|organ|string"), ("drums", r"drum|kick|snare|hat|perc|top|break|beat|groove|clap|ride|cymbal|full")]
+GENRE = r"drum ?(?:&|and|n|'n'|_&_|_and_) ?bass|\bdnb\b|\bd&b\b|drum_&_bass|drum-and-bass"
+
 def family(path):
-    p = path.lower().replace(chr(92), "/")
-    for fam, pat in FAM:
-        if re.search(pat, p): return fam
+    """Which family a sound belongs to: its file name first, then its folders, with genre names (the pack is called
+    Drum & Bass, which put every sound in 'bass') taken out before looking."""
+    p = re.sub(GENRE, " ", path.lower().replace(chr(92), "/"))
+    parts = [x for x in p.split("/") if x]
+    for chunk in [parts[-1]] + parts[:-1][::-1]:   # the file name, then the nearest folder outwards
+        for fam, pat in FAM:
+            if re.search(pat, chunk): return fam
     return None
+
+
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--zip"); ap.add_argument("--pack"); ap.add_argument("--out"); a = ap.parse_args()
     import io
-    work = tempfile.mkdtemp(); items = []
+    import collections
+    work = tempfile.mkdtemp(); items = []; skipped = collections.Counter()
     def walk(z, prefix=""):   # sound files, including inside zips within the zip (pack bundles often nest them)
         for n in z.namelist():
             if "__MACOSX" in n: continue
@@ -27,10 +36,15 @@ def main():
         fam = family(full)
         if not fam: return
         dest = os.path.join(work, str(len(items)) + os.path.splitext(n)[1]); open(dest, "wb").write(z.read(n))
+        try:   # loops only: a one-shot under two seconds (a single kick, snare or hat) is not what the matcher compares
+            import soundfile as _sf
+            if _sf.info(dest).duration < 2.0: os.remove(dest); skipped["one-shots"] += 1; return
+        except Exception:
+            pass
         items.append({"id": "pack:" + str(len(items)), "name": os.path.basename(full), "username": a.pack, "license": "pack licence (private demo)", "path": dest,
                       "tags": re.split(r"[/_ -]+", os.path.dirname(full)), "_cat": fam, "_page": "", "_src": "pack:" + a.pack, "rel": full})
     walk(zipfile.ZipFile(a.zip))
-    print(f"sounds in the pack by family: " + json.dumps({f: sum(1 for i in items if i["_cat"] == f) for f, _ in FAM}), flush=True)
+    print(f"sounds in the pack by family: " + json.dumps({f: sum(1 for i in items if i["_cat"] == f) for f, _ in FAM}) + " | skipped: " + json.dumps(dict(skipped)), flush=True)
     def one(x):
         try:
             p = subprocess.run([sys.executable, "tools/measure_one.py"], input=json.dumps(x), capture_output=True, text=True, timeout=120)
