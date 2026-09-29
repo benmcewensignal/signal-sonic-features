@@ -20,7 +20,8 @@ jobs:
           modal run embed/modal_embed.py::${{ inputs.entry || 'ear_main' }} > out.txt 2>&1 || true
           echo "::notice title=modal errors::$(grep -E 'Error|Exception|error:|No such|not found|Traceback' out.txt | grep -v '^│ *│' | tail -8 | cut -c1-240 | sed ':a;N;$!ba;s/\n/%0A/g')"
           echo "::notice title=modal last lines::$(grep -v '^[│╭╰ ]*$' out.txt | tail -6 | cut -c1-240 | sed ':a;N;$!ba;s/\n/%0A/g')"
-          [ -f ear_result.json ] && echo "::notice title=ear result::$(cat ear_result.json)" || exit 1
+          # only the two test entries write ear_result.json; the others (ear_walk, ear_check) report in the annotations above
+          if [ -f ear_result.json ]; then echo "::notice title=ear result::$(cat ear_result.json)"; elif [ -z "${{ inputs.entry }}" ] || [ "${{ inputs.entry }}" = "ear_main" ] || [ "${{ inputs.entry }}" = "ear_main2" ]; then exit 1; fi
       - name: keep the compressed ear
         if: ${{ inputs.entry == 'ear_walk' }}
         run: |

@@ -32,7 +32,7 @@ jobs:
   # a sixth of the time. They split by record, write their own file, and a merge commits.
   stems-shard:
     if: (inputs.task == 'stems-shard' || inputs.task == 'stems-remeasure') && inputs.recover_run == ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest becomes Ubuntu 26 from 19 Oct 2026, under the audio decoding
     timeout-minutes: 115
     strategy:
       fail-fast: false
@@ -92,7 +92,7 @@ jobs:
   stems-collect:
     needs: stems-shard
     if: always() && (inputs.task == 'stems-shard' || inputs.task == 'stems-remeasure')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest becomes Ubuntu 26 from 19 Oct 2026, under the audio decoding
     permissions:
       contents: write
       actions: write
@@ -217,7 +217,7 @@ jobs:
 
 
   convert:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest becomes Ubuntu 26 from 19 Oct 2026, under the audio decoding
     timeout-minutes: 110
     steps:
       - uses: actions/checkout@v4
