@@ -54,7 +54,8 @@ def main():
         for t in ids:
             r = T.get(t) or {}; ar = r.get("artists") or []; ar = ar if isinstance(ar, list) else re.split(r",|&| x | and ", str(ar))
             tl.append(norm(r.get("name"))); al.append("|".join(x for x in (norm(y) for y in ar[:4]) if x))
-        json.dump({"note": "for matching a DJ's library on their own device: each record in dj-index (same order), title and artists normalised", "t": tl, "a": al}, open(os.path.join(D, "dj-names.json"), "w"), separators=(",", ":")); ok("dj-names.json", True)
+        LB = {t: (l or "").strip() for t, l in db.execute("select track_id, label from track_meta")}
+        json.dump({"note": "for matching a DJ's library on their own device: each record in dj-index (same order), title and artists normalised; l: the record's label as Beatport gives it", "t": tl, "a": al, "l": [LB.get(t, "") for t in ids]}, open(os.path.join(D, "dj-names.json"), "w"), separators=(",", ":")); ok("dj-names.json", True)
     except Exception as e: print("dj-names:", e); ok("dj-names.json", False)
     try:
         d_ = X["eardims"]; q = dec(X["ear"], np.int8).astype(np.float32).reshape(n, d_) * np.array(X["earscale"], np.float32) / 127
