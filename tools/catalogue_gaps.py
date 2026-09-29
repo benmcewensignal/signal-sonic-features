@@ -36,6 +36,7 @@ def artists(a):
     try: L=json.loads(a) if a and str(a).startswith("[") else [a]
     except Exception: L=[a]
     return ", ".join([x for x in L if x][:2])
+FAR={}
 res={"library":"Freesound (openly licensed: Creative Commons 0 and Attribution)","loops":{f:len(v["meta"]) for f,v in LI.items()},
      "basis_rule":"charting records this year where 60 or more have been split into parts; otherwise records released this year","scenes":{}}
 for sc in set(chart)|set(released):
@@ -72,11 +73,13 @@ for sc in set(chart)|set(released):
             if len(a_)>=5 and b_: med[k]=[round(float(np.median(a_)),1), round(float(np.median(b_)),1)]
         keys=collections.Counter(str(KEY[at[t]]) for t in far if str(KEY[at[t]])).most_common(3) if fam in ("bass","melody") else []
         ex=sorted(far,key=lambda t:(chart.get(sc,{}).get(t,9999), t))[:3]   # charting references first: recognisable
+        FAR.setdefault(sc,{})[part]=far
         S["parts"][part]={"close":round(float((best>=0.7).mean()),3),"some":round(float(((best>=0.45)&(best<0.7)).mean()),3),"far":round(float((best<0.45).mean()),3),
             "gap_words":words,"med":med,"keys":[k for k,_ in keys],"examples":[{"name":(meta.get(t) or ("",""))[0],"artists":artists((meta.get(t) or ("",""))[1]),"id":t} for t in ex]}
     res["scenes"][sc]=S
 old=json.load(open("/tmp/sg/data/catalogue-gaps.json"))
 json.dump(res,open("/tmp/sg/data/catalogue-gaps.json","w"),separators=(",",":"))
+json.dump({"note":"the records behind each Catalogue gap: this year's records whose part no openly licensed loop comes close to (best under 0.45 at a workable tempo and key); the reader checks a label's loops against them","scenes":FAR},open("/tmp/sf/worker/catalogue_far.json","w"),separators=(",",":"))
 b=collections.Counter(S["basis"] for S in res["scenes"].values())
 print(f"  scenes: {len(res['scenes'])} ({dict(b)}) | records checked: {sum(S['records'] for S in res['scenes'].values()):,} | loops {res['loops']}")
 print("  scenes under 60 records now:", [(k,S['records']) for k,S in res['scenes'].items() if S['records']<60])

@@ -77,6 +77,28 @@ async def slices(request: Request):
         return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:80]}, 400)
 
 
+@app.function(image=image, secrets=[secret], cpu=2.0, memory=4096, timeout=180, volumes={"/embed": modal.Volume.from_name("sonic-embed", create_if_missing=True)})
+@modal.fastapi_endpoint(method="POST")
+async def loopgaps(request: Request):
+    """A label's loop against Catalogue's gaps: the audio as the body, ?family=drums|bass|melody|vocals and optional
+    ?tempo= and ?key=. The loop lives only in a temporary file for the length of the call."""
+    if not _ok(request): return JSONResponse({"error": "unauthorised"}, 401)
+    import tempfile, os as _os
+    q = request.query_params; body = await request.body()
+    if len(body) > 8_000_000: return JSONResponse({"error": "loop too large"}, 413)
+    d = tempfile.mkdtemp(); fp = _os.path.join(d, "loop.wav"); open(fp, "wb").write(body)
+    try:
+        from worker.scene import loop_gaps
+        t = float(q.get("tempo")) if q.get("tempo") else None
+        r = loop_gaps(fp, str(q.get("family") or ""), t, q.get("key") or None)
+        return r if "error" not in r else JSONResponse(r, 400)
+    except Exception as e:
+        return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:80]}, 400)
+    finally:
+        try: _os.remove(fp); _os.rmdir(d)
+        except Exception: pass
+
+
 @app.function(image=image, secrets=[secret], cpu=1.0, memory=2048, volumes={"/embed": modal.Volume.from_name("sonic-embed", create_if_missing=True)})
 @modal.fastapi_endpoint(method="POST")
 async def loops(request: Request):
