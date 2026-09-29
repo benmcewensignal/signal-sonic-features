@@ -1,0 +1,15 @@
+name: ear upload test
+# The learned ear on a 60-second upload: does a minute of a record land where its full preview does? (worker/ear_upload_test.py)
+on: { workflow_dispatch: {} }
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q modal numpy
+      - name: run on Modal
+        env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: modal run worker/ear_upload_test.py
