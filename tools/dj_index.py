@@ -18,6 +18,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--index", required=True); ap.add_argument("--detail", required=True); ap.add_argument("--parts", required=True)
     ap.add_argument("--ear", required=True); ap.add_argument("--out", required=True)
+    ap.add_argument("--keys", default=None, help="Beatport's own keys (signal-sonic data/track-keys.json): used where present")
     a = ap.parse_args()
     I = json.load(open(a.index)); T = I["tracks"]; SCN = I.get("scenes") or []
     RP = np.load(a.parts); at = {t: i for i, t in enumerate(RP["ids"].tolist())}; V = RP["V"].astype(np.float32)
@@ -25,6 +26,7 @@ def main():
     for f in glob.glob(os.path.join(a.detail, "*.json")):
         for k, v in json.load(open(f)).items():
             det[k] = {"key": (v.get("key") or {}).get("key") if isinstance(v.get("key"), dict) else None, "pos": v.get("pos")}
+    BK = json.load(open(a.keys)) if a.keys and os.path.exists(a.keys) else {}; nbk = [0]
     rows = []
     for t in T:
         i = at.get(t["track_id"])
@@ -38,7 +40,11 @@ def main():
         if p.get("driving") is not None and dv is not None:
             mx = int(np.clip((p["driving"] - SP[0]) / (SP[1] - SP[0]) * 254 - 127, -127, 127)); my = int(np.clip((dv - SP[2]) / (SP[3] - SP[2]) * 254 - 127, -127, 127))
         sc = t.get("scene"); sci = sc if isinstance(sc, int) else (SCN.index(sc) if sc in SCN else 255)
-        rows.append((t["track_id"], float(t["tm"]), CAM.index(d["key"]) if d.get("key") in CAM else 255, sci, bright,
+        kidx = CAM.index(d["key"]) if d.get("key") in CAM else 255
+        bk = BK.get(t["track_id"])
+        if bk and bk[0] and len(bk[0]) >= 2 and bk[0][:-1].isdigit() and bk[0][-1] in "AB":
+            kidx = (int(bk[0][:-1]) - 1) + (0 if bk[0][-1] == "A" else 12); nbk[0] += 1
+        rows.append((t["track_id"], float(t["tm"]), kidx, sci, bright,
                      sh[3] / tot, sh[0] / tot, sh[1] / tot, float(V[i, 0, 51]), float(V[i, 0, 46]), mx, my))
     n = len(rows)
     pct = lambda vals: np.round(np.asarray(vals, float).argsort().argsort() / (len(vals) - 1) * 99).astype(np.uint8)
@@ -60,7 +66,9 @@ def main():
         if k is not None: E[k] = Q[r]; H[k] = 1
     out.update({"ear": b64(E), "eardims": D, "earscale": [float(x) for x in W["scale"]], "earhas": b64(H), "earbuilt": W.get("built", "")})
     json.dump(out, open(a.out, "w"), separators=(",", ":"))
-    print(json.dumps({"records": n, "with_key": sum(1 for r in rows if r[2] != 255), "with_map": sum(1 for r in rows if r[10] is not None),
+    out["key_source"] = f"Beatport's own key for {nbk[0]} records, Sonic's reading for the rest"
+    json.dump(out, open(a.out, "w"), separators=(",", ":"))
+    print(json.dumps({"beatport_keys": nbk[0], "records": n, "with_key": sum(1 for r in rows if r[2] != 255), "with_map": sum(1 for r in rows if r[10] is not None),
                       "in_the_ear": int(H.sum()), "mb": round(os.path.getsize(a.out) / 1e6, 2)}))
 
 if __name__ == "__main__":
