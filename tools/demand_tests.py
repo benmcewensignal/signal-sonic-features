@@ -27,6 +27,7 @@ def shuffled_p(x, y, groups, n=5000, seed=1):
 def main():
     ap = argparse.ArgumentParser()
     for k in ("supply", "sets", "djindex"): ap.add_argument("--" + k, required=True)
+    ap.add_argument("--charts", default=None); ap.add_argument("--slugs", default="data/genre-slugs.json")
     a = ap.parse_args()
     S = json.load(open(a.supply)); M = S["months"]; sc = S["scenes"]
     blocks = [range(0, 6), range(6, 12), range(12, 18), range(18, 24)]
@@ -78,6 +79,30 @@ def main():
     for name, (x, y, g) in (("plays_lead_releases", lead), ("releases_lead_plays", rev), ("same_half", same_t)):
         if len(x) >= 6: r, p = shuffled_p(x, y, g); res[name] = {"pairs": len(x), "spearman": round(r, 2), "p_shuffled": round(p, 3)}
         else: res[name] = {"pairs": len(x), "note": "too few scene-halves with 15 or more plays on both sides"}
+    # DJ charts by half-year: a scene's share of all chart picks, against releases, both ways
+    import os
+    if a.charts and os.path.exists(a.charts):
+        SL = json.load(open(a.slugs))["slugs"]; cp = collections.defaultdict(collections.Counter); ct = collections.Counter()
+        for line in open(a.charts):
+            try: r = json.loads(line)
+            except Exception: continue
+            d = r.get("date") or ""
+            if len(d) < 7: continue
+            h = f"{d[:4]}H{1 if int(d[5:7]) <= 6 else 2}"
+            for g in r.get("genres") or []:
+                if g in SL: cp[h][SL[g]] += 1; ct[h] += 1
+        res["chart_picks_per_half"] = {h: ct[h] for h in halves}
+        lead, rev = ([], [], []), ([], [], [])
+        for s_ in sc:
+            if len(sc[s_].get("share") or []) < 24: continue
+            C = {h: (cp[h][s_] / ct[h] if ct[h] else 0) for h in halves}; okc = {h: cp[h][s_] >= 60 for h in halves}; R = {h: rel_half(s_, h) for h in halves}
+            for i in range(len(halves) - 2):
+                h0, h1, h2 = halves[i], halves[i + 1], halves[i + 2]
+                if okc[h0] and okc[h1] and R[h1] and R[h2]: lead[0].append(math.log(C[h1] / C[h0])); lead[1].append(math.log(R[h2] / R[h1])); lead[2].append(i)
+                if okc[h1] and okc[h2] and R[h0] and R[h1]: rev[0].append(math.log(R[h1] / R[h0])); rev[1].append(math.log(C[h2] / C[h1])); rev[2].append(i)
+        for name, (x, y, g) in (("charts_lead_releases", lead), ("releases_lead_charts", rev)):
+            if len(x) >= 6: r_, p_ = shuffled_p(x, y, g); res[name] = {"pairs": len(x), "spearman": round(r_, 2), "p_shuffled": round(p_, 3)}
+            else: res[name] = {"pairs": len(x), "note": "too few scene-halves with 60 or more chart picks on both sides"}
     print(json.dumps(res, indent=1))
 
 if __name__ == "__main__":

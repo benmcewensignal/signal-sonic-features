@@ -8,12 +8,13 @@ Growing or shrinking only when both agree. Descriptive: whether growth persists 
   python tools/demand_panel.py --supply ../signal-sonic/data/supply.json --sets ../signalgood/data/dj-sets.json \
       --djindex ../signalgood/data/dj-index.json --out ../signalgood/data/demand.json
 """
-import argparse, base64, collections, datetime, json, math, re
+import argparse, base64, collections, datetime, json, math, os, re
 import numpy as np
 
 def main():
     ap = argparse.ArgumentParser()
     for k in ("supply", "sets", "djindex", "out"): ap.add_argument("--" + k, required=True)
+    ap.add_argument("--charts", default=None, help="Beatport DJ charts (signal-sonic data/djcharts/charts.jsonl)"); ap.add_argument("--slugs", default="data/genre-slugs.json")
     a = ap.parse_args()
     S = json.load(open(a.supply)); months = S["months"]
     X = json.load(open(a.djindex)); scn = X["scenes"]; sc_idx = np.frombuffer(base64.b64decode(X["scene"]), dtype=np.uint8)[:X["n"]]
@@ -31,8 +32,25 @@ def main():
         for t in ids:
             if t in scene_of: win[w][scene_of[t]] += 1
     n1, n0 = sum(win["recent"].values()), sum(win["before"].values())
+    # DJ charts: each record a chart lists, by the chart's date, as a pick for its genre's scene
+    CH = {"recent": collections.Counter(), "before": collections.Counter()}; chart_end = None
+    if a.charts and os.path.exists(a.charts):
+        SL = json.load(open(a.slugs))["slugs"]; rows = []
+        for line in open(a.charts):
+            try: r = json.loads(line)
+            except Exception: continue
+            if r.get("date"): rows.append(r)
+        if rows:
+            chart_end = max(r["date"] for r in rows); e = datetime.date.fromisoformat(chart_end)
+            c1 = (e - datetime.timedelta(days=182)).isoformat(); c0 = (e - datetime.timedelta(days=364)).isoformat()
+            for r in rows:
+                w = "recent" if r["date"] > c1 else ("before" if r["date"] > c0 else None)
+                if not w: continue
+                for g in r.get("genres") or []:
+                    if g in SL: CH[w][SL[g]] += 1
+    m1, m0 = sum(CH["recent"].values()), sum(CH["before"].values())
     out = {"note": __doc__.split("\n  python")[0].strip(), "release_months": [months[-12], months[-7], months[-6], months[-1]],
-           "set_windows": [str(cut0), str(cut1), str(last)], "set_plays": {"recent": n1, "before": n0},
+           "set_windows": [str(cut0), str(cut1), str(last)], "set_plays": {"recent": n1, "before": n0}, "chart_picks": {"recent": m1, "before": m0, "to": chart_end},
            "plays_gap": "most records played in recent sets arrived through DJ tracklists with no genre recorded, so their scene is unknown and DJ-play share cannot be compared yet",
            "scenes": {}}
     for sc in set(S["scenes"]) | set(win["recent"]) | set(win["before"]):
@@ -48,10 +66,16 @@ def main():
             p1, p0 = k1 / n1, k0 / n0; se = math.sqrt(p1 * (1 - p1) / n1 + p0 * (1 - p0) / n0) or 1e-9
             row["plays"] = {"share": round(p1 * 100, 2), "before": round(p0 * 100, 2), "n": k1, "n_before": k0,
                             "call": "up" if (p1 - p0) > 2 * se else ("down" if (p0 - p1) > 2 * se else "flat")}
-        calls = [row[k]["call"] for k in ("releases", "plays") if k in row]
-        if len(calls) == 2:
-            row["verdict"] = ("growing" if calls == ["up", "up"] else "shrinking" if calls == ["down", "down"]
-                              else "mixed" if "up" in calls and "down" in calls else "no clear change")
+        k1, k0 = CH["recent"][sc], CH["before"][sc]
+        if m1 and m0 and (k1 + k0) >= 60:
+            p1, p0 = k1 / m1, k0 / m0; se = math.sqrt(p1 * (1 - p1) / m1 + p0 * (1 - p0) / m0) or 1e-9
+            row["charts"] = {"share": round(p1 * 100, 2), "before": round(p0 * 100, 2), "n": k1, "n_before": k0,
+                             "call": "up" if (p1 - p0) > 2 * se else ("down" if (p0 - p1) > 2 * se else "flat")}
+        calls = [row[k]["call"] for k in ("releases", "plays", "charts") if k in row]
+        ups, downs = calls.count("up"), calls.count("down")
+        if len(calls) >= 2:
+            row["verdict"] = ("growing" if ups >= 2 and not downs else "shrinking" if downs >= 2 and not ups
+                              else "mixed" if ups and downs else "no clear change")
         elif "releases" in row:   # DJ plays cannot be scened yet for most recent records (see the note)
             row["verdict"] = {"up": "releases rising", "down": "releases falling", "flat": "releases flat"}[row["releases"]["call"]]
         else:
