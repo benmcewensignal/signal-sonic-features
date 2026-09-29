@@ -118,6 +118,23 @@ def main():
         json.dump({"note": "per scene, from the separated parts' rhythm detail: commonest kick patterns with their share, kicks per bar, steadiness, swing16 (0.5 straight) and the share of records with a breakdown", "scenes": out},
                   open(os.path.join(D, "scene-patterns.json"), "w"), separators=(",", ":")); ok("scene-patterns.json", True)
     except Exception as e: print("patterns:", e); ok("scene-patterns.json", False)
+    # 3b ranges per scene (each part's middle half), and preview links (the classics and the listening sample), both in the shapes the page reads
+    try:
+        RN = {"drums": "drums", "bass": "bass", "other": "melody", "vocals": "voice"}; SR = {}
+        for s_, name in enumerate(X["scenes"]):
+            idx = [rat[t] for k, t in enumerate(ids) if sc[k] == s_ and t in rat]
+            if len(idx) < 60: continue
+            shp = np.clip(V[idx][:, :, 52], 0, None); shp = shp / np.maximum(shp.sum(1, keepdims=True), 1e-9) * 100
+            o = {p: [int(round(x)) for x in np.percentile(shp[:, j], [25, 50, 75])] for j, p in enumerate(("drums", "bass", "other", "vocals"))}
+            o["share"] = {RN[k]: o[k] for k in ("drums", "bass", "other", "vocals")}; o["records"] = len(idx); SR[name] = o
+        json.dump({"note": "per scene, each part's share of the mix's level: 25th, 50th and 75th percentiles across its separated records", "scenes": SR}, open(os.path.join(D, "scene-ranges.json"), "w"), separators=(",", ":")); ok("scene-ranges.json", True)
+        PV = {}
+        cp = os.path.join(D, "canon-previews.json")
+        if os.path.exists(cp): PV.update(json.load(open(cp)).get("previews") or {})
+        lp = os.path.join(a.sonic, "data", "listening-previews.json")
+        if os.path.exists(lp): PV.update(json.load(open(lp)))
+        json.dump({"note": "Beatport preview links known to Sonic, for hearing a record in the page", "u": PV, "previews": PV}, open(os.path.join(D, "previews.json"), "w"), separators=(",", ":")); ok("previews.json", True)
+    except Exception as e: print("ranges/previews:", e); ok("scene-ranges.json", False); ok("previews.json", False)
     # 4 the gap report, 5 the demand panel
     ok("catalogue-gaps.json", run([os.path.join(F, "tools", "catalogue_gaps.py")], {"SD_FEATURES": F, "SD_DB": a.db, "SD_PARTS": a.parts,
         "SD_GAPS_OUT": os.path.join(D, "catalogue-gaps.json"), "SD_FAR_OUT": os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "catalogue_far.json")}))
