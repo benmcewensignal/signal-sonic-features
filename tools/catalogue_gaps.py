@@ -6,9 +6,10 @@ union of data/scene-records-2026.json and the database's 2026 releases). Inputs:
 records' parts file (record-parts.npz) and worker/loop_index.pkl; paths below are the build machine's.
 """
 import sys, json, sqlite3, pickle, collections, numpy as np
-sys.path.insert(0,"/tmp/sf")
+import os
+FEAT=os.environ.get("SD_FEATURES","/tmp/sf"); sys.path.insert(0,FEAT)
 from worker.scene import _mixes
-c=sqlite3.connect("/tmp/now.db")
+c=sqlite3.connect(os.environ.get("SD_DB","/tmp/now.db"))
 chart=collections.defaultdict(dict)
 for t,sc,rk in c.execute("select track_id, scene, chart_rank from track_scenes where chart_rank is not null and week like '2026-%'"):
     if rk and (t not in chart[sc] or rk<chart[sc][t]): chart[sc][t]=rk
@@ -16,10 +17,10 @@ released=collections.defaultdict(list)
 for t,sc in c.execute("select distinct ts.track_id, ts.scene from track_scenes ts join track_meta m on m.track_id=ts.track_id where m.released like '2026-%'"):
     released[sc].append(t)
 meta={t:(n,a) for t,n,a in c.execute("select track_id, name, artists from track_meta")}
-for sc,rows in json.load(open("/tmp/sf/data/scene-records-2026.json"))["scenes"].items():   # the fuller released lists for the big scenes
+for sc,rows in json.load(open(os.path.join(FEAT,"data","scene-records-2026.json")))["scenes"].items():   # the fuller released lists for the big scenes
     have=set(released[sc]); released[sc]+= [r[0] for r in rows if r[0] not in have]
-RP=np.load("/tmp/record-parts.npz"); at={t:i for i,t in enumerate(RP["ids"].tolist())}; V=RP["V"].astype(np.float32); TEMPO=RP["tempo"]; KEY=RP["key"]
-LI=pickle.load(open("/tmp/sf/worker/loop_index.pkl","rb"))
+RP=np.load(os.environ.get("SD_PARTS","/tmp/record-parts.npz")); at={t:i for i,t in enumerate(RP["ids"].tolist())}; V=RP["V"].astype(np.float32); TEMPO=RP["tempo"]; KEY=RP["key"]
+LI=pickle.load(open(os.path.join(FEAT,"worker","loop_index.pkl"),"rb"))
 FAM={"drums":"drums","bass":"bass","other":"melody","vocals":"vocals"}; PI={"drums":0,"bass":1,"other":2,"vocals":3}
 PLAIN={"crest":46,"centroid_hz":48,"flatness":50,"onsets_per_s":51}
 WORDS={"centroid_hz":("brighter","darker"),"onsets_per_s":("busier","sparser"),"crest":("punchier","softer"),"flatness":("noisier","more tonal")}
@@ -77,9 +78,9 @@ for sc in set(chart)|set(released):
         S["parts"][part]={"close":round(float((best>=0.7).mean()),3),"some":round(float(((best>=0.45)&(best<0.7)).mean()),3),"far":round(float((best<0.45).mean()),3),
             "gap_words":words,"med":med,"keys":[k for k,_ in keys],"examples":[{"name":(meta.get(t) or ("",""))[0],"artists":artists((meta.get(t) or ("",""))[1]),"id":t} for t in ex]}
     res["scenes"][sc]=S
-old=json.load(open("/tmp/sg/data/catalogue-gaps.json"))
-json.dump(res,open("/tmp/sg/data/catalogue-gaps.json","w"),separators=(",",":"))
-json.dump({"note":"the records behind each Catalogue gap: this year's records whose part no openly licensed loop comes close to (best under 0.45 at a workable tempo and key); the reader checks a label's loops against them","scenes":FAR},open("/tmp/sf/worker/catalogue_far.json","w"),separators=(",",":"))
+old=json.load(open(os.environ.get("SD_GAPS_OUT","/tmp/sg/data/catalogue-gaps.json"))) if os.path.exists(os.environ.get("SD_GAPS_OUT","/tmp/sg/data/catalogue-gaps.json")) else {"scenes":{}}
+json.dump(res,open(os.environ.get("SD_GAPS_OUT","/tmp/sg/data/catalogue-gaps.json"),"w"),separators=(",",":"))
+json.dump({"note":"the records behind each Catalogue gap: this year's records whose part no openly licensed loop comes close to (best under 0.45 at a workable tempo and key); the reader checks a label's loops against them","scenes":FAR},open(os.environ.get("SD_FAR_OUT",os.path.join(FEAT,"worker","catalogue_far.json")),"w"),separators=(",",":"))
 b=collections.Counter(S["basis"] for S in res["scenes"].values())
 print(f"  scenes: {len(res['scenes'])} ({dict(b)}) | records checked: {sum(S['records'] for S in res['scenes'].values()):,} | loops {res['loops']}")
 print("  scenes under 60 records now:", [(k,S['records']) for k,S in res['scenes'].items() if S['records']<60])
