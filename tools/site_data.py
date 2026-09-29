@@ -54,7 +54,8 @@ def main():
         for t in ids:
             r = T.get(t) or {}; ar = r.get("artists") or []; ar = ar if isinstance(ar, list) else re.split(r",|&| x | and ", str(ar))
             tl.append(norm(r.get("name"))); al.append("|".join(x for x in (norm(y) for y in ar[:4]) if x))
-        json.dump({"note": "for matching a DJ's library on their own device: each record in dj-index (same order), title and artists normalised", "t": tl, "a": al}, open(os.path.join(D, "dj-names.json"), "w"), separators=(",", ":")); ok("dj-names.json", True)
+        LB = {t: (l or "").strip() for t, l in db.execute("select track_id, label from track_meta")}
+        json.dump({"note": "for matching a DJ's library on their own device: each record in dj-index (same order), title and artists normalised; l: the record's label as Beatport gives it", "t": tl, "a": al, "l": [LB.get(t, "") for t in ids]}, open(os.path.join(D, "dj-names.json"), "w"), separators=(",", ":")); ok("dj-names.json", True)
     except Exception as e: print("dj-names:", e); ok("dj-names.json", False)
     try:
         d_ = X["eardims"]; q = dec(X["ear"], np.int8).astype(np.float32).reshape(n, d_) * np.array(X["earscale"], np.float32) / 127
@@ -118,6 +119,23 @@ def main():
         json.dump({"note": "per scene, from the separated parts' rhythm detail: commonest kick patterns with their share, kicks per bar, steadiness, swing16 (0.5 straight) and the share of records with a breakdown", "scenes": out},
                   open(os.path.join(D, "scene-patterns.json"), "w"), separators=(",", ":")); ok("scene-patterns.json", True)
     except Exception as e: print("patterns:", e); ok("scene-patterns.json", False)
+    # 3b ranges per scene (each part's middle half), and preview links (the classics and the listening sample), both in the shapes the page reads
+    try:
+        RN = {"drums": "drums", "bass": "bass", "other": "melody", "vocals": "voice"}; SR = {}
+        for s_, name in enumerate(X["scenes"]):
+            idx = [rat[t] for k, t in enumerate(ids) if sc[k] == s_ and t in rat]
+            if len(idx) < 60: continue
+            shp = np.clip(V[idx][:, :, 52], 0, None); shp = shp / np.maximum(shp.sum(1, keepdims=True), 1e-9) * 100
+            o = {p: [int(round(x)) for x in np.percentile(shp[:, j], [25, 50, 75])] for j, p in enumerate(("drums", "bass", "other", "vocals"))}
+            o["share"] = {RN[k]: o[k] for k in ("drums", "bass", "other", "vocals")}; o["records"] = len(idx); SR[name] = o
+        json.dump({"note": "per scene, each part's share of the mix's level: 25th, 50th and 75th percentiles across its separated records", "scenes": SR}, open(os.path.join(D, "scene-ranges.json"), "w"), separators=(",", ":")); ok("scene-ranges.json", True)
+        PV = {}
+        cp = os.path.join(D, "canon-previews.json")
+        if os.path.exists(cp): PV.update(json.load(open(cp)).get("previews") or {})
+        lp = os.path.join(a.sonic, "data", "listening-previews.json")
+        if os.path.exists(lp): PV.update(json.load(open(lp)))
+        json.dump({"note": "Beatport preview links known to Sonic, for hearing a record in the page", "u": PV, "previews": PV}, open(os.path.join(D, "previews.json"), "w"), separators=(",", ":")); ok("previews.json", True)
+    except Exception as e: print("ranges/previews:", e); ok("scene-ranges.json", False); ok("previews.json", False)
     # 4 the gap report, 5 the demand panel
     ok("catalogue-gaps.json", run([os.path.join(F, "tools", "catalogue_gaps.py")], {"SD_FEATURES": F, "SD_DB": a.db, "SD_PARTS": a.parts,
         "SD_GAPS_OUT": os.path.join(D, "catalogue-gaps.json"), "SD_FAR_OUT": os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "catalogue_far.json")}))
