@@ -212,15 +212,24 @@ def bassline_of_stem(path, beats, rotation=0):
         for x in per:
             c = collections.Counter(x).most_common(1)[0]
             pat.append(c[0] if c[1] >= bars * 0.5 else None)
+        # bass_version 2: the notes, root, range and movement come from every pitched note the line plays. Version 1
+        # took them only from the one-bar pattern, which keeps a step's note only if the same pitch lands there in half
+        # the bars: a line that follows the chords passes on no step, so 78% of real records read as unpitched and most
+        # of the rest as a single note. The pattern is still read, for a line that does repeat bar to bar.
+        pitched = [m for m in steps[:bars * 16] if m is not None]
+        if len(pitched) < 8:
+            return {"bass_voiced": False, "bass_version": 2}
+        pcs_all = collections.Counter(m % 12 for m in pitched); tot = sum(pcs_all.values())
+        used = [pc for pc, k in pcs_all.items() if k >= 0.05 * tot]   # a stray misread pitch does not count as a note
+        lo, hi = np.percentile(pitched, [5, 95])
+        out = {"bass_voiced": True, "bass_version": 2, "bass_notes": len(used),
+               "bass_root": librosa.midi_to_note(pcs_all.most_common(1)[0][0] + 36, octave=False),
+               "bass_range": int(round(float(hi - lo))), "bass_notes_per_bar": round(len(pitched) / bars, 2),
+               "bass_moves_per_bar": round(sum(1 for a, b in zip(pitched, pitched[1:]) if a != b) / bars, 2)}
         notes = [m for m in pat if m is not None]
-        if len(notes) < 1:
-            return {"bass_voiced": False}
-        names = [librosa.midi_to_note(m, octave=False) if m is not None else "." for m in pat]
-        pcs = collections.Counter(m % 12 for m in notes)
-        root = librosa.midi_to_note(pcs.most_common(1)[0][0] + 36, octave=False)
-        moves = sum(1 for a, b in zip(notes, notes[1:]) if a != b)
-        return {"bass_pattern": " ".join(names), "bass_notes": len(pcs), "bass_root": root,
-                "bass_range": max(notes) - min(notes), "bass_moves": moves, "bass_steps": len(notes)}
+        if notes:
+            out["bass_pattern"] = " ".join(librosa.midi_to_note(m, octave=False) if m is not None else "." for m in pat)
+        return out
     except Exception:
         return None
 
@@ -573,7 +582,9 @@ def remeasure_todo(out_dir, limit, db=None):
             # thousand. The drum part is the one that carries all three.
             dr = st.get("drums") if isinstance(st.get("drums"), dict) else {}
             # kick_version 2: the first version read empty on 44% of real records (see kick_pattern_of_stem)
-            if dr.get("embedding") and "breakdowns" in dr and "hits_per_beat" in dr and (dr.get("kick_version") == 3 or t in _v3):
+            ba = st.get("bass") if isinstance(st.get("bass"), dict) else {}
+            # bass_version 2 (the notes from every pitched note, not only a repeated one-bar pattern) is part of finished
+            if dr.get("embedding") and "breakdowns" in dr and "hits_per_beat" in dr and (dr.get("kick_version") == 3 or t in _v3) and ba.get("bass_version") == 2:
                 finished.add(t)
             if t not in seen:
                 seen.add(t)
@@ -689,8 +700,8 @@ def main():
                             rec["stems"][k].pop("_beats", None)
                         if k == "bass" and isinstance(rec["stems"].get(k), dict):
                             bl = bassline_of_stem(v, _beats, locals().get("_rot", 0))
-                            if bl:
-                                rec["stems"][k].update(bl)
+                            # every attempt records the version, read or not, so the remeasure never picks the record again
+                            rec["stems"][k].update(bl or {"bass_version": 2})
                 tot = sum((s or {}).get("level", 0) for s in rec["stems"].values()) or 1
                 for k, s in rec["stems"].items():
                     if s: s["share_of_energy"] = round((s.get("level", 0)) / tot, 4)
