@@ -1,2 +1,2 @@
 shard 18 of 30: 0 records
-stems: 121508 done, 0 this run, 0 left after
+stems: 121509 done, 0 this run, 0 left after
