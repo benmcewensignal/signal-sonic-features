@@ -151,7 +151,7 @@ def one(rec):
                 mixed[k] = y; pth = os.path.join(d, "true_" + k + ".wav"); sf.write(pth, y, sr); true[k] = S.measure_stem(pth)
             mix = sum(mixed.values()); pk = float(np.abs(mix).max()) or 1.0
             g = 0.89 / pk if pk > 0.89 else 1.0; mp = os.path.join(d, "mix.wav"); sf.write(mp, mix * g, sr)
-            for k in true: true[k]["level"] = (true[k].get("level") or 0) * (g ** 2 if True else 1)
+            true = {k: (t or {}) for k, t in true.items()}   # shares are ratios, so the mix's peak scaling cancels; a silent part measures as nothing
             st2 = S.separate(mp, os.path.join(d, "sep")); meas = {k: S.measure_stem(p) for k, p in st2.items()}
             def shares(r):
                 t = sum((r[k] or {}).get("level", 0) for k in r) or 1.0
