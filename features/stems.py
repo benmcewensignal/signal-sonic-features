@@ -470,10 +470,10 @@ def pick(db, have, limit):
     for k in keys: rr.shuffle(pool[k])
     # records that DJ sets play and the charts never listed carry no scene-month, so the sweep above
     # never reached them; they come first, since the promo test needs their parts
-    # classics (the records people name and test with) and records DJ sets play: no scene-month, so the sweep never reaches them
-    todo = [r[0] for r in c.execute("select track_id from tracks where source in ('classic','tracklist') and analyser_id='local' and track_id like 'bp:%' order by source='classic' desc")
+    # classics and the canon (the records people name and test with; the canon queue jobs tag theirs 'canon') and records DJ sets play: no scene-month, so the sweep never reaches them
+    todo = [r[0] for r in c.execute("select track_id from tracks where source in ('classic','canon','tracklist') and analyser_id='local' and track_id like 'bp:%' order by source in ('classic','canon') desc")
             if r[0] not in have][:limit]
-    left_tl = sum(1 for r in c.execute("select track_id from tracks where source in ('classic','tracklist') and analyser_id='local'") if r[0] not in have) - len(todo)
+    left_tl = sum(1 for r in c.execute("select track_id from tracks where source in ('classic','canon','tracklist') and analyser_id='local'") if r[0] not in have) - len(todo)
     # the weekly chart snapshots (since September) carry no scene-month either, so the sweep never reached the charts'
     # own records: drum & bass had 187 charting records and one of them separated. They come next, newest week first.
     seen_ = set(todo); charted = []
