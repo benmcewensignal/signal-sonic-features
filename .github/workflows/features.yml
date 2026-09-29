@@ -266,13 +266,26 @@ jobs:
           BEATPORT_CLIENT_ID: ${{ secrets.BEATPORT_CLIENT_ID }}
         run: python -m features.convert --db sonic.db --limit 500 --budget-minutes 85 --out-dir out
       - name: publish
+        id: publish
         if: always()
         run: |
+          # the audio pipeline's copy of this step committed conflict markers into live data on 28 September and
+          # hid failed pushes as "nothing to publish"; a conflicted pull now falls back to keeping this run's outputs
           git config user.name "sonic-features-bot"; git config user.email "sonic@earlysignal.live"
           git add --ignore-removal out 2>/dev/null || true
-          git diff --cached --quiet || (git commit -qm "features: $(date -u +%FT%TZ)" && git pull -q --no-rebase origin main && git push -q origin HEAD:main) || echo "nothing to publish"
+          if git diff --cached --quiet; then echo "nothing to publish"; exit 0; fi
+          BIG=$( (git diff --cached --name-only | while read f; do [ -f "$f" ] && [ "$(stat -c %s "$f")" -gt 95000000 ] && echo "$f"; done) || true )
+          if [ -n "$BIG" ]; then echo "::error title=publish::staged files over GitHub's 100 MB limit: $BIG"; exit 1; fi
+          git commit -qm "features: $(date -u +%FT%TZ)"
+          if ! git pull -q --no-rebase -X ours origin main; then git merge --abort 2>/dev/null || true; git fetch -q origin main && git merge -q -s ours origin/main -m 'keep the outputs of this run over a conflicting upstream'; fi
+          for i in 1 2 3; do
+            if OUT=$(git push -q origin HEAD:main 2>&1); then echo "pushed=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+            echo "push attempt $i failed: $OUT"; git pull -q --no-rebase -X ours origin main || true; sleep $((i*10))
+          done
+          echo "::error title=publish::push failed: $(echo "$OUT" | tail -2 | tr '\n' ' ' | cut -c1-300)"; exit 1
       - name: chain the stem pass while it is making progress
-        if: always() && inputs.task == 'stems'
+        # progress is counted from local files, so a failed push would look like progress and loop
+        if: always() && inputs.task == 'stems' && steps.publish.outputs.pushed == '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -284,7 +297,7 @@ jobs:
           exit 0
 
       - name: chain while work remains
-        if: always() && (inputs.task == 'convert' || inputs.task == '')
+        if: always() && (inputs.task == 'convert' || inputs.task == '') && steps.publish.outputs.pushed == '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
