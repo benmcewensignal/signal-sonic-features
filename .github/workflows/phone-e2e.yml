@@ -5,7 +5,7 @@ on:
   schedule: [{ cron: "20 6 * * *" }]   # every morning: fails, and so emails, if the site and the worker stop talking
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest becomes Ubuntu 26 from 19 Oct 2026, under the audio decoding
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
