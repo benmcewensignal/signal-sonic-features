@@ -1,0 +1,32 @@
+name: ear-walk
+# The learned ear for every walkable record (embed/modal_embed.py::ear_walk on Modal), committed as data/walk_ear.json,
+# which the daily site build turns into the DJ tool's Similar and Grow the crate. Without it, records split since the
+# last run sit in the DJ index with no place in the ear. The watchdog in signal-sonic runs this weekly.
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+concurrency: { group: ear-walk, cancel-in-progress: false }
+jobs:
+  walk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -q modal numpy
+      - name: the ear on Modal
+        env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: |
+          modal run embed/modal_embed.py::ear_walk > out.txt 2>&1 || true
+          echo "::notice title=ear walk::$(grep -v '^[│╭╰ ]*$' out.txt | tail -4 | cut -c1-240 | sed ':a;N;$!ba;s/\n/%0A/g')"
+          [ -s data/walk_ear.json ] || { echo "::error title=ear walk::no walk_ear.json written"; exit 1; }
+      - name: keep the ear
+        run: |
+          mkdir -p "$RUNNER_TEMP/k" && cp data/walk_ear.json "$RUNNER_TEMP/k/"
+          git config user.name "sonic-bot"; git config user.email "sonic@earlysignal.live"
+          for i in 1 2 3; do
+            git fetch -q origin main && git reset -q --hard origin/main && cp "$RUNNER_TEMP/k/walk_ear.json" data/
+            git add data/walk_ear.json; if git diff --cached --quiet; then echo "unchanged"; exit 0; fi
+            git commit -qm "the learned ear: $(date -u +%FT%TZ)"; if git push -q origin HEAD:main; then exit 0; fi; sleep $((i*15))
+          done
+          echo "::error title=ear walk::push failed"; exit 1
