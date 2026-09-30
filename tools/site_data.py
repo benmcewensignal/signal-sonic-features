@@ -107,6 +107,7 @@ def main():
     except Exception as e: print("examples/centres:", e); ok("scene-examples.json", False); ok("ear-centres.json", False)
     ok("dj-ranker.json", run([os.path.join(F, "tools", "dj_ranker.py"), "--tracklists", os.path.join(a.sonic, "data", "tracklists"), "--djindex", os.path.join(D, "dj-index.json"),
                               "--djnames", os.path.join(D, "dj-names.json"), "--charts", os.path.join(a.sonic, "data", "djcharts", "charts.jsonl"), "--out", os.path.join(D, "dj-ranker.json")]))
+    ok("scene-practice.json", run([os.path.join(F, "tools", "scene_practice.py"), "--tracklists", os.path.join(a.sonic, "data", "tracklists"), "--djindex", os.path.join(D, "dj-index.json"), "--out", os.path.join(D, "scene-practice.json")]))
     ok("dj-identity.json", run([os.path.join(F, "tools", "dj_identity.py"), "--sonic", a.sonic, "--out", os.path.join(D, "dj-identity.json")]))
     # 3 rhythm patterns per scene
     try:
