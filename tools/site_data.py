@@ -17,7 +17,10 @@ import numpy as np
 def run(args, env=None):
     r = subprocess.run([sys.executable] + args, capture_output=True, text=True, env={**os.environ, **(env or {})})
     print((r.stdout or "").strip()[-400:], flush=True)
-    if r.returncode: print("FAILED:", " ".join(args[:2]), (r.stderr or "")[-600:], flush=True)
+    if r.returncode:
+        print("FAILED:", " ".join(args[:2]), (r.stderr or "")[-600:], flush=True)
+        last = ((r.stderr or "").strip().splitlines() or ["no error text"])[-1][:180]
+        print(f"::warning title=site data step failed::{os.path.basename(args[0])}: {last}", flush=True)   # a failed step shows on the run, not only in its log
     return r.returncode == 0
 
 def dec(s, T): return np.frombuffer(base64.b64decode(s), dtype=T)
