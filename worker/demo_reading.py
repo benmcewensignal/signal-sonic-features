@@ -15,7 +15,7 @@ def run():
     I = json.load(open("/root/data/demo-reading-input.json")); w = tempfile.mkdtemp(); mp3, wav = os.path.join(w, "b.mp3"), os.path.join(w, "b.wav")
     urllib.request.urlretrieve(I["bounce_url"], mp3)
     dur = float(subprocess.run(["ffprobe", "-v", "quiet", "-show_entries", "format=duration", "-of", "csv=p=0", mp3], capture_output=True, text=True).stdout.strip() or 0)
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-ss", str(max(0.0, (dur - 60) / 2)), "-t", "60", "-i", mp3, "-ac", "1", "-ar", "32000", wav], check=True, timeout=120)
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-ss", str(max(0.0, (dur - 60) / 2)), "-t", "60", "-i", mp3, "-ac", "1", "-ar", "44100", wav], check=True, timeout=120)
     out = read(wav, False)
     ev = np.array((((out.get("scene_learned") or {}).get("ear") or {}).get("v") or [])[:16], float)
     if len(ev) != 16: return {"error": "no ear", "reading": out}
