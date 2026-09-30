@@ -16,6 +16,8 @@ A sample label commissions packs: a coherent style, named by the artists and lab
               and melody a key that mixes): close at 0.7 or more, far under 0.45 (as the gap report measures it)
   brief       tempo, keys, part balance, kick pattern, swing, the records nearest the centre, artists and labels, and
               for each part the records whose part no free loop comes close to (what a label's pack is checked against)
+  target      for Aim a track: each style's and genre's centre in the ear, its part-balance ranges, and the DJs who
+              chart it most
   map         styles laid out so alike ones sit close (classical scaling of the distances between their centres in the
               ear, then nudged apart so no two dots overlap), each linked to its two nearest styles
   python tools/pack_opportunities.py --site ../signalgood --features . --sonic ../signal-sonic --db sonic.db --parts record-parts.npz
@@ -41,7 +43,7 @@ def main():
         except Exception: L = [ar]
         meta_art[t] = [x if isinstance(x, str) else (x or {}).get("name", "") for x in L if x]
     # reference weights: chart picks, set plays, Beatport chart weeks
-    W = collections.Counter(); src = collections.Counter()
+    W = collections.Counter(); src = collections.Counter(); WHO = collections.defaultdict(collections.Counter)
     cp = os.path.join(a.sonic, "data", "djcharts", "charts.jsonl")
     if os.path.exists(cp):
         for line in open(cp):
@@ -49,7 +51,9 @@ def main():
             except Exception: continue
             for t in r.get("tracks") or []:
                 i = at.get(t)
-                if i is not None and has[i]: W[i] += 1; src["chart picks"] += 1
+                if i is not None and has[i]:
+                    W[i] += 1; src["chart picks"] += 1
+                    if r.get("dj") and not str(r["dj"]).lower().startswith("beatport"): WHO[i][str(r["dj"])] += 1   # Beatport's own editorial charts are not a DJ to send to
     for f in glob.glob(os.path.join(a.sonic, "data", "tracklists", "*.json")):
         if f.endswith("curves.json"): continue
         for st in json.load(open(f)).get("sets", []):
@@ -139,7 +143,9 @@ def main():
                         "balance": {p: round(float(np.median(shg[:, j])), 1) for j, p in enumerate(("drums", "bass", "melody", "voice"))},
                         "kick": [[p, round(k_ / sum(kpg.values()) * 100)] for p, k_ in kpg.most_common(2)] if sum(kpg.values()) >= 12 else [],
                         "swing": round(float(np.median(swg)), 3) if len(swg) >= 12 else None, "examples": [ids[i] for i in refs[order_g][:6]],
-                        "artists": [x for x, _ in cag.most_common(6)], "labels": [x for x, _ in clg.most_common(5)], "rough": bool(len(refs) < 40), "styles": [], "_w": float(sum(W[i] for i in refs)), "gap_ids": gap_g})
+                        "artists": [x for x, _ in cag.most_common(6)], "labels": [x for x, _ in clg.most_common(5)], "rough": bool(len(refs) < 40), "styles": [], "_w": float(sum(W[i] for i in refs)), "gap_ids": gap_g,
+                        "c": [round(float(x), 4) for x in gc], "ranges": {p: [round(float(np.percentile(shg[:, j], q)), 1) for q in (25, 50, 75)] for j, p in enumerate(("drums", "bass", "melody", "voice"))},
+                        "djs": [[n_, k_] for n_, k_ in sum((WHO[i] for i in refs), collections.Counter()).most_common(8)]})
         if len(refs) < 40 or name == "unknown": continue
         Er = E[refs]; best_k, best_lab, best_sil = 1, np.zeros(len(refs), int), None
         for k in (2, 3, 4, 5):
@@ -197,7 +203,9 @@ def main():
                         "tempo": [round(x, 1) for x in tq], "keys": [k for k, _ in ks.most_common(3)], "minor": None if minor is None else round(float(minor), 2),
                         "balance": {p: round(float(np.median(shp[:, j])), 1) for j, p in enumerate(("drums", "bass", "melody", "voice"))},
                         "kick": [[p, round(k_ / sum(kp.values()) * 100)] for p, k_ in kp.most_common(2)] if sum(kp.values()) >= 12 else [],
-                        "swing": round(float(np.median(sw)), 3) if len(sw) >= 12 else None, "examples": examples, "rough": bool(len(m) < 40), "gap_ids": gap_ids})
+                        "swing": round(float(np.median(sw)), 3) if len(sw) >= 12 else None, "examples": examples, "rough": bool(len(m) < 40), "gap_ids": gap_ids,
+                        "c": [round(float(x), 4) for x in cen[c]], "ranges": {p: [round(float(np.percentile(shp[:, j], q)), 1) for q in (25, 50, 75)] for j, p in enumerate(("drums", "bass", "melody", "voice"))},
+                        "djs": [[n_, k_] for n_, k_ in sum((WHO[i] for i in m), collections.Counter()).most_common(8)]})
     # the map: classical scaling of the cosine distances between style centres, then relaxed so dots do not overlap
     ns_ = len(CEN); C = np.stack(CEN + GCEN); Dm = np.clip(1 - C @ C.T, 0, 2); nn = len(C); J = np.eye(nn) - 1 / nn; Bm = -0.5 * J @ (Dm ** 2) @ J
     w_, v_ = np.linalg.eigh(Bm); o_ = np.argsort(w_)[::-1][:2]; XY = v_[:, o_] * np.sqrt(np.maximum(w_[o_], 1e-9))
