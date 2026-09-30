@@ -354,7 +354,7 @@ def record_parts(tid, path="/embed/record-parts.npz"):
 
 
 _FAR = None
-def loop_gaps_from_vector(v, fam, tempo=None, key=None, path="/embed/record-parts.npz"):
+def loop_gaps_from_vector(v, fam, tempo=None, key=None, path="/embed/record-parts.npz", ids=None, core=None):
     """Which of Catalogue's unmatched records (worker/catalogue_far.json) one loop comes close to. The same closeness,
     standardisation, tempo rule (within 8%, or double or half) and key rule (bass and melody) as the loop matching that
     found them unmatched, so a Freesound loop at its own tempo and key comes close to none of them by construction."""
@@ -371,6 +371,26 @@ def loop_gaps_from_vector(v, fam, tempo=None, key=None, path="/embed/record-part
     part, j = PART[fam]; L = _LI[fam]; keep = L["keep"]; mu, sd = np.asarray(L["mu"], float), np.asarray(L["sd"], float)
     z = (np.asarray(v, float)[keep] - mu) / sd; z = z / (np.linalg.norm(z) + 1e-9)
     out = {"family": fam, "tempo": tempo, "key": key, "gaps": {}}
+    def sims(id_list):
+        L_ = [t for t in id_list if t in _RP["at"]]
+        if not L_: return L_, np.zeros(0), np.zeros(0, bool)
+        idx = np.array([_RP["at"][t] for t in L_])
+        B = (_RP["V"][idx, j].astype(float)[:, keep] - mu) / sd; B /= (np.linalg.norm(B, axis=1, keepdims=True) + 1e-9)
+        sim = B @ z; ok = np.ones(len(idx), bool)
+        if tempo:
+            T = _RP["tempo"][idx].astype(float); ok &= np.array([any(abs(tempo * f - t) / t <= 0.08 for f in (1, 2, 0.5)) if t > 0 else True for t in T])
+        if key and fam in ("bass", "melody"):
+            ok &= np.array([_mixes(key, str(k)) is not False if str(k) else True for k in _RP["key"][idx]])
+        return L_, sim, ok
+    if ids is not None:
+        # a brief's own gap records (the page sends them): which of them this loop comes close to, and how close it gets
+        # to the brief's defining records (the core), under the same tempo and key rules
+        L_, sim, ok = sims(ids)
+        out["gaps"]["target"] = {"unmatched": len(L_), "close": [L_[i] for i in np.where(ok & (sim >= 0.7))[0]], "some": [L_[i] for i in np.where(ok & (sim >= 0.45) & (sim < 0.7))[0]]}
+        if core:
+            C_, csim, cok = sims(core)
+            if len(C_): out["core"] = {"best": round(float(np.max(np.where(cok, csim, -1))), 3), "records": len(C_), "fits": int((cok & (csim >= 0.45)).sum())}
+        return out
     for sc, parts in _FAR.items():
         ids = [t for t in parts.get(part, []) if t in _RP["at"]]
         if not ids: continue
@@ -386,7 +406,7 @@ def loop_gaps_from_vector(v, fam, tempo=None, key=None, path="/embed/record-part
     return out
 
 
-def loop_gaps(path, fam, tempo=None, key=None):
+def loop_gaps(path, fam, tempo=None, key=None, ids=None, core=None):
     """A label's loop, measured as it is (no separation, as the Freesound loops were), against Catalogue's gaps."""
     from features import stems as S
     s = S.measure_stem(path)
@@ -395,6 +415,6 @@ def loop_gaps(path, fam, tempo=None, key=None):
     if not (isinstance(e, list) and len(e) == 45): return {"error": "could not measure the loop"}
     SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
     v = [float(x) for x in e] + [float(s.get(c)) if isinstance(s.get(c), (int, float)) else 0.0 for c in SC]
-    out = loop_gaps_from_vector(v, fam, tempo, key)
+    out = loop_gaps_from_vector(v, fam, tempo, key, ids=ids, core=core)
     out["measures"] = {n: round(float(s.get(n)), 3) for n in ("centroid_hz", "onsets_per_s", "crest", "flatness") if isinstance(s.get(n), (int, float))}
     return out
