@@ -112,6 +112,13 @@ def main():
             dr = (dd.get("stems") or {}).get("drums") or {}
             if (dr.get("kick_version") or 0) >= 3: RH[t] = (dr.get("kick_pattern"), dr.get("swing16"), dr.get("kicks_per_bar"))
     out = []; report = {}; CEN = []; GEN = []; GCEN = []
+    # stable ids: a style keeps yesterday's id when its centre matches yesterday's closely (cosine 0.9 or more), so a
+    # stored target (a bounce's history, a demo) means the same records tomorrow; unmatched styles get a fresh number
+    PREV = {}
+    try:
+        for o in json.load(open(os.path.join(D, "pack-opportunities.json"))).get("opportunities", []):
+            if o.get("c"): PREV.setdefault(o["scene"], []).append((o["id"], np.array(o["c"], np.float32)))
+    except Exception: pass
     for s_i, name in enumerate(SCN):
         refs = np.array([i for i in W if sc[i] == s_i])
         if len(refs) >= 15 and name != "unknown":
@@ -164,6 +171,16 @@ def main():
             sil = silhouette_score(Er, labs[0])
             if best_sil is None or sil > best_sil: best_k, best_lab, best_sil = k, labs[0], sil
         cen = np.stack([Er[best_lab == c].mean(0) for c in range(best_k)]); cen /= np.linalg.norm(cen, axis=1, keepdims=True)
+        old = PREV.get(name, []); SID = {}; taken = set()
+        if old:
+            pairs_ = sorted(((float(cen[c] @ (v / (np.linalg.norm(v) or 1))), c, oid) for c in range(best_k) for oid, v in old), reverse=True)
+            for sim_, c, oid in pairs_:
+                if sim_ < 0.9 or c in SID or oid in taken: continue
+                SID[c] = oid; taken.add(oid)
+        used = {int(oid.split(":")[1]) for oid, _ in old if ":" in oid} | {int(v.split(":")[1]) for v in SID.values()}
+        nxt = (max(used) + 1) if used else 0
+        for c in range(best_k):
+            if c not in SID: SID[c] = f"{name}:{nxt}"; nxt += 1
         dist_ref = 1 - (Er @ cen.T); rad = np.array([np.percentile(dist_ref[best_lab == c, c], 90) for c in range(best_k)])
         allr = np.where((sc == s_i) & has)[0]; dall = 1 - (E[allr] @ cen.T); near = dall.argmin(1)
         inside = dall[np.arange(len(allr)), near] <= rad[near]
@@ -202,7 +219,7 @@ def main():
             tq = [float(np.percentile(tm[m], q)) for q in (25, 50, 75)]
             if tq[1] < 95: tq = [x * 2 for x in tq]   # Beatport lists much drum and bass and dubstep at half tempo
             CEN.append(cen[c])
-            out.append({"id": f"{name}:{c}", "scene": name, "references": int(len(m)), "artists": [x for x, _ in ca.most_common(6)], "labels": [x for x, _ in cl.most_common(5)],
+            out.append({"id": SID[c], "scene": name, "references": int(len(m)), "artists": [x for x, _ in ca.most_common(6)], "labels": [x for x, _ in cl.most_common(5)],
                         "release_share": round(float(rel_share[c]), 3), "releases_month": round(pm * float(rel_share[c])) if pm else None, "dj_share": round(float(dj_share[c]), 3),
                         "dj_vs_releases": round(float(dj_share[c] / max(rel_share[c], 1e-3)), 2), "coverage": cov, "least_covered": least,
                         "uncovered_month": round(pm * float(rel_share[c]) * cov[least]["far"] * cov[least]["present"]) if pm and least else None,
