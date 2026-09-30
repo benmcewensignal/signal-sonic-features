@@ -56,9 +56,9 @@ per = {str(s): round(float(np.mean(pred[S[te] == s] == s)), 3) for s in sorted(s
 final = HistGradientBoostingClassifier(**P).fit(Z, S)
 pickle.dump(_portable({"model": final, "mu": mu.tolist(), "sd": sd.tolist(), "classes": list(final.classes_), "tiers": tiers, "scene_tiers": ST, "trained_on": len(ids),
              "analyser": "3.0", "kind": "parts", "held_out_accuracy": round(first, 3), "held_out_top3": round(top3, 3), "built": "2026-09-24",
-             "note": "inputs: the whole mix's 75, then worker/parts_features.parts_vector (219); standardised by mu/sd with NaN kept for the model"},
+             "note": "inputs: the whole mix's 75, then worker/parts_features.parts_vector (219); standardised by mu/sd with NaN kept for the model"}),
             open("worker/scene_model_parts.pkl", "wb"))
 metrics = {"records": len(ids), "artists_held_out": len(hold), "held_out_records": len(te), "first": first, "top3": top3, "tiers": tiers, "per_scene": per}
-json.dump(metrics), open("worker/scene_model_parts.json", "w"), indent=1)
+json.dump(metrics, open("worker/scene_model_parts.json", "w"), indent=1)
 msg = f"triangulated model: {len(ids)} records; with {len(hold)} artists held out, right first time {first*100:.1f}%, top three {top3*100:.1f}%; when 0.6+ sure ({tiers[0][3]*100:.0f}% of records) right {tiers[0][2]*100:.0f}%"
 print(msg); print(f"::notice title=triangulated model::{msg}")
