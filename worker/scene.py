@@ -7,17 +7,6 @@ reliability measured for that confidence with whole artists held out.
 """
 import os, pickle, numpy as np
 
-# Pickles written under numpy 2 name their random generator by class (numpy.random._pcg64.PCG64); numpy 1, which this
-# image pins, looks it up by name and fails ("is not a known BitGenerator module"), which broke every scene call.
-try:
-    import numpy.random._pickle as _np_pickle
-    _bg0 = _np_pickle.__bit_generator_ctor
-    def _bg_ctor(bit_generator_name="MT19937"):
-        if isinstance(bit_generator_name, type): bit_generator_name = bit_generator_name.__name__
-        return _bg0(bit_generator_name)
-    _np_pickle.__bit_generator_ctor = _bg_ctor
-except Exception:
-    pass
 _M = None
 
 

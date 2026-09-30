@@ -9,6 +9,15 @@ Both are stored beside each model; the models themselves are unchanged.
 import sys, json, glob, pickle, sqlite3, numpy as np, warnings; warnings.filterwarnings("ignore")
 from sklearn.ensemble import HistGradientBoostingClassifier
 from scipy.optimize import minimize_scalar
+
+def _portable(o):
+    """numpy 2 writes its random generator into a HistGradientBoosting model (_feature_subsample_rng, used only while
+    fitting); the reader runs numpy 1 and cannot load it, which broke every scene call. Cleared before saving."""
+    if hasattr(o, "_feature_subsample_rng"): o._feature_subsample_rng = None
+    if isinstance(o, dict):
+        for v in o.values(): _portable(v)
+    return o
+
 sys.path.insert(0, "."); from worker.parts_features import parts_vector
 c = sqlite3.connect(sys.argv[1]); sc = {}
 for t, s in c.execute("select track_id, scene from track_scenes where week like '____-M__' order by week"): sc.setdefault(t, s)
@@ -57,7 +66,7 @@ def calibrate(name, path, ids, X):
         if k.sum(): bins.append([lo, hi, round(float(conf[k].mean()), 3), round(float(np.mean(pred[k] == y[k])), 3), int(k.sum())])
     M["temperature"] = round(T, 4); M["conformal_q90"] = round(q, 4); M["calibration"] = {"coverage_checked": round(cover, 3), "mean_set_size": round(float(setsize[~half].mean()), 2),
         "single_scene_share": round(float(np.mean(setsize[~half] == 1)), 3), "bins_stated_vs_right": bins, "held_out_records": int((~half).sum())}
-    pickle.dump(M, open(path, "wb"))
+    pickle.dump(_portable(M), open(path, "wb"))
     msg = f"{name}: temperature {T:.2f}; 90% sets cover {cover*100:.0f}% on unseen records, mean size {setsize[~half].mean():.2f}, a single scene {np.mean(setsize[~half]==1)*100:.0f}% of the time; stated vs right: " + ", ".join(f"{b[2]*100:.0f}%->{b[3]*100:.0f}%" for b in bins)
     print(msg); print(f"::notice title=calibration::{msg}")
 ids = sorted(mix); calibrate("mix model", "worker/scene_model.pkl", ids, np.array([mix[t] for t in ids], np.float32))

@@ -50,6 +50,15 @@ def right(m):
 base_m = fit(Xc, yc); aug_m = fit(np.vstack([Xc, Xa]), np.concatenate([yc, ya])); rb, ra = right(base_m), right(aug_m)
 base = {k: float(v.mean()) for k, v in rb.items()}; aug = {k: float(v.mean()) for k, v in ra.items()}
 from scipy.stats import binomtest
+
+def _portable(o):
+    """numpy 2 writes its random generator into a HistGradientBoosting model (_feature_subsample_rng, used only while
+    fitting); the reader runs numpy 1 and cannot load it, which broke every scene call. Cleared before saving."""
+    if hasattr(o, "_feature_subsample_rng"): o._feature_subsample_rng = None
+    if isinstance(o, dict):
+        for v in o.values(): _portable(v)
+    return o
+
 def mcnemar(k):   # paired: records the old model got right and the new one wrong, and the reverse
     b = int(np.sum(rb[k] & ~ra[k])); c = int(np.sum(~rb[k] & ra[k])); n = b + c
     return b, c, (binomtest(min(b, c), n, 0.5).pvalue if n else 1.0)
@@ -78,4 +87,4 @@ if ok:
     new = dict(old); new.update({"model": final, "mu": mu.tolist(), "sd": sd.tolist(), "classes": list(final.classes_), "condition_tiers": Q, "augmented": True, "built": "2026-09-25",
                                 "trained_on": int(len(clean) + len(R) * len(CONDS)), "held_out_accuracy": round(base["clean (held-out artists)"] if not ok else aug["clean (held-out artists)"], 3)})
     new.pop("temperature", None); new.pop("conformal_q90", None)   # refitted by the calibrate job on the new model
-    pickle.dump(new, open("worker/scene_model.pkl", "wb")); print("worker/scene_model.pkl replaced")
+    pickle.dump(_portable(new), open("worker/scene_model.pkl", "wb")); print("worker/scene_model.pkl replaced")
