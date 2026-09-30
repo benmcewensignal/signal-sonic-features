@@ -411,7 +411,12 @@ def loop_gaps(path, fam, tempo=None, key=None, ids=None, core=None):
     """A label's loop, measured as it is (no separation, as the Freesound loops were), against Catalogue's gaps."""
     from features import stems as S
     s = S.measure_stem(path)
+    if not s: return {"error": "the loop is under a second long"}
     if s.get("silent"): return {"error": "the file is silent"}
+    # the 45-number embedding comes from the part analyser, not from measure_stem (which gives the eight measures):
+    # without this merge every loop came back "could not measure the loop"
+    try: s.update(S.analyse_stem(path) or {})
+    except Exception: pass
     e = s.get("embedding")
     if not (isinstance(e, list) and len(e) == 45): return {"error": "could not measure the loop"}
     SC = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")

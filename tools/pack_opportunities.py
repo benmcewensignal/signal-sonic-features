@@ -86,6 +86,13 @@ def main():
         if not L: continue
         LIB[part] = (L["Z"].astype(np.float32), L["keep"], L["mu"].astype(np.float32), L["sd"].astype(np.float32),
                      np.array([m.get("tempo") or 0 for m in L["meta"]], np.float32), [m.get("key") for m in L["meta"]], pi, {})
+    # "nothing close" and "close", part by part: from data/part-calibration.json when it exists (how close a record's own
+    # two halves look to the matcher), else the single 0.45 / 0.7 line
+    THR = {p_: {"far": 0.45, "close": 0.7} for p_ in ("drums", "bass", "melody", "voice")}
+    try:
+        cal = json.load(open(os.path.join(a.features, "data", "part-calibration.json"))).get("parts", {})
+        for p_, v_ in cal.items(): THR["voice" if p_ == "vocals" else p_] = {"far": float(v_["far"]), "close": float(v_["close"])}
+    except Exception: pass
     def best_loop(i, part):
         Z, keep, mu, sd, lt, lk, pi, KM = LIB[part]; r = rat.get(ids[i])
         if r is None: return None
@@ -135,10 +142,10 @@ def main():
                         b = best_loop(i, part)
                         if b is not None:
                             bs.append(b)
-                            if b < 0.45: far_g.append(ids[i])
+                            if b < THR[part]["far"]: far_g.append(ids[i])
                 if far_g: gap_g[part] = far_g
                 bs = np.array(bs); present = float(np.mean(pres)) if pres else 0.0
-                if len(bs) >= 10: covg[part] = {"present": round(present, 3), "records": int(len(bs)), "close": round(float((bs >= 0.7).mean()), 3), "some": round(float(((bs >= 0.45) & (bs < 0.7)).mean()), 3), "far": round(float((bs < 0.45).mean()), 3)}
+                if len(bs) >= 10: covg[part] = {"present": round(present, 3), "records": int(len(bs)), "close": round(float((bs >= THR[part]["close"]).mean()), 3), "some": round(float(((bs >= THR[part]["far"]) & (bs < THR[part]["close"])).mean()), 3), "far": round(float((bs < THR[part]["far"]).mean()), 3)}
             rs_g = [rat.get(ids[i]) for i in refs]; rs_g = [r for r in rs_g if r is not None]
             shg = np.clip(V[rs_g][:, :, 52], 0, None); shg = shg / np.maximum(shg.sum(1, keepdims=True), 1e-9) * 100
             ksg = collections.Counter(CAM[key[i]] for i in refs if key[i] < 24); minor_g = np.mean([key[i] < 12 for i in refs if key[i] < 24]) if ksg else None
@@ -205,10 +212,10 @@ def main():
                         b = best_loop(i, part)
                         if b is not None:
                             bs.append(b)
-                            if b < 0.45: far_ids.append(ids[i])
+                            if b < THR[part]["far"]: far_ids.append(ids[i])
                 if far_ids: gap_ids[part] = far_ids
                 bs = np.array(bs); present = float(np.mean(pres)) if pres else 0.0
-                if len(bs) >= 10: cov[part] = {"present": round(present, 3), "records": int(len(bs)), "close": round(float((bs >= 0.7).mean()), 3), "some": round(float(((bs >= 0.45) & (bs < 0.7)).mean()), 3), "far": round(float((bs < 0.45).mean()), 3)}
+                if len(bs) >= 10: cov[part] = {"present": round(present, 3), "records": int(len(bs)), "close": round(float((bs >= THR[part]["close"]).mean()), 3), "some": round(float(((bs >= THR[part]["far"]) & (bs < THR[part]["close"])).mean()), 3), "far": round(float((bs < THR[part]["far"]).mean()), 3)}
             rs = [rat.get(ids[i]) for i in m]; rs = [r for r in rs if r is not None]
             shp = np.clip(V[rs][:, :, 52], 0, None); shp = shp / np.maximum(shp.sum(1, keepdims=True), 1e-9) * 100
             ks = collections.Counter(CAM[key[i]] for i in m if key[i] < 24); minor = np.mean([key[i] < 12 for i in m if key[i] < 24]) if ks else None
@@ -267,7 +274,7 @@ def main():
     PAIRS = [[i, j, round(float(S2[i, j]), 3)] for i, j in sorted(pairs)]
     order = sorted(range(ns_), key=lambda i: -(out[i]["uncovered_month"] or 0)); remap = {old: new for new, old in enumerate(order)}
     out = [out[i] for i in order]; PAIRS = [[remap[i], remap[j], s_] for i, j, s_ in PAIRS]
-    res = {"note": __doc__.split("\n  python")[0].strip(), "sources": dict(src), "scenes": report, "opportunities": out, "genres": sorted(GEN, key=lambda g: -(g["uncovered_month"] or 0)), "pairs": PAIRS, "map": {"w": 350, "h": 330}}
+    res = {"note": __doc__.split("\n  python")[0].strip(), "thresholds": THR, "sources": dict(src), "scenes": report, "opportunities": out, "genres": sorted(GEN, key=lambda g: -(g["uncovered_month"] or 0)), "pairs": PAIRS, "map": {"w": 350, "h": 330}}
     json.dump(res, open(a.out or os.path.join(D, "pack-opportunities.json"), "w"), separators=(",", ":"))
     print(json.dumps({"opportunities": len(out), "scenes": len(report), "sources": dict(src)}))
 
