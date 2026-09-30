@@ -27,7 +27,7 @@ def main():
     for f in glob.glob(os.path.join(a.detail, "*.json")):
         for k, v in json.load(open(f)).items():
             det[k] = {"key": (v.get("key") or {}).get("key") if isinstance(v.get("key"), dict) else None, "pos": v.get("pos")}
-    BK = json.load(open(a.keys)) if a.keys and os.path.exists(a.keys) else {}; nbk = [0]
+    BK = json.load(open(a.keys)) if a.keys and os.path.exists(a.keys) else {}; nbk = [0]; nbpm = [0]
     rows = []
     for t in T:
         i = at.get(t["track_id"])
@@ -45,7 +45,9 @@ def main():
         bk = BK.get(t["track_id"])
         if bk and bk[0] and len(bk[0]) >= 2 and bk[0][:-1].isdigit() and bk[0][-1] in "AB":
             kidx = (int(bk[0][:-1]) - 1) + (0 if bk[0][-1] == "A" else 12); nbk[0] += 1
-        rows.append((t["track_id"], float(t["tm"]), kidx, sci, bright,
+        tmv = float(t["tm"])
+        if bk and len(bk) > 2 and bk[2]: tmv = float(bk[2]); nbpm[0] += 1   # Beatport's own BPM where it has one: Sonic's reading is within 2% of it on 80 in 100 records
+        rows.append((t["track_id"], tmv, kidx, sci, bright,
                      sh[3] / tot, sh[0] / tot, sh[1] / tot, float(V[i, 0, 51]), float(V[i, 0, 46]), mx, my))
     EX = json.load(open(a.extra)) if a.extra and os.path.exists(a.extra) else {}; have = {r[0] for r in rows}; nex = 0
     RT = RP["tempo"] if "tempo" in RP.files else None; RK = RP["key"] if "key" in RP.files else None
@@ -61,8 +63,9 @@ def main():
         bk = BK.get(t)
         if bk and bk[0] and len(bk[0]) >= 2 and bk[0][:-1].isdigit() and bk[0][-1] in "AB":
             kidx = (int(bk[0][:-1]) - 1) + (0 if bk[0][-1] == "A" else 12); nbk[0] += 1
+        if bk and len(bk) > 2 and bk[2]: tmv = float(bk[2]); nbpm[0] += 1
         rows.append((t, tmv, kidx, sci, bright, sh[3] / tot, sh[0] / tot, sh[1] / tot, float(V[i, 0, 51]), float(V[i, 0, 46]), None, None)); nex += 1
-    print(f"records DJs play added from outside the recognition index: {nex}")
+    print(f"records DJs play added from outside the recognition index: {nex}; Beatport's BPM used for {nbpm[0]}")
     n = len(rows)
     pct = lambda vals: np.round(np.asarray(vals, float).argsort().argsort() / (len(vals) - 1) * 99).astype(np.uint8)
     F = {"bright": pct([r[4] for r in rows]), "vocal": pct([r[5] for r in rows]), "drums": pct([r[6] for r in rows]),

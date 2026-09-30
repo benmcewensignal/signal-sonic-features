@@ -105,6 +105,8 @@ def main():
         json.dump({"note": "centres in the learned ear's 16 directions: artists with 3+ records, labels with 5+ (with the median and 75th-percentile distance of their own records)", "dims": d_, "artists": arts, "labels": labs},
                   open(os.path.join(D, "ear-centres.json"), "w"), separators=(",", ":")); ok("ear-centres.json", True)
     except Exception as e: print("examples/centres:", e); ok("scene-examples.json", False); ok("ear-centres.json", False)
+    ok("dj-ranker.json", run([os.path.join(F, "tools", "dj_ranker.py"), "--tracklists", os.path.join(a.sonic, "data", "tracklists"), "--djindex", os.path.join(D, "dj-index.json"),
+                              "--djnames", os.path.join(D, "dj-names.json"), "--out", os.path.join(D, "dj-ranker.json")]))
     # 3 rhythm patterns per scene
     try:
         best = {}
