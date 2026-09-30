@@ -1,4 +1,4 @@
-name: ear upload test
+name: leverage test
 # The learned ear on a 60-second upload: does a minute of a record land where its full preview does? (worker/leverage_test.py)
 on: { workflow_dispatch: {} }
 jobs:
