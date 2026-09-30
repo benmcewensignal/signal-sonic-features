@@ -9,11 +9,12 @@ nobody has played. Evaluated on DJs it never saw (the real next record hidden am
 import argparse, base64, glob, json, os, numpy as np
 from sklearn.linear_model import LogisticRegression
 MS = ("bright", "busy", "punch", "vocal", "bass", "drums")
-NAMES = ["ear", "abs_dt", "dt", "key_exact", "key_relative", "key_step", "key_other", "same_scene", "same_label", "shared_artist"] + [p + m for m in MS for p in ("absd_", "d_")]
+NAMES = ["ear", "abs_dt", "dt", "key_exact", "key_relative", "key_step", "key_other", "same_scene", "same_label", "shared_artist"] + [p + m for m in MS for p in ("absd_", "d_")] + ["charted_together", "both_charted"]
 
 def main():
     ap = argparse.ArgumentParser()
     for k in ("tracklists", "djindex", "djnames", "out"): ap.add_argument("--" + k, required=True)
+    ap.add_argument("--charts", default=None, help="Beatport DJ charts (signal-sonic data/djcharts/charts.jsonl): how many DJs charted both records")
     a = ap.parse_args(); rng = np.random.default_rng(7)
     X = json.load(open(a.djindex)); n = X["n"]; at = {t: i for i, t in enumerate(X["ids"])}; d = X["eardims"]
     E = np.frombuffer(base64.b64decode(X["ear"]), np.int8).astype(np.float32).reshape(n, d) * np.array(X["earscale"], np.float32) / 127
@@ -21,6 +22,23 @@ def main():
     tm = np.frombuffer(base64.b64decode(X["tempo"]), np.uint16)[:n].astype(np.float32) / 10; key = np.frombuffer(base64.b64decode(X["key"]), np.uint8)[:n]
     sc = np.frombuffer(base64.b64decode(X["scene"]), np.uint8)[:n]; M = {m: np.frombuffer(base64.b64decode(X[m]), np.uint8)[:n].astype(np.float32) for m in MS}
     N = json.load(open(a.djnames)); LB = N.get("l") or [""] * n; AR = [set(x.split("|")) - {""} if x else set() for x in N["a"]]
+    import re as _re, unicodedata as _ud, collections as _col
+    nmz = lambda z: " ".join(_re.sub(r"[^a-z0-9]+", " ", _ud.normalize("NFKD", str(z or "")).encode("ascii", "ignore").decode().lower()).split())
+    CH = []   # (dj key, normalised dj name, [record positions])
+    if a.charts and os.path.exists(a.charts):
+        for line in open(a.charts):
+            try: r = json.loads(line)
+            except Exception: continue
+            ii = [at[t] for t in (r.get("tracks") or []) if t in at]
+            if ii: CH.append((str(r.get("dj_id") or r.get("dj")), nmz(r.get("dj")), ii))
+    def chart_table(skip_names=frozenset()):
+        dj_ids = {}; per = _col.defaultdict(set)
+        for k, nmk, ii in CH:
+            if nmk in skip_names: continue
+            j = dj_ids.setdefault(k, len(dj_ids))
+            for i in ii: per[i].add(j)
+        return per
+    CP = [chart_table()]
     def mix(x, y, w=0.16): return bool(tm[x]) and any(abs(tm[y] * f - tm[x]) / tm[x] <= w for f in (1, 2, 0.5))
     def keyrel(x, y):
         if key[x] == 255 or key[y] == 255: return 0
@@ -34,6 +52,8 @@ def main():
         F = [E[B] @ E[x], np.abs(dt), dt] + [(kr == k).astype(float) for k in (1, 2, 3, 4)] + [(sc[B] == sc[x]).astype(float),
              np.array([float(bool(LB[x]) and LB[y] == LB[x]) for y in B]), np.array([float(bool(AR[x] & AR[y])) for y in B])]
         for m in MS: F += [np.abs(M[m][B] - M[m][x]) / 100, (M[m][B] - M[m][x]) / 100]
+        P_ = CP[0]; A_ = P_.get(x, set())
+        F += [np.array([np.log1p(len(A_ & P_.get(y, set()))) for y in B]), np.array([float(bool(A_) and bool(P_.get(y))) for y in B])]
         return np.stack(F, 1)
     seqs, owner = [], []
     for f in sorted(glob.glob(os.path.join(a.tracklists, "*.json"))):
@@ -53,20 +73,26 @@ def main():
             Xs.append(feats(x, [y] + list(rng.choice(c, 10, replace=False)))); ys += [1] + [0] * 10
         Z = np.vstack(Xs); mu, sd = Z.mean(0), Z.std(0) + 1e-9
         return LogisticRegression(max_iter=3000).fit((Z - mu) / sd, np.array(ys)), mu, sd
-    # evaluation on DJs it never saw
-    DJS = sorted(set(owner)); held = {DJS[i] for i in rng.permutation(len(DJS))[:len(DJS) // 5]}
-    tr = [q for q, o in zip(seqs, owner) if o not in held]; te = [q for q, o in zip(seqs, owner) if o in held]
-    clf, mu, sd = train(pairs(tr)); r_ear, r_mod = [], []
-    for x, y in pairs(te):
-        c = cands(x); c = c[c != y]
-        if len(c) < 200: continue
-        B = [y] + list(rng.choice(c, 200, replace=False)); F = feats(x, B)
-        for r, s in ((r_ear, F[:, 0]), (r_mod, clf.decision_function((F - mu) / sd))): r.append(int((s > s[0]).sum()) + 1)
-    ev = {"held_out_djs": len(held), "test_pairs": len(r_mod), "ear_top10": round(float(np.mean(np.array(r_ear) <= 10)) * 100, 1), "model_top10": round(float(np.mean(np.array(r_mod) <= 10)) * 100, 1),
-          "ear_first": round(float(np.mean(np.array(r_ear) == 1)) * 100, 1), "model_first": round(float(np.mean(np.array(r_mod) == 1)) * 100, 1)}
-    P = pairs(seqs); clf, mu, sd = train(P)
+    # evaluation on DJs it never saw, averaged over five splits (one split swings by ten points)
+    DJS = sorted(set(owner)); R_e, R_m, F_e, F_m, NT = [], [], [], [], 0
+    for split in range(5):
+        rr = np.random.default_rng(100 + split); held = {DJS[i] for i in rr.permutation(len(DJS))[:len(DJS) // 5]}
+        tr = [q for q, o in zip(seqs, owner) if o not in held]; te = [q for q, o in zip(seqs, owner) if o in held]
+        CP[0] = chart_table(frozenset(nmz(json.load(open(o)).get("dj")) for o in held))   # a held-out DJ's own charts never count
+        clf, mu, sd = train(pairs(tr)); r_ear, r_mod = [], []
+        for x, y in pairs(te):
+            c = cands(x); c = c[c != y]
+            if len(c) < 200: continue
+            B = [y] + list(rng.choice(c, 200, replace=False)); F = feats(x, B)
+            for r, sc_ in ((r_ear, F[:, 0]), (r_mod, clf.decision_function((F - mu) / sd))): r.append(int((sc_ > sc_[0]).sum()) + 1)
+        R_e.append(np.mean(np.array(r_ear) <= 10)); R_m.append(np.mean(np.array(r_mod) <= 10)); F_e.append(np.mean(np.array(r_ear) == 1)); F_m.append(np.mean(np.array(r_mod) == 1)); NT += len(r_mod)
+    ev = {"splits": 5, "held_out_share_of_djs": "one fifth", "test_pairs": NT, "ear_top10": round(float(np.mean(R_e)) * 100, 1), "model_top10": round(float(np.mean(R_m)) * 100, 1),
+          "ear_first": round(float(np.mean(F_e)) * 100, 1), "model_first": round(float(np.mean(F_m)) * 100, 1), "model_top10_by_split": [round(float(v) * 100, 1) for v in R_m]}
+    CP[0] = chart_table(); P = pairs(seqs); clf, mu, sd = train(P)
+    cp_out = {X["ids"][i]: sorted(v) for i, v in CP[0].items()}
     json.dump({"note": __doc__.split("\n  python")[0].strip(), "features": NAMES, "mu": [round(float(v), 6) for v in mu], "sd": [round(float(v), 6) for v in sd],
-               "coef": [round(float(v), 6) for v in clf.coef_[0]], "intercept": round(float(clf.intercept_[0]), 6), "trained_pairs": len(P), "test": ev}, open(a.out, "w"), indent=0)
+               "coef": [round(float(v), 6) for v in clf.coef_[0]], "intercept": round(float(clf.intercept_[0]), 6), "trained_pairs": len(P), "test": ev,
+               "charted_by": cp_out}, open(a.out, "w"), indent=0)
     print(json.dumps({"trained_pairs": len(P), **ev}))
 
 if __name__ == "__main__":
