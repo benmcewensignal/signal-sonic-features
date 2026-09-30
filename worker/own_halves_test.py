@@ -33,7 +33,14 @@ def one(rec):
             x, sr = sf.read(pth, always_2d=True); h = len(x) // 2; vs = []
             for tag, seg in (("a", x[:h]), ("b", x[h:])):
                 fp = os.path.join(w, f"{k}_{tag}.wav"); sf.write(fp, seg, sr); m = S.measure_stem(fp) or {}
-                m.update(S.analyse_stem(fp) or {})   # the embedding, as the loop check now measures it
+                try:
+                    from features.analyser_local import LocalAnalyser
+                    fv = LocalAnalyser().analyse(fp); e_ = getattr(fv, "embedding", None)
+                    if e_ is None and isinstance(fv, dict): e_ = fv.get("embedding")
+                    if e_ is not None: m["embedding"] = [float(q) for q in e_]
+                    else: out.setdefault("aerr", "no embedding in " + type(fv).__name__)
+                except Exception as ex_:
+                    import traceback; out.setdefault("aerr", type(ex_).__name__ + ": " + str(ex_)[:160] + " | " + traceback.format_exc().strip().splitlines()[-3][:160])
                 e = m.get("embedding")
                 if m.get("silent") or not (isinstance(e, list) and len(e) == 45): vs = None; break
                 vs.append(np.array([float(v) for v in e] + [float(m.get(c)) if isinstance(m.get(c), (int, float)) else 0.0 for c in SC]))
@@ -53,7 +60,7 @@ def main():
         for i, u in ((p["a"], p["ua"]), (p["b"], p["ub"])):
             if i not in seen: seen.add(i); R.append({"id": i, "url": u, "scene": p["scene"]})
     res = list(one.map(R, return_exceptions=True)); ok = [r for r in res if isinstance(r, dict) and r.get("sim")]
-    errs = [r.get("error") if isinstance(r, dict) else repr(r)[:100] for r in res if r not in ok][:3]
+    errs = [(r.get("error") or r.get("aerr")) if isinstance(r, dict) else repr(r)[:100] for r in res if r not in ok][:3]
     summ = {}
     for part in ("drums", "bass", "melody", "vocals"):
         v = np.array([r["sim"][part] for r in ok if part in r["sim"]])
