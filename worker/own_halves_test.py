@@ -13,7 +13,7 @@ image = (modal.Image.debian_slim(python_version="3.12").apt_install("ffmpeg", "l
          .pip_install("numpy<2", "librosa==0.10.2", "soundfile", "demucs==4.0.1", "torch==2.3.1", "torchaudio==2.3.1", "essentia-tensorflow", "scikit-learn==1.8.0")
          .add_local_python_source("features").add_local_dir("worker", "/root/worker").add_local_file("data/part-swap-pairs.json", "/root/data/part-swap-pairs.json"))
 
-@app.function(image=image, cpu=4.0, memory=8192, timeout=1200)
+@app.function(image=image, cpu=4.0, memory=8192, timeout=1200, volumes={"/embed": modal.Volume.from_name("sonic-embed")})
 def one(rec):
     import os, subprocess, tempfile, urllib.request, sys, pickle
     import numpy as np, soundfile as sf
@@ -52,9 +52,10 @@ def main():
         for i, u in ((p["a"], p["ua"]), (p["b"], p["ub"])):
             if i not in seen: seen.add(i); R.append({"id": i, "url": u, "scene": p["scene"]})
     res = list(one.map(R, return_exceptions=True)); ok = [r for r in res if isinstance(r, dict) and r.get("sim")]
+    errs = [r.get("error") if isinstance(r, dict) else repr(r)[:100] for r in res if r not in ok][:3]
     summ = {}
     for part in ("drums", "bass", "melody", "vocals"):
         v = np.array([r["sim"][part] for r in ok if part in r["sim"]])
         if len(v): summ[part] = {"n": int(len(v)), "p10": round(float(np.percentile(v, 10)), 3), "p25": round(float(np.percentile(v, 25)), 3), "median": round(float(np.median(v)), 3), "below_045": round(float((v < 0.45).mean()), 3)}
     json.dump({"note": __doc__.split("   modal run")[0].strip(), "records": ok, "summary": summ}, open("data/own-halves.json", "w"))
-    print("::notice title=own halves::" + json.dumps({"read": len(ok), "of": len(R), "summary": summ}))
+    print("::notice title=own halves::" + json.dumps({"read": len(ok), "of": len(R), "summary": summ, "first_errors": errs}))
