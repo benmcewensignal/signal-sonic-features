@@ -27,11 +27,25 @@ def main():
     for k in ("site", "features", "sonic", "audio", "db", "parts"): ap.add_argument("--" + k, required=True)
     a = ap.parse_args(); D = os.path.join(a.site, "data"); F = a.features; man = {"built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), "files": {}}
     ok = lambda name, good: man["files"].__setitem__(name, "rebuilt" if good else "kept (rebuild failed)")
+    # 0 the records DJs play (every matched tracklist line), with a scene where one is known, for the DJ index
+    db = sqlite3.connect(a.db); EX = {}
+    try:
+        scn_db = {t: s_ for t, s_, _ in db.execute("select track_id, scene, max(weight) from track_scenes group by track_id")}
+        SL = json.load(open(os.path.join(F, "data", "genre-slugs.json")))["slugs"]
+        for f in glob.glob(os.path.join(a.sonic, "data", "tracklists", "*.json")):
+            if f.endswith("curves.json"): continue
+            for sset in json.load(open(f)).get("sets", []):
+                for r in sset.get("records", []):
+                    b = r.get("bp")
+                    if b and b not in EX: EX[b] = scn_db.get(b) or SL.get(r.get("genre") or "", "")
+    except Exception as e: print("played records:", e)
+    json.dump(EX, open(os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "played.json"), "w"))
     # 1 the DJ index
-    ok("dj-index.json", run([os.path.join(F, "tools", "dj_index.py"), "--index", os.path.join(a.audio, "out", "index.json"), "--detail", os.path.join(a.audio, "out", "detail"),
+    ok("dj-index.json", run([os.path.join(F, "tools", "dj_index.py"), "--extra", os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "played.json"), "--index", os.path.join(a.audio, "out", "index.json"), "--detail", os.path.join(a.audio, "out", "detail"),
                              "--parts", a.parts, "--ear", os.path.join(F, "data", "walk_ear.json"), "--keys", os.path.join(a.sonic, "data", "track-keys.json"), "--out", os.path.join(D, "dj-index.json")]))
     X = json.load(open(os.path.join(D, "dj-index.json"))); n = X["n"]; ids = X["ids"]; at = {t: i for i, t in enumerate(ids)}
-    db = sqlite3.connect(a.db)
+    ok("dj-sets.json", run([os.path.join(F, "tools", "dj_sets.py"), "--tracklists", os.path.join(a.sonic, "data", "tracklists"), "--djindex", os.path.join(D, "dj-index.json"),
+                            "--prev", os.path.join(D, "dj-sets.json"), "--out", os.path.join(D, "dj-sets.json")]))
     # 2 derived from the DJ index
     try:
         RP = np.load(a.parts); rat = {t: i for i, t in enumerate(RP["ids"].tolist())}; V = RP["V"].astype(np.float32)
@@ -50,9 +64,14 @@ def main():
             s = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode().lower()
             s = re.sub(r"\((original|extended|radio|club|dub|instrumental|vip|edit)[^)]*\)", "", s); s = re.sub(r"\b(feat|ft|featuring)\b.*$", "", s)
             return re.sub(r"[^a-z0-9]+", " ", s).strip()
+        MD = {}
+        for t_, nm_, ar_ in db.execute("select track_id, name, artists from track_meta"):
+            try: aa = json.loads(ar_) if ar_ and str(ar_).startswith("[") else [ar_]
+            except Exception: aa = [ar_]
+            MD[t_] = {"name": nm_, "artists": [x if isinstance(x, str) else (x or {}).get("name", "") for x in aa if x]}
         tl, al = [], []
         for t in ids:
-            r = T.get(t) or {}; ar = r.get("artists") or []; ar = ar if isinstance(ar, list) else re.split(r",|&| x | and ", str(ar))
+            r = T.get(t) or MD.get(t) or {}; ar = r.get("artists") or []; ar = ar if isinstance(ar, list) else re.split(r",|&| x | and ", str(ar))
             tl.append(norm(r.get("name"))); al.append("|".join(x for x in (norm(y) for y in ar[:4]) if x))
         LB = {t: (l or "").strip() for t, l in db.execute("select track_id, label from track_meta")}
         json.dump({"note": "for matching a DJ's library on their own device: each record in dj-index (same order), title and artists normalised; l: the record's label as Beatport gives it", "t": tl, "a": al, "l": [LB.get(t, "") for t in ids]}, open(os.path.join(D, "dj-names.json"), "w"), separators=(",", ":")); ok("dj-names.json", True)

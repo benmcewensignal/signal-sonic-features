@@ -19,6 +19,7 @@ def main():
     ap.add_argument("--index", required=True); ap.add_argument("--detail", required=True); ap.add_argument("--parts", required=True)
     ap.add_argument("--ear", required=True); ap.add_argument("--out", required=True)
     ap.add_argument("--keys", default=None, help="Beatport's own keys (signal-sonic data/track-keys.json): used where present")
+    ap.add_argument("--extra", default=None, help="records DJs play that are split but not in the recognition index, {id: scene or ''}: added with the split's tempo")
     a = ap.parse_args()
     I = json.load(open(a.index)); T = I["tracks"]; SCN = I.get("scenes") or []
     RP = np.load(a.parts); at = {t: i for i, t in enumerate(RP["ids"].tolist())}; V = RP["V"].astype(np.float32)
@@ -46,6 +47,22 @@ def main():
             kidx = (int(bk[0][:-1]) - 1) + (0 if bk[0][-1] == "A" else 12); nbk[0] += 1
         rows.append((t["track_id"], float(t["tm"]), kidx, sci, bright,
                      sh[3] / tot, sh[0] / tot, sh[1] / tot, float(V[i, 0, 51]), float(V[i, 0, 46]), mx, my))
+    EX = json.load(open(a.extra)) if a.extra and os.path.exists(a.extra) else {}; have = {r[0] for r in rows}; nex = 0
+    RT = RP["tempo"] if "tempo" in RP.files else None; RK = RP["key"] if "key" in RP.files else None
+    for t, scn in EX.items():
+        i = at.get(t)
+        if t in have or i is None or RT is None: continue
+        tmv = float(RT[i])
+        if not (60 <= tmv <= 200): continue
+        sh = np.clip(V[i, :, 52], 0, None); tot = sh.sum()
+        if tot <= 0: continue
+        bright = float((sh * V[i, :, 48]).sum() / tot); sci = SCN.index(scn) if scn in SCN else 255
+        kidx = CAM.index(str(RK[i])) if RK is not None and str(RK[i]) in CAM else 255
+        bk = BK.get(t)
+        if bk and bk[0] and len(bk[0]) >= 2 and bk[0][:-1].isdigit() and bk[0][-1] in "AB":
+            kidx = (int(bk[0][:-1]) - 1) + (0 if bk[0][-1] == "A" else 12); nbk[0] += 1
+        rows.append((t, tmv, kidx, sci, bright, sh[3] / tot, sh[0] / tot, sh[1] / tot, float(V[i, 0, 51]), float(V[i, 0, 46]), None, None)); nex += 1
+    print(f"records DJs play added from outside the recognition index: {nex}")
     n = len(rows)
     pct = lambda vals: np.round(np.asarray(vals, float).argsort().argsort() / (len(vals) - 1) * 99).astype(np.uint8)
     F = {"bright": pct([r[4] for r in rows]), "vocal": pct([r[5] for r in rows]), "drums": pct([r[6] for r in rows]),
