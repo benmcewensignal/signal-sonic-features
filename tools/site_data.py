@@ -159,6 +159,8 @@ def main():
         if os.path.exists(lp): PV.update(json.load(open(lp)))
         json.dump({"note": "Beatport preview links known to Sonic, for hearing a record in the page", "u": PV, "previews": PV}, open(os.path.join(D, "previews.json"), "w"), separators=(",", ":")); ok("previews.json", True)
     except Exception as e: print("ranges/previews:", e); ok("scene-ranges.json", False); ok("previews.json", False)
+    # 3c pack opportunities (What to make): after the DJ index, names and demand exist
+    ok("pack-opportunities.json", run([os.path.join(F, "tools", "pack_opportunities.py"), "--site", a.site, "--features", F, "--sonic", a.sonic, "--db", a.db, "--parts", a.parts]))
     # 4 the gap report, 5 the demand panel
     ok("catalogue-gaps.json", run([os.path.join(F, "tools", "catalogue_gaps.py")], {"SD_FEATURES": F, "SD_DB": a.db, "SD_PARTS": a.parts,
         "SD_GAPS_OUT": os.path.join(D, "catalogue-gaps.json"), "SD_FAR_OUT": os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "catalogue_far.json")}))
