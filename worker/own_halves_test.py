@@ -32,7 +32,8 @@ def one(rec):
             if k not in FAM: continue
             x, sr = sf.read(pth, always_2d=True); h = len(x) // 2; vs = []
             for tag, seg in (("a", x[:h]), ("b", x[h:])):
-                fp = os.path.join(w, f"{k}_{tag}.wav"); sf.write(fp, seg, sr); m = S.measure_stem(fp)
+                fp = os.path.join(w, f"{k}_{tag}.wav"); sf.write(fp, seg, sr); m = S.measure_stem(fp) or {}
+                m.update(S.analyse_stem(fp) or {})   # the embedding, as the loop check now measures it
                 e = m.get("embedding")
                 if m.get("silent") or not (isinstance(e, list) and len(e) == 45): vs = None; break
                 vs.append(np.array([float(v) for v in e] + [float(m.get(c)) if isinstance(m.get(c), (int, float)) else 0.0 for c in SC]))
