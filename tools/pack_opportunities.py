@@ -38,6 +38,12 @@ def main():
     key = np.frombuffer(base64.b64decode(X["key"]), np.uint8)[:n]
     NM = json.load(open(os.path.join(D, "dj-names.json"))); LB = NM.get("l") or [""] * n
     db = sqlite3.connect(a.db); meta_art = {}
+    REL = {t: str(r)[:4] for t, r in db.execute("select track_id, released from track_meta where released is not null and released!=''")}
+    def recent_first(order_ids):
+        # the records nearest the centre, preferring releases from the last three years (the older ones follow); a record
+        # DJs still play from 1989 can sit at a style's centre and still read as dated on a brief
+        new = [t for t in order_ids if REL.get(t, "0") >= "2023"]; old = [t for t in order_ids if t not in set(new)]
+        return (new + old)[:6]
     for t, ar in db.execute("select track_id, artists from track_meta"):
         try: L = json.loads(ar) if ar and str(ar).startswith("[") else [ar]
         except Exception: L = [ar]
@@ -142,7 +148,7 @@ def main():
                         "tempo": [round(x, 1) for x in tqg], "keys": [k for k, _ in ksg.most_common(3)], "minor": None if minor_g is None else round(float(minor_g), 2),
                         "balance": {p: round(float(np.median(shg[:, j])), 1) for j, p in enumerate(("drums", "bass", "melody", "voice"))},
                         "kick": [[p, round(k_ / sum(kpg.values()) * 100)] for p, k_ in kpg.most_common(2)] if sum(kpg.values()) >= 12 else [],
-                        "swing": round(float(np.median(swg)), 3) if len(swg) >= 12 else None, "examples": [ids[i] for i in refs[order_g][:6]],
+                        "swing": round(float(np.median(swg)), 3) if len(swg) >= 12 else None, "examples": recent_first([ids[i] for i in refs[order_g][:30]]),
                         "artists": [x for x, _ in cag.most_common(6)], "labels": [x for x, _ in clg.most_common(5)], "rough": bool(len(refs) < 40), "styles": [], "_w": float(sum(W[i] for i in refs)), "gap_ids": gap_g,
                         "c": [round(float(x), 4) for x in gc], "ranges": {p: [round(float(np.percentile(shg[:, j], q)), 1) for q in (25, 50, 75)] for j, p in enumerate(("drums", "bass", "melody", "voice"))},
                         "djs": [[n_, k_] for n_, k_ in sum((WHO[i] for i in refs), collections.Counter()).most_common(8)]})
@@ -166,7 +172,7 @@ def main():
         report[name] = {"references": int(len(refs)), "styles": int(best_k), "silhouette": None if best_sil is None else round(float(best_sil), 3), "outside_every_range": round(float(1 - inside.mean()), 3)}
         for c in range(best_k):
             m = refs[best_lab == c]; mw = wts[best_lab == c]
-            order = np.argsort(dist_ref[best_lab == c, c]); examples = [ids[i] for i in m[order][:6]]
+            order = np.argsort(dist_ref[best_lab == c, c]); examples = recent_first([ids[i] for i in m[order][:30]])
             ca = collections.Counter(); cl = collections.Counter()
             for i, w_ in zip(m, mw):
                 for ar in meta_art.get(ids[i], [])[:2]: ca[ar] += float(w_)
