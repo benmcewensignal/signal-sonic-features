@@ -19,12 +19,12 @@ secret = modal.Secret.from_name("sonic-parts")          # holds PARTS_KEY
 
 
 @app.function(image=image, cpu=4.0, memory=6144, timeout=420, volumes={"/embed": modal.Volume.from_name("sonic-embed", create_if_missing=True)})
-def read_parts(wav: bytes, with_audio: bool = False) -> dict:
+def read_parts(wav: bytes, with_audio: bool = False, donor: dict = None) -> dict:
     import tempfile
     from worker.parts import read
     with tempfile.NamedTemporaryFile(suffix=".wav") as f:
         f.write(wav); f.flush()
-        return read(f.name, with_audio)
+        return read(f.name, with_audio, donor)
 
 
 
@@ -45,7 +45,13 @@ async def submit(request: Request):
     if not body or len(body) > 6_000_000: return JSONResponse({"error": "clip missing or too large"}, 400)
     # the separated parts come back as audio only when the listener has said the recording is theirs
     with_audio = request.query_params.get("parts_audio") == "1"
-    return {"id": read_parts.spawn(body, with_audio).object_id}
+    # which part moves the track most toward its target: a donor record near the middle of the target, its tempo and the
+    # target's centre in the learned ear (Aim a track sends them; only Beatport previews are fetched)
+    qp = request.query_params; donor = None
+    if qp.get("donor", "").startswith("https://geo-samples.beatport.com/"):
+        try: donor = {"url": qp["donor"], "bpm": float(qp.get("dbpm") or 0), "id": qp.get("did", "")[:40], "centre": [float(x) for x in qp.get("centre", "").split(",")][:16]}
+        except Exception: donor = None
+    return {"id": read_parts.spawn(body, with_audio, donor).object_id}
 
 
 @app.function(image=image, secrets=[secret])
