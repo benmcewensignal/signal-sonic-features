@@ -14,7 +14,8 @@ A sample label commissions packs: a coherent style, named by the artists and lab
               DJs want more of a sound than producers deliver (a description of now, not a forecast)
   coverage    for each part that carries 8% or more of a reference record's mix, the best openly licensed loop at a workable tempo (and for bass
               and melody a key that mixes): close at 0.7 or more, far under 0.45 (as the gap report measures it)
-  brief       tempo, keys, part balance, kick pattern, swing, the records nearest the centre, artists and labels
+  brief       tempo, keys, part balance, kick pattern, swing, the records nearest the centre, artists and labels, and
+              for each part the records whose part no free loop comes close to (what a label's pack is checked against)
   map         styles laid out so alike ones sit close (classical scaling of the distances between their centres in the
               ear, then nudged apart so no two dots overlap), each linked to its two nearest styles
   python tools/pack_opportunities.py --site ../signalgood --features . --sonic ../signal-sonic --db sonic.db --parts record-parts.npz
@@ -106,16 +107,19 @@ def main():
         if len(refs) >= 15 and name != "unknown":
             gc = E[refs].mean(0); gc /= np.linalg.norm(gc) or 1; GCEN.append(gc)
             order_g = np.argsort(1 - E[refs] @ gc)
-            covg = {}
+            covg = {}; gap_g = {}
             for part in LIB:
-                pi = FAM[part][1]; pres = []; bs = []
+                pi = FAM[part][1]; pres = []; bs = []; far_g = []
                 for i in refs:
                     r = rat.get(ids[i])
                     if r is None: continue
                     sh_ = np.clip(V[r, :, 52], 0, None); w8 = sh_[pi] / max(float(sh_.sum()), 1e-9) >= 0.08; pres.append(w8)
                     if w8:
                         b = best_loop(i, part)
-                        if b is not None: bs.append(b)
+                        if b is not None:
+                            bs.append(b)
+                            if b < 0.45: far_g.append(ids[i])
+                if far_g: gap_g[part] = far_g
                 bs = np.array(bs); present = float(np.mean(pres)) if pres else 0.0
                 if len(bs) >= 10: covg[part] = {"present": round(present, 3), "records": int(len(bs)), "close": round(float((bs >= 0.7).mean()), 3), "some": round(float(((bs >= 0.45) & (bs < 0.7)).mean()), 3), "far": round(float((bs < 0.45).mean()), 3)}
             rs_g = [rat.get(ids[i]) for i in refs]; rs_g = [r for r in rs_g if r is not None]
@@ -135,7 +139,7 @@ def main():
                         "balance": {p: round(float(np.median(shg[:, j])), 1) for j, p in enumerate(("drums", "bass", "melody", "voice"))},
                         "kick": [[p, round(k_ / sum(kpg.values()) * 100)] for p, k_ in kpg.most_common(2)] if sum(kpg.values()) >= 12 else [],
                         "swing": round(float(np.median(swg)), 3) if len(swg) >= 12 else None, "examples": [ids[i] for i in refs[order_g][:6]],
-                        "artists": [x for x, _ in cag.most_common(6)], "labels": [x for x, _ in clg.most_common(5)], "rough": bool(len(refs) < 40), "styles": [], "_w": float(sum(W[i] for i in refs))})
+                        "artists": [x for x, _ in cag.most_common(6)], "labels": [x for x, _ in clg.most_common(5)], "rough": bool(len(refs) < 40), "styles": [], "_w": float(sum(W[i] for i in refs)), "gap_ids": gap_g})
         if len(refs) < 40 or name == "unknown": continue
         Er = E[refs]; best_k, best_lab, best_sil = 1, np.zeros(len(refs), int), None
         for k in (2, 3, 4, 5):
@@ -161,16 +165,19 @@ def main():
             for i, w_ in zip(m, mw):
                 for ar in meta_art.get(ids[i], [])[:2]: ca[ar] += float(w_)
                 if LB[i]: cl[LB[i]] += float(w_)
-            cov = {}
+            cov = {}; gap_ids = {}
             for part in LIB:
-                pi = FAM[part][1]; pres = []; bs = []
+                pi = FAM[part][1]; pres = []; bs = []; far_ids = []
                 for i in m:
                     r = rat.get(ids[i])
                     if r is None: continue
                     sh_ = np.clip(V[r, :, 52], 0, None); w8 = sh_[pi] / max(float(sh_.sum()), 1e-9) >= 0.08; pres.append(w8)
                     if w8:
                         b = best_loop(i, part)
-                        if b is not None: bs.append(b)
+                        if b is not None:
+                            bs.append(b)
+                            if b < 0.45: far_ids.append(ids[i])
+                if far_ids: gap_ids[part] = far_ids
                 bs = np.array(bs); present = float(np.mean(pres)) if pres else 0.0
                 if len(bs) >= 10: cov[part] = {"present": round(present, 3), "records": int(len(bs)), "close": round(float((bs >= 0.7).mean()), 3), "some": round(float(((bs >= 0.45) & (bs < 0.7)).mean()), 3), "far": round(float((bs < 0.45).mean()), 3)}
             rs = [rat.get(ids[i]) for i in m]; rs = [r for r in rs if r is not None]
@@ -190,7 +197,7 @@ def main():
                         "tempo": [round(x, 1) for x in tq], "keys": [k for k, _ in ks.most_common(3)], "minor": None if minor is None else round(float(minor), 2),
                         "balance": {p: round(float(np.median(shp[:, j])), 1) for j, p in enumerate(("drums", "bass", "melody", "voice"))},
                         "kick": [[p, round(k_ / sum(kp.values()) * 100)] for p, k_ in kp.most_common(2)] if sum(kp.values()) >= 12 else [],
-                        "swing": round(float(np.median(sw)), 3) if len(sw) >= 12 else None, "examples": examples, "rough": bool(len(m) < 40)})
+                        "swing": round(float(np.median(sw)), 3) if len(sw) >= 12 else None, "examples": examples, "rough": bool(len(m) < 40), "gap_ids": gap_ids})
     # the map: classical scaling of the cosine distances between style centres, then relaxed so dots do not overlap
     ns_ = len(CEN); C = np.stack(CEN + GCEN); Dm = np.clip(1 - C @ C.T, 0, 2); nn = len(C); J = np.eye(nn) - 1 / nn; Bm = -0.5 * J @ (Dm ** 2) @ J
     w_, v_ = np.linalg.eigh(Bm); o_ = np.argsort(w_)[::-1][:2]; XY = v_[:, o_] * np.sqrt(np.maximum(w_[o_], 1e-9))

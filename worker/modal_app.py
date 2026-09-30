@@ -97,7 +97,11 @@ async def loopgaps(request: Request):
     try:
         from worker.scene import loop_gaps
         t = float(q.get("tempo")) if q.get("tempo") else None
-        r = loop_gaps(fp, str(q.get("family") or ""), t, q.get("key") or None)
+        # a brief's gap records for this loop's part, and its defining records (What to make's "check your pack against this brief")
+        clean = lambda x: [i for i in str(x or "").split(",") if i and len(i) <= 40 and all(c.isalnum() or c in ":-_" for c in i)]
+        ids = clean(q.get("ids"))[:500] if q.get("ids") is not None else None
+        core = clean(q.get("core"))[:12] if q.get("core") else None
+        r = loop_gaps(fp, str(q.get("family") or ""), t, q.get("key") or None, ids=ids, core=core)
         return r if "error" not in r else JSONResponse(r, 400)
     except Exception as e:
         return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:80]}, 400)
