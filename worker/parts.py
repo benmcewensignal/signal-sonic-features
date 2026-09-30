@@ -154,17 +154,20 @@ def read(wav_path, with_audio=False, donor=None, only_leverage=False):
                 if pl: out["part_like"] = pl
             except Exception as e_:
                 out["part_calls_error"] = type(e_).__name__
+            pass   # the learned ear runs on its own below, so a failure in the scene calls cannot take it with them
+            from worker.scene import sounds_like
+            sl = sounds_like(mix_x, rec)
+            if sl: out["sounds_like"] = sl
+        except Exception as e:
+            out["scene_error"] = type(e).__name__ + ": " + str(e)[:160]
+        # the learned ear, independent of the scene calls: where the track sits, its progress and its targets depend on it
+        if "scene_learned" not in out:
             try:
                 from worker.embed import learned_call
                 le = learned_call(wav_path)
                 if le: out["scene_learned"] = le
             except Exception as e_:
-                out["learned_error"] = type(e_).__name__
-            from worker.scene import sounds_like
-            sl = sounds_like(mix_x, rec)
-            if sl: out["sounds_like"] = sl
-        except Exception as e:
-            out["scene_error"] = type(e).__name__
+                out["learned_error"] = type(e_).__name__ + ": " + str(e_)[:160]
         if part_audio: out["part_audio"] = part_audio
         try:   # which part pulls it away from its scene: against the best scene call available
             from worker.scene import part_residuals
