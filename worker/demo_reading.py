@@ -21,7 +21,7 @@ def run():
     if len(ev) != 16: return {"error": "no ear", "reading": out}
     ev /= np.linalg.norm(ev) or 1
     S = sorted(I["styles"], key=lambda s: -float(np.dot(ev, np.array(s["c"]) / (np.linalg.norm(s["c"]) or 1))))
-    st = next(s for s in S if s["donor"] != I["bounce"])
+    st = next((s for s in I["styles"] if s["id"] == I.get("target")), None) or next(s for s in S if s["donor"] != I["bounce"])   # the style the walkthrough aims at
     lv = read(wav, False, {"url": st["donor_url"], "bpm": st["donor_bpm"], "id": st["donor"], "centre": st["c"]}, True)
     out.pop("part_audio", None)
     return {"bounce": I["bounce"], "style": st["id"], "reading": out, "leverage": lv.get("leverage")}
