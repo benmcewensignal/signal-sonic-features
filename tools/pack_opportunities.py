@@ -100,9 +100,42 @@ def main():
             if t not in want: continue
             dr = (dd.get("stems") or {}).get("drums") or {}
             if (dr.get("kick_version") or 0) >= 3: RH[t] = (dr.get("kick_pattern"), dr.get("swing16"), dr.get("kicks_per_bar"))
-    out = []; report = {}; CEN = []
+    out = []; report = {}; CEN = []; GEN = []; GCEN = []
     for s_i, name in enumerate(SCN):
         refs = np.array([i for i in W if sc[i] == s_i])
+        if len(refs) >= 15 and name != "unknown":
+            gc = E[refs].mean(0); gc /= np.linalg.norm(gc) or 1; GCEN.append(gc)
+            order_g = np.argsort(1 - E[refs] @ gc)
+            covg = {}
+            for part in LIB:
+                pi = FAM[part][1]; pres = []; bs = []
+                for i in refs:
+                    r = rat.get(ids[i])
+                    if r is None: continue
+                    sh_ = np.clip(V[r, :, 52], 0, None); w8 = sh_[pi] / max(float(sh_.sum()), 1e-9) >= 0.08; pres.append(w8)
+                    if w8:
+                        b = best_loop(i, part)
+                        if b is not None: bs.append(b)
+                bs = np.array(bs); present = float(np.mean(pres)) if pres else 0.0
+                if len(bs) >= 10: covg[part] = {"present": round(present, 3), "records": int(len(bs)), "close": round(float((bs >= 0.7).mean()), 3), "some": round(float(((bs >= 0.45) & (bs < 0.7)).mean()), 3), "far": round(float((bs < 0.45).mean()), 3)}
+            rs_g = [rat.get(ids[i]) for i in refs]; rs_g = [r for r in rs_g if r is not None]
+            shg = np.clip(V[rs_g][:, :, 52], 0, None); shg = shg / np.maximum(shg.sum(1, keepdims=True), 1e-9) * 100
+            ksg = collections.Counter(CAM[key[i]] for i in refs if key[i] < 24); minor_g = np.mean([key[i] < 12 for i in refs if key[i] < 24]) if ksg else None
+            rhg = [RH[ids[i]] for i in refs if ids[i] in RH]; kpg = collections.Counter(x[0] for x in rhg if x[0]); swg = [x[1] for x in rhg if isinstance(x[1], (int, float))]
+            tqg = [float(np.percentile(tm[refs], q)) for q in (25, 50, 75)]
+            if tqg[1] < 95: tqg = [x * 2 for x in tqg]
+            leastg = max(covg, key=lambda p: covg[p]["far"] * covg[p]["present"]) if covg else None; pmg = PER.get(name)
+            cag = collections.Counter(); clg = collections.Counter()
+            for i in refs:
+                for ar in meta_art.get(ids[i], [])[:2]: cag[ar] += W[i]
+                if LB[i]: clg[LB[i]] += W[i]
+            GEN.append({"id": name, "scene": name, "references": int(len(refs)), "releases_month": round(pmg) if pmg else None, "coverage": covg, "least_covered": leastg,
+                        "uncovered_month": round(pmg * covg[leastg]["far"] * covg[leastg]["present"]) if pmg and leastg else None,
+                        "tempo": [round(x, 1) for x in tqg], "keys": [k for k, _ in ksg.most_common(3)], "minor": None if minor_g is None else round(float(minor_g), 2),
+                        "balance": {p: round(float(np.median(shg[:, j])), 1) for j, p in enumerate(("drums", "bass", "melody", "voice"))},
+                        "kick": [[p, round(k_ / sum(kpg.values()) * 100)] for p, k_ in kpg.most_common(2)] if sum(kpg.values()) >= 12 else [],
+                        "swing": round(float(np.median(swg)), 3) if len(swg) >= 12 else None, "examples": [ids[i] for i in refs[order_g][:6]],
+                        "artists": [x for x, _ in cag.most_common(6)], "labels": [x for x, _ in clg.most_common(5)], "rough": bool(len(refs) < 40), "styles": [], "_w": float(sum(W[i] for i in refs))})
         if len(refs) < 40 or name == "unknown": continue
         Er = E[refs]; best_k, best_lab, best_sil = 1, np.zeros(len(refs), int), None
         for k in (2, 3, 4, 5):
@@ -159,27 +192,44 @@ def main():
                         "kick": [[p, round(k_ / sum(kp.values()) * 100)] for p, k_ in kp.most_common(2)] if sum(kp.values()) >= 12 else [],
                         "swing": round(float(np.median(sw)), 3) if len(sw) >= 12 else None, "examples": examples, "rough": bool(len(m) < 40)})
     # the map: classical scaling of the cosine distances between style centres, then relaxed so dots do not overlap
-    C = np.stack(CEN); Dm = np.clip(1 - C @ C.T, 0, 2); nn = len(C); J = np.eye(nn) - 1 / nn; Bm = -0.5 * J @ (Dm ** 2) @ J
+    ns_ = len(CEN); C = np.stack(CEN + GCEN); Dm = np.clip(1 - C @ C.T, 0, 2); nn = len(C); J = np.eye(nn) - 1 / nn; Bm = -0.5 * J @ (Dm ** 2) @ J
     w_, v_ = np.linalg.eigh(Bm); o_ = np.argsort(w_)[::-1][:2]; XY = v_[:, o_] * np.sqrt(np.maximum(w_[o_], 1e-9))
     XY = (XY - XY.min(0)) / np.maximum(XY.max(0) - XY.min(0), 1e-9)
     Wd, Hd, pad = 350.0, 330.0, 26.0; P_ = np.stack([pad + XY[:, 0] * (Wd - 2 * pad), pad + XY[:, 1] * (Hd - 2 * pad)], 1)
-    for _ in range(200):
+    def relax(idx, gap):
+      for _ in range(200):
         moved = False
-        for i in range(nn):
-            for j in range(i + 1, nn):
+        for a_ in range(len(idx)):
+            for b_ in range(a_ + 1, len(idx)):
+                i, j = idx[a_], idx[b_]
                 dv = P_[j] - P_[i]; dd = float(np.hypot(*dv))
-                if dd < 17:
-                    moved = True; u = dv / (dd or 1e-3) if dd else np.array([1.0, 0.0]); P_[i] -= u * (17 - dd) / 2; P_[j] += u * (17 - dd) / 2
+                if dd < gap:
+                    moved = True; u = dv / (dd or 1e-3) if dd else np.array([1.0, 0.0]); P_[i] -= u * (gap - dd) / 2; P_[j] += u * (gap - dd) / 2
         P_[:, 0] = np.clip(P_[:, 0], pad, Wd - pad); P_[:, 1] = np.clip(P_[:, 1], pad, Hd - pad)
         if not moved: break
-    S2 = C @ C.T; pairs = set()
-    for i in range(nn):
+    relax(list(range(ns_)), 17); relax(list(range(ns_, nn)), 30)
+    S2 = C[:ns_] @ C[:ns_].T; pairs = set()
+    for i in range(ns_):
         for j in np.argsort(-S2[i])[1:3]: pairs.add((min(i, int(j)), max(i, int(j))))
     for i, o in enumerate(out): o["xy"] = [round(float(P_[i, 0]), 1), round(float(P_[i, 1]), 1)]
+    for gi, g in enumerate(GEN): g["xy"] = [round(float(P_[ns_ + gi, 0]), 1), round(float(P_[ns_ + gi, 1]), 1)]
+    # shares across genres: only genres Beatport's release count covers take part; a count of 10,000 is Beatport's cap
+    cnt = [g for g in GEN if g["releases_month"]]; tw = sum(g["_w"] for g in cnt) or 1; tp = sum(g["releases_month"] for g in cnt) or 1
+    for g in GEN:
+        w_ = g.pop("_w"); g["capped"] = bool(g["releases_month"] and g["releases_month"] >= 10000)
+        if g["releases_month"]:
+            g["dj_share"] = round(w_ / tw, 3); g["release_share"] = round(g["releases_month"] / tp, 3); g["dj_vs_releases"] = round(g["dj_share"] / max(g["release_share"], 1e-3), 2)
+        else:
+            g["dj_share"] = g["release_share"] = g["dj_vs_releases"] = None
+    capped = {g["scene"] for g in GEN if g["capped"]}
+    for o in out: o["capped"] = o["scene"] in capped
+    for o in out:
+        for g in GEN:
+            if g["scene"] == o["scene"]: g["styles"].append(o["id"])
     PAIRS = [[i, j, round(float(S2[i, j]), 3)] for i, j in sorted(pairs)]
-    order = sorted(range(nn), key=lambda i: -(out[i]["uncovered_month"] or 0)); remap = {old: new for new, old in enumerate(order)}
+    order = sorted(range(ns_), key=lambda i: -(out[i]["uncovered_month"] or 0)); remap = {old: new for new, old in enumerate(order)}
     out = [out[i] for i in order]; PAIRS = [[remap[i], remap[j], s_] for i, j, s_ in PAIRS]
-    res = {"note": __doc__.split("\n  python")[0].strip(), "sources": dict(src), "scenes": report, "opportunities": out, "pairs": PAIRS, "map": {"w": 350, "h": 330}}
+    res = {"note": __doc__.split("\n  python")[0].strip(), "sources": dict(src), "scenes": report, "opportunities": out, "genres": sorted(GEN, key=lambda g: -(g["uncovered_month"] or 0)), "pairs": PAIRS, "map": {"w": 350, "h": 330}}
     json.dump(res, open(a.out or os.path.join(D, "pack-opportunities.json"), "w"), separators=(",", ":"))
     print(json.dumps({"opportunities": len(out), "scenes": len(report), "sources": dict(src)}))
 
