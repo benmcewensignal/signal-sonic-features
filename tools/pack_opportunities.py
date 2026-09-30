@@ -15,6 +15,8 @@ A sample label commissions packs: a coherent style, named by the artists and lab
   coverage    for each part that carries 8% or more of a reference record's mix, the best openly licensed loop at a workable tempo (and for bass
               and melody a key that mixes): close at 0.7 or more, far under 0.45 (as the gap report measures it)
   brief       tempo, keys, part balance, kick pattern, swing, the records nearest the centre, artists and labels
+  map         styles laid out so alike ones sit close (classical scaling of the distances between their centres in the
+              ear, then nudged apart so no two dots overlap), each linked to its two nearest styles
   python tools/pack_opportunities.py --site ../signalgood --features . --sonic ../signal-sonic --db sonic.db --parts record-parts.npz
 """
 import argparse, base64, collections, glob, json, os, pickle, sqlite3, sys, numpy as np
@@ -98,7 +100,7 @@ def main():
             if t not in want: continue
             dr = (dd.get("stems") or {}).get("drums") or {}
             if (dr.get("kick_version") or 0) >= 3: RH[t] = (dr.get("kick_pattern"), dr.get("swing16"), dr.get("kicks_per_bar"))
-    out = []; report = {}
+    out = []; report = {}; CEN = []
     for s_i, name in enumerate(SCN):
         refs = np.array([i for i in W if sc[i] == s_i])
         if len(refs) < 40 or name == "unknown": continue
@@ -147,6 +149,7 @@ def main():
             pm = PER.get(name)
             tq = [float(np.percentile(tm[m], q)) for q in (25, 50, 75)]
             if tq[1] < 95: tq = [x * 2 for x in tq]   # Beatport lists much drum and bass and dubstep at half tempo
+            CEN.append(cen[c])
             out.append({"id": f"{name}:{c}", "scene": name, "references": int(len(m)), "artists": [x for x, _ in ca.most_common(6)], "labels": [x for x, _ in cl.most_common(5)],
                         "release_share": round(float(rel_share[c]), 3), "releases_month": round(pm * float(rel_share[c])) if pm else None, "dj_share": round(float(dj_share[c]), 3),
                         "dj_vs_releases": round(float(dj_share[c] / max(rel_share[c], 1e-3)), 2), "coverage": cov, "least_covered": least,
@@ -155,8 +158,28 @@ def main():
                         "balance": {p: round(float(np.median(shp[:, j])), 1) for j, p in enumerate(("drums", "bass", "melody", "voice"))},
                         "kick": [[p, round(k_ / sum(kp.values()) * 100)] for p, k_ in kp.most_common(2)] if sum(kp.values()) >= 12 else [],
                         "swing": round(float(np.median(sw)), 3) if len(sw) >= 12 else None, "examples": examples, "rough": bool(len(m) < 40)})
-    out.sort(key=lambda o: -(o["uncovered_month"] or 0))
-    res = {"note": __doc__.split("\n  python")[0].strip(), "sources": dict(src), "scenes": report, "opportunities": out}
+    # the map: classical scaling of the cosine distances between style centres, then relaxed so dots do not overlap
+    C = np.stack(CEN); Dm = np.clip(1 - C @ C.T, 0, 2); nn = len(C); J = np.eye(nn) - 1 / nn; Bm = -0.5 * J @ (Dm ** 2) @ J
+    w_, v_ = np.linalg.eigh(Bm); o_ = np.argsort(w_)[::-1][:2]; XY = v_[:, o_] * np.sqrt(np.maximum(w_[o_], 1e-9))
+    XY = (XY - XY.min(0)) / np.maximum(XY.max(0) - XY.min(0), 1e-9)
+    Wd, Hd, pad = 350.0, 330.0, 26.0; P_ = np.stack([pad + XY[:, 0] * (Wd - 2 * pad), pad + XY[:, 1] * (Hd - 2 * pad)], 1)
+    for _ in range(200):
+        moved = False
+        for i in range(nn):
+            for j in range(i + 1, nn):
+                dv = P_[j] - P_[i]; dd = float(np.hypot(*dv))
+                if dd < 17:
+                    moved = True; u = dv / (dd or 1e-3) if dd else np.array([1.0, 0.0]); P_[i] -= u * (17 - dd) / 2; P_[j] += u * (17 - dd) / 2
+        P_[:, 0] = np.clip(P_[:, 0], pad, Wd - pad); P_[:, 1] = np.clip(P_[:, 1], pad, Hd - pad)
+        if not moved: break
+    S2 = C @ C.T; pairs = set()
+    for i in range(nn):
+        for j in np.argsort(-S2[i])[1:3]: pairs.add((min(i, int(j)), max(i, int(j))))
+    for i, o in enumerate(out): o["xy"] = [round(float(P_[i, 0]), 1), round(float(P_[i, 1]), 1)]
+    PAIRS = [[i, j, round(float(S2[i, j]), 3)] for i, j in sorted(pairs)]
+    order = sorted(range(nn), key=lambda i: -(out[i]["uncovered_month"] or 0)); remap = {old: new for new, old in enumerate(order)}
+    out = [out[i] for i in order]; PAIRS = [[remap[i], remap[j], s_] for i, j, s_ in PAIRS]
+    res = {"note": __doc__.split("\n  python")[0].strip(), "sources": dict(src), "scenes": report, "opportunities": out, "pairs": PAIRS, "map": {"w": 350, "h": 330}}
     json.dump(res, open(a.out or os.path.join(D, "pack-opportunities.json"), "w"), separators=(",", ":"))
     print(json.dumps({"opportunities": len(out), "scenes": len(report), "sources": dict(src)}))
 
