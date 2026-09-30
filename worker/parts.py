@@ -98,10 +98,25 @@ def leverage(st, out, donor):
         shutil.rmtree(w, ignore_errors=True)
 
 
-def read(wav_path, with_audio=False, donor=None):
+def read(wav_path, with_audio=False, donor=None, only_leverage=False):
     work = tempfile.mkdtemp()
     try:
         st = S.separate(wav_path, work)
+        if only_leverage and donor:
+            # the second, lighter job Aim a track sends after the reading: tempo, key and the swaps, nothing else
+            rec = {k: S.measure_stem(v) for k, v in st.items()}; tempo_ = None
+            try:
+                rh = S.rhythm_of_stem(st["drums"]) if "drums" in st else None; tempo_ = (rh or {}).get("beats_per_minute")
+            except Exception: pass
+            out = {"tempo_read": tempo_}
+            try:
+                from worker.scene import key_from_parts
+                kf = key_from_parts(rec)
+                if kf: out["key"] = kf
+            except Exception: pass
+            try: out["leverage"] = leverage(st, out, donor)
+            except Exception as e_: out["leverage"] = {"error": type(e_).__name__ + ": " + str(e_)[:120]}
+            return out
         part_audio = _part_audio(st) if with_audio else None
         rec = {k: S.measure_stem(v) for k, v in st.items()}
         for k, v in sorted(st.items(), key=lambda kv: 0 if kv[0] == "drums" else 1):

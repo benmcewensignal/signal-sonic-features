@@ -19,12 +19,12 @@ secret = modal.Secret.from_name("sonic-parts")          # holds PARTS_KEY
 
 
 @app.function(image=image, cpu=4.0, memory=6144, timeout=420, volumes={"/embed": modal.Volume.from_name("sonic-embed", create_if_missing=True)})
-def read_parts(wav: bytes, with_audio: bool = False, donor: dict = None) -> dict:
+def read_parts(wav: bytes, with_audio: bool = False, donor: dict = None, only_leverage: bool = False) -> dict:
     import tempfile
     from worker.parts import read
     with tempfile.NamedTemporaryFile(suffix=".wav") as f:
         f.write(wav); f.flush()
-        return read(f.name, with_audio, donor)
+        return read(f.name, with_audio, donor, only_leverage)
 
 
 
@@ -51,7 +51,8 @@ async def submit(request: Request):
     if qp.get("donor", "").startswith("https://geo-samples.beatport.com/"):
         try: donor = {"url": qp["donor"], "bpm": float(qp.get("dbpm") or 0), "id": qp.get("did", "")[:40], "centre": [float(x) for x in qp.get("centre", "").split(",")][:16]}
         except Exception: donor = None
-    return {"id": read_parts.spawn(body, with_audio, donor).object_id}
+    only = qp.get("lev_only") == "1" and donor is not None
+    return {"id": read_parts.spawn(body, with_audio, donor, only).object_id}
 
 
 @app.function(image=image, secrets=[secret])

@@ -17,7 +17,7 @@ def one(rec):
         urllib.request.urlretrieve(rec["ua"], mp3)
         dur = float(subprocess.run(["ffprobe", "-v", "quiet", "-show_entries", "format=duration", "-of", "csv=p=0", mp3], capture_output=True, text=True).stdout.strip() or 0)
         subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-ss", str(max(0.0, (dur - 60) / 2)), "-t", "60", "-i", mp3, "-ac", "1", "-ar", "32000", wav], check=True, timeout=120)
-        t0 = time.time(); out = read(wav, False, {"url": rec["ub"], "bpm": 0, "id": rec["b"], "centre": rec["cb"]}); t = time.time() - t0
+        t0 = time.time(); out = read(wav, False, {"url": rec["ub"], "bpm": 0, "id": rec["b"], "centre": rec["cb"]}, True); t = time.time() - t0
         lv = out.get("leverage") or {}
         return {"a": rec["a"], "seconds": round(t, 1), "leverage": {k: v for k, v in lv.items() if k != "loops"}, "loops": {k: [x.get("name") for x in v][:2] for k, v in (lv.get("loops") or {}).items()}}
     except Exception as ex:
