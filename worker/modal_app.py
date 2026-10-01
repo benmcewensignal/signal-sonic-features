@@ -228,7 +228,7 @@ def rx_match(query, R):
         return int(bt[top]), int(bc[top]), int(b2[top]), nxt
     # the site's rule on single one-second bins (no wrong answer in the first live test) ...
     t1, v1, r1, n1 = verdict(*per_track(c))
-    ok1 = v1 >= 8 and v1 >= 1.8 * max(r1, 1) and v1 >= 1.4 * max(n1, 1)
+    ok1 = v1 >= 10 and v1 >= 1.8 * max(r1, 1) and v1 >= 1.6 * max(n1, 1)   # an index of ~71,000 records needs a clearer margin: at 1.4 a catalogue record was named as another
     # ... or, for records whose loops match at several offsets, a bin with its neighbours, well clear of every other classic
     # (set from 243 queries of records outside the index against 180 of indexed classics)
     t2, v2, _r2, n2 = verdict(*per_track(cm))
