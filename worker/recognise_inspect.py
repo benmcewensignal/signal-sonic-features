@@ -15,4 +15,7 @@ def look(ids):
 @app.local_entrypoint()
 def main():
     r = look.remote(json.load(open("data/inspect-ids.json"))); json.dump(r, open("data/inspect-out.json", "w"))
-    print("INSPECT " + json.dumps(r))
+    bits = "".join("1" if x[1] else "0" for x in r["rows"])
+    print("::notice title=inspect::" + json.dumps({"info": r["info"], "active": r["active"], "in_index": bits}))
+    named = [[x[0][3:], (x[2] or "")[:40], x[3][:1], int(x[4])] for x in r["rows"] if x[1]]
+    for k in range(0, len(named), 12): print("::notice title=inspect names::" + json.dumps(named[k:k + 12]))
