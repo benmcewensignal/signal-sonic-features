@@ -20,9 +20,11 @@ jobs:
       - name: build the dense classics index
         env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
         run: |
+          set -o pipefail
+          fail(){ tail -n 12 /tmp/out.txt | tr -d '\r' | sed -e 's/^/::error title=recognise::/' ; exit 1; }
           case "${{ github.event.inputs.what || 'classics' }}" in
-            all) modal run worker/recognise_build_all.py ;;
-            test) modal run worker/recognise_test_all.py ;;
-            activate) modal run worker/recognise_test_all.py --activate ;;
-            *) modal run worker/recognise_build.py ;;
+            all) modal run worker/recognise_build_all.py 2>&1 | tee /tmp/out.txt || fail ;;
+            test) modal run worker/recognise_test_all.py 2>&1 | tee /tmp/out.txt || fail ;;
+            activate) modal run worker/recognise_test_all.py --activate 2>&1 | tee /tmp/out.txt || fail ;;
+            *) modal run worker/recognise_build.py 2>&1 | tee /tmp/out.txt || fail ;;
           esac
