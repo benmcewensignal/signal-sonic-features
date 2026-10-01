@@ -290,6 +290,13 @@ def main():
     out = [out[i] for i in order]; PAIRS = [[remap[i], remap[j], s_] for i, j, s_ in PAIRS]
     res = {"note": __doc__.split("\n  python")[0].strip(), "thresholds": THR, "sources": dict(src), "scenes": report, "opportunities": out, "genres": sorted(GEN, key=lambda g: -(g["uncovered_month"] or 0)), "pairs": PAIRS, "map": {"w": 350, "h": 330}}
     json.dump(res, open(a.out or os.path.join(D, "pack-opportunities.json"), "w"), separators=(",", ":"))
+    # a slim copy for the public pages (a record's style and its scene's gap), without the part data only the tools use
+    try:
+        drop = ("part_measures", "part_centres", "gap_ids"); outp = a.out or os.path.join(D, "pack-opportunities.json")
+        lite = dict(res); lite["opportunities"] = [{k: v for k, v in o.items() if k not in drop} for o in res.get("opportunities", [])]
+        lite["genres"] = [{k: v for k, v in g.items() if k not in drop} for g in res.get("genres", [])]
+        json.dump(lite, open(outp.replace(".json", "-lite.json"), "w"), separators=(",", ":"))
+    except Exception as e_: print(f"::warning::the slim copy could not be written: {e_}")
     print(json.dumps({"opportunities": len(out), "scenes": len(report), "sources": dict(src)}))
 
 if __name__ == "__main__":
