@@ -227,8 +227,14 @@ _CAM = {"G#m": "1A", "D#m": "2A", "A#m": "3A", "Fm": "4A", "Cm": "5A", "Gm": "6A
         "B": "1B", "F#": "2B", "C#": "3B", "G#": "4B", "D#": "5B", "A#": "6B", "F": "7B", "C": "8B", "G": "9B", "D": "10B", "A": "11B", "E": "12B"}
 
 
+def _cam_of(k):   # a key name ("Am", "C#": the loop library writes major as the bare note) or already a Camelot code ("8A")
+    k = str(k or "").strip()
+    if len(k) in (2, 3) and k[:-1].isdigit() and k[-1] in "AB" and 1 <= int(k[:-1]) <= 12: return k
+    return _CAM.get(k)
+
+
 def _mixes(a, b):   # keys that mix harmonically: the same Camelot code, one step either way, or the relative key
-    ca, cb = _CAM.get(a), _CAM.get(b)
+    ca, cb = _cam_of(a), _cam_of(b)   # a Camelot code used to read as unknown here, so nothing was filtered
     if not ca or not cb: return None
     na, la, nb, lb = int(ca[:-1]), ca[-1], int(cb[:-1]), cb[-1]
     return na == nb or (la == lb and (na - nb) % 12 in (1, 11))
