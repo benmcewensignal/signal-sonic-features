@@ -20,7 +20,7 @@ def run(activate: bool = False):
     meta = J.load(open("/idx/all/meta.json")); R = {"H": np.load("/idx/all/H.npy"), "T": np.load("/idx/all/T.npy", mmap_mode="r"), "F": np.load("/idx/all/F.npy", mmap_mode="r"), "meta": meta}
     inidx = {m[0] for m in meta["tracks"]}; classics = [m for m in meta["tracks"] if m[4]]; G = {m[0]: grp(m) for m in meta["tracks"]}
     get = lambda u: J.load(urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=180))
-    PV = get("https://raw.githubusercontent.com/benmcewensignal/signalgood/main/data/previews.json").get("u", {})
+    PV = get("https://www.earlysignal.live/data/previews.json").get("u", {})
     CT = get("https://raw.githubusercontent.com/benmcewensignal/signal-sonic/main/data/chart-tracks.json")
     for t, v in CT.items():
         if v and len(v) > 4 and v[4]: PV.setdefault(t, v[4])
