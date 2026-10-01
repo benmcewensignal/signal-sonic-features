@@ -8,6 +8,10 @@ vol = modal.Volume.from_name("sonic-recognise", create_if_missing=True)
 @app.function(image=image, memory=4096, timeout=600, volumes={"/idx": vol})
 def look(ids):
     import os
+    try: vol.reload()
+    except Exception: pass
+    ls = {d: sorted((f, os.path.getsize(f"/idx/{d}/{f}"), int(os.path.getmtime(f"/idx/{d}/{f}"))) for f in os.listdir(f"/idx/{d}")) for d in os.listdir("/idx") if os.path.isdir(f"/idx/{d}")}
+    print("::notice title=volume::" + json.dumps(ls)[:3000])
     meta = json.load(open("/idx/all/meta.json")); by = {m[0]: m for m in meta["tracks"]}
     return {"info": meta["info"], "active": os.path.exists("/idx/all/ACTIVE"),
             "rows": [[i, i in by, (by.get(i) or [None, None])[1], ((by.get(i) or [None, None, []])[2] or [])[:2], bool((by.get(i) or [0]*5)[4])] for i in ids]}
