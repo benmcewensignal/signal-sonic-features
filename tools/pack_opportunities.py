@@ -93,6 +93,20 @@ def main():
         cal = json.load(open(os.path.join(a.features, "data", "part-calibration.json"))).get("parts", {})
         for p_, v_ in cal.items(): THR["voice" if p_ == "vocals" else p_] = {"far": float(v_["far"]), "close": float(v_["close"])}
     except Exception: pass
+    # each part's eight plain measures across a target's records (middle range), and each part's centre in the matcher's
+    # raw space: Aim a track compares a bounce's parts with the first and finds licensed loops near the second
+    MEAS = ("level", "crest", "dynamic_span", "centroid_hz", "rolloff_hz", "flatness", "onsets_per_s", "share_of_energy")
+    def PM(rows):
+        rows = np.asarray(rows); out_m, out_c = {}, {}
+        if not len(rows): return {}
+        shr = np.clip(V[rows][:, :, 52], 0, None); shr = shr / np.maximum(shr.sum(1, keepdims=True), 1e-9)
+        for j, pn in enumerate(("drums", "bass", "melody", "voice")):
+            pr = rows[shr[:, j] >= 0.08]
+            if len(pr) < 12: continue
+            X_ = V[pr, j, :].astype(np.float64)
+            out_m[pn] = {m: [float(f"{np.percentile(X_[:, 45 + k], q):.4g}") for q in (25, 50, 75)] for k, m in enumerate(MEAS)}
+            out_c[pn] = [float(f"{x:.4g}") for x in X_.mean(0)]
+        return {"part_measures": out_m, "part_centres": out_c}
     def best_loop(i, part):
         Z, keep, mu, sd, lt, lk, pi, KM = LIB[part]; r = rat.get(ids[i])
         if r is None: return None
@@ -164,7 +178,7 @@ def main():
                         "kick": [[p, round(k_ / sum(kpg.values()) * 100)] for p, k_ in kpg.most_common(2)] if sum(kpg.values()) >= 12 else [],
                         "swing": round(float(np.median(swg)), 3) if len(swg) >= 12 else None, "examples": recent_first([ids[i] for i in refs[order_g][:30]]),
                         "artists": [x for x, _ in cag.most_common(6)], "labels": [x for x, _ in clg.most_common(5)], "rough": bool(len(refs) < 40), "styles": [], "_w": float(sum(W[i] for i in refs)), "gap_ids": gap_g,
-                        "c": [round(float(x), 4) for x in gc], "ranges": {p: [round(float(np.percentile(shg[:, j], q)), 1) for q in (25, 50, 75)] for j, p in enumerate(("drums", "bass", "melody", "voice"))},
+                        "c": [round(float(x), 4) for x in gc], "ranges": {p: [round(float(np.percentile(shg[:, j], q)), 1) for q in (25, 50, 75)] for j, p in enumerate(("drums", "bass", "melody", "voice"))}, **PM(rs_g),
                         "djs": [[n_, k_] for n_, k_ in sum((WHO[i] for i in refs), collections.Counter()).most_common(8)]})
         if len(refs) < 40 or name == "unknown": continue
         Er = E[refs]; best_k, best_lab, best_sil = 1, np.zeros(len(refs), int), None
@@ -234,7 +248,7 @@ def main():
                         "balance": {p: round(float(np.median(shp[:, j])), 1) for j, p in enumerate(("drums", "bass", "melody", "voice"))},
                         "kick": [[p, round(k_ / sum(kp.values()) * 100)] for p, k_ in kp.most_common(2)] if sum(kp.values()) >= 12 else [],
                         "swing": round(float(np.median(sw)), 3) if len(sw) >= 12 else None, "examples": examples, "rough": bool(len(m) < 40), "gap_ids": gap_ids,
-                        "c": [round(float(x), 4) for x in cen[c]], "ranges": {p: [round(float(np.percentile(shp[:, j], q)), 1) for q in (25, 50, 75)] for j, p in enumerate(("drums", "bass", "melody", "voice"))},
+                        "c": [round(float(x), 4) for x in cen[c]], "ranges": {p: [round(float(np.percentile(shp[:, j], q)), 1) for q in (25, 50, 75)] for j, p in enumerate(("drums", "bass", "melody", "voice"))}, **PM(rs),
                         "djs": [[n_, k_] for n_, k_ in sum((WHO[i] for i in m), collections.Counter()).most_common(8)]})
     # the map: classical scaling of the cosine distances between style centres, then relaxed so dots do not overlap
     ns_ = len(CEN); C = np.stack(CEN + GCEN); Dm = np.clip(1 - C @ C.T, 0, 2); nn = len(C); J = np.eye(nn) - 1 / nn; Bm = -0.5 * J @ (Dm ** 2) @ J

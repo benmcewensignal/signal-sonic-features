@@ -1,0 +1,21 @@
+name: ab test
+# A real reading of a released record, read as a bounce, with its leverage toward its nearest style, for the pitch
+# walkthrough (worker/ab_test.py). Committed as data/ab-test.json.
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  read:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q modal numpy
+      - name: read on Modal
+        env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: modal run worker/ab_test.py
+      - name: keep it
+        run: |
+          git config user.name "sonic-bot"; git config user.email "sonic@earlysignal.live"
+          git add data/ab-test.json && git commit -qm "ab test: a record with one part replaced by the licensed loop nearest a target" && git pull -q --rebase origin main && git push -q origin HEAD:main || echo "nothing to keep"
