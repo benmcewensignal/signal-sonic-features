@@ -217,7 +217,12 @@ async def recognise(request: Request):
     if not _ok(request): return JSONResponse({"error": "unauthorised"}, 401)
     try:
         body = await request.json(); query = (body or {}).get("hashes") or []
-        rvol.reload(); R = _rx_load()
+        # reload the volume once, when this container wakes: the index is memory-mapped, and a reload with its files open fails
+        # ("there are open files preventing the operation"); a new build is picked up when the service next sleeps and wakes
+        if not _RX:
+            try: rvol.reload()
+            except Exception: pass
+        R = _rx_load()
         if R is None: return {"found": False, "why": "no classics index yet"}
         return rx_match(query[:20000], R)
     except Exception as e:
