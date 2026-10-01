@@ -172,13 +172,17 @@ rvol = modal.Volume.from_name("sonic-recognise", create_if_missing=True)
 _RX = {}
 
 def _rx_load():
+    # the catalogue-wide index (all/) when it exists, else the classics; the sorted fingerprints are read into memory on waking
+    # (lookups touch them thousands of times per clip), the record and time arrays stay memory-mapped
     import json as _j, numpy as _np, os as _os
-    p = "/rx/classics/meta.json"
+    d = "/rx/all" if _os.path.exists("/rx/all/ACTIVE") and _os.path.exists("/rx/all/meta.json") else "/rx/classics"   # the catalogue index goes live only once calibrated
+    p = d + "/meta.json"
     if not _os.path.exists(p): return None
     st = _os.stat(p).st_mtime
     if _RX.get("at") != st:
-        _RX.update({"at": st, "H": _np.load("/rx/classics/H.npy", mmap_mode="r"), "T": _np.load("/rx/classics/T.npy", mmap_mode="r"),
-                    "F": _np.load("/rx/classics/F.npy", mmap_mode="r"), "meta": _j.load(open(p))})
+        _RX.clear()
+        _RX.update({"at": st, "which": d, "H": _np.load(d + "/H.npy"), "T": _np.load(d + "/T.npy", mmap_mode="r"),
+                    "F": _np.load(d + "/F.npy", mmap_mode="r"), "meta": _j.load(open(p))})
     return _RX
 
 def _rx_group(m):
@@ -234,7 +238,7 @@ def rx_match(query, R):
             "runner_up": r1, "next_best": n1 if ok1 else n2, "path": "single" if ok1 else ("loops" if ok2 else None),
             "hashes_in_index": int(keep.sum()), "records": len(R["meta"]["tracks"])}
 
-@app.function(image=light, secrets=[secret], cpu=1.0, memory=2048, scaledown_window=300, volumes={"/rx": rvol})
+@app.function(image=light, secrets=[secret], cpu=2.0, memory=8192, scaledown_window=300, volumes={"/rx": rvol})
 @modal.fastapi_endpoint(method="POST")
 async def recognise(request: Request):
     if not _ok(request): return JSONResponse({"error": "unauthorised"}, 401)
