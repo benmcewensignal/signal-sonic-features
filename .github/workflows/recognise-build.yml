@@ -26,5 +26,6 @@ jobs:
             all) modal run worker/recognise_build_all.py 2>&1 | tee /tmp/out.txt || fail ;;
             test) modal run worker/recognise_test_all.py 2>&1 | tee /tmp/out.txt || fail ;;
             activate) modal run worker/recognise_test_all.py --activate 2>&1 | tee /tmp/out.txt || fail ;;
+            deactivate) modal run worker/recognise_off.py 2>&1 | tee /tmp/out.txt || fail ;;
             *) modal run worker/recognise_build.py 2>&1 | tee /tmp/out.txt || fail ;;
           esac
