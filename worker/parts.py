@@ -98,10 +98,79 @@ def leverage(st, out, donor):
         shutil.rmtree(w, ignore_errors=True)
 
 
-def read(wav_path, with_audio=False, donor=None, only_leverage=False):
+def ab_render(st, ab):
+    """Your track with one part replaced by the openly licensed loop nearest the target's part: the loop found by the
+    target style's part centre (its records' mean, in the matcher's raw space), at a workable tempo and, for bass and
+    melody, a key that mixes; stretched to the track's tempo, laid from its first beat at the level of the part it
+    replaces. Returns two short clips from where that part is strongest: the mix, and the mix with the loop. A sketch of a
+    direction: the loop is not arranged to the track. Nothing is kept."""
+    import os, base64, pickle, subprocess, tempfile, urllib.request
+    import numpy as np, soundfile as sf, librosa
+    from worker.scene import _mixes, key_from_parts
+    part = ab.get("part"); fam = {"drums": "drums", "bass": "bass", "other": "melody", "vocals": "vocals"}.get(part)
+    if not fam or part not in st: return {"error": "that part is not in the track"}
+    w = tempfile.mkdtemp()
+    S_ = {k: sf.read(p, always_2d=True) for k, p in st.items()}; sr = next(iter(S_.values()))[1]
+    n = min(a.shape[0] for a, _ in S_.values()); S_ = {k: a[:n] for k, (a, _) in S_.items()}
+    T = float(ab.get("bpm") or 0)
+    if not T:
+        try: T = float((S.rhythm_of_stem(st["drums"]) or {}).get("beats_per_minute") or 0)
+        except Exception: T = 0.0
+    tkey = ab.get("key")
+    if not tkey and fam in ("bass", "melody"):
+        try: tkey = (key_from_parts({k: S.measure_stem(v) for k, v in st.items()}) or {}).get("camelot")
+        except Exception: tkey = None
+    with open(os.path.join(os.path.dirname(__file__), "loop_index.pkl"), "rb") as f: LI = pickle.load(f)
+    L = LI[fam]; keep, mu, sd = L["keep"], np.asarray(L["mu"], float), np.asarray(L["sd"], float)
+    v = np.asarray(ab.get("tc") or [], float)
+    if v.shape[0] != 53: return {"error": "no target for that part"}
+    z = (v[keep] - mu) / sd; z /= np.linalg.norm(z) + 1e-9; sim = L["Z"].astype(np.float32) @ z.astype(np.float32)
+    pick = None
+    for j in np.argsort(-sim)[:400]:
+        m_ = L["meta"][int(j)]; lt = float(m_.get("tempo") or 0)
+        if not m_.get("preview") or not lt: continue
+        f_ = min((1.0, 2.0, 0.5), key=lambda q: abs(lt * q - T)) if T else 1.0
+        if T and abs(lt * f_ - T) / T > 0.08: continue
+        if fam in ("bass", "melody") and tkey and m_.get("key") and _mixes(tkey, m_.get("key")) is False: continue
+        pick = (int(j), m_, lt * f_); break
+    if not pick: return {"error": "no licensed loop near the target at this tempo and key"}
+    j, m_, lt = pick
+    mp3 = os.path.join(w, "loop.mp3"); urllib.request.urlretrieve(m_["preview"], mp3)
+    y, _ = librosa.load(mp3, sr=sr, mono=False); y = np.atleast_2d(y)
+    if y.shape[0] == 1: y = np.vstack([y, y])
+    rate = (T / lt) if T else 1.0
+    if abs(rate - 1) > 0.002: y = np.vstack([librosa.effects.time_stretch(ch, rate=rate) for ch in y])
+    y = y.T
+    try:
+        d = S_.get("drums"); mono = d.mean(1) if d is not None else sum(S_.values()).mean(1)
+        _, bt = librosa.beat.beat_track(y=mono.astype(np.float32), sr=sr, units="time"); t0 = float(bt[0]) if len(bt) else 0.0
+    except Exception: t0 = 0.0
+    lp = np.zeros((n, 2)); s0 = int(t0 * sr); k_ = s0
+    while k_ < n:
+        m = min(y.shape[0], n - k_); lp[k_:k_ + m] += y[:m]; k_ += y.shape[0]
+    orig = S_[part]; act = np.abs(orig).mean(1) > 1e-4
+    r0 = float(np.sqrt(np.mean(orig[act] ** 2))) if act.any() else 0.0; r1 = float(np.sqrt(np.mean(lp[s0:] ** 2))) or 1.0
+    if r0: lp *= r0 / r1
+    A = sum(S_.values()); B = sum(a for k, a in S_.items() if k != part) + lp
+    win = int(20 * sr); hop = int(sr)
+    en = [float(np.mean(orig[i:i + win] ** 2)) for i in range(0, max(1, n - win), hop)]
+    i0 = int(np.argmax(en)) * hop if en else 0
+    pk = max(float(np.max(np.abs(A[i0:i0 + win]))), float(np.max(np.abs(B[i0:i0 + win]))), 1e-6); g = min(1.0, 0.98 / pk)
+    def enc(x, nm):
+        wp, mp = os.path.join(w, nm + ".wav"), os.path.join(w, nm + ".mp3"); sf.write(wp, np.clip(x[i0:i0 + win] * g, -1, 1), sr)
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-i", wp, "-b:a", "112k", mp], check=True, timeout=60)
+        return base64.b64encode(open(mp, "rb").read()).decode()
+    return {"part": part, "from_s": round(i0 / sr, 1), "tempo": round(T, 1) if T else None, "key": tkey, "closeness": round(float(sim[j]), 3),
+            "loop": {k: m_.get(k) for k in ("id", "name", "user", "license", "page", "tempo", "key")}, "a": enc(A, "a"), "b": enc(B, "b")}
+
+
+def read(wav_path, with_audio=False, donor=None, only_leverage=False, ab=None):
     work = tempfile.mkdtemp()
     try:
         st = S.separate(wav_path, work)
+        if ab:
+            try: return {"ab": ab_render(st, ab)}
+            except Exception as e_: return {"ab": {"error": type(e_).__name__ + ": " + str(e_)[:140]}}
         if only_leverage and donor:
             # the second, lighter job Aim a track sends after the reading: tempo, key and the swaps, nothing else
             rec = {k: S.measure_stem(v) for k, v in st.items()}; tempo_ = None
