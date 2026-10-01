@@ -13,7 +13,7 @@ image = modal.Image.debian_slim(python_version="3.12").apt_install("curl").pip_i
 vol = modal.Volume.from_name("sonic-recognise", create_if_missing=True)
 PER = 8000
 
-@app.function(image=image, cpu=4.0, memory=32768, ephemeral_disk=80_000, timeout=7200, volumes={"/idx": vol})
+@app.function(image=image, cpu=4.0, memory=32768, timeout=7200, volumes={"/idx": vol})
 def build():
     import base64, os, sqlite3, subprocess, time, urllib.request
     import numpy as np
