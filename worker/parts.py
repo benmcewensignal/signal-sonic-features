@@ -98,6 +98,17 @@ def leverage(st, out, donor):
         shutil.rmtree(w, ignore_errors=True)
 
 
+def _with_chroma(st):
+    """The plain measures of each part, with the part analyser's embedding for melody, bass and voice: the key is read from
+    the twelve chroma values inside that embedding, so without it key_from_parts finds no key at all."""
+    rec = {k: (S.measure_stem(v) or {}) for k, v in st.items()}
+    for k in ("other", "bass", "vocals"):
+        if k in st:
+            try: rec[k].update(S.analyse_stem(st[k]) or {})
+            except Exception: pass
+    return rec
+
+
 def ab_render(st, ab):
     """Your track with one part replaced by the openly licensed loop nearest the target's part: the loop found by the
     target style's part centre (its records' mean, in the matcher's raw space), at a workable tempo and, for bass and
@@ -118,7 +129,7 @@ def ab_render(st, ab):
         except Exception: T = 0.0
     tkey = ab.get("key")
     if not tkey and fam in ("bass", "melody"):
-        try: tkey = (key_from_parts({k: S.measure_stem(v) for k, v in st.items()}) or {}).get("camelot")
+        try: tkey = (key_from_parts(_with_chroma(st)) or {}).get("camelot")
         except Exception: tkey = None
     with open(os.path.join(os.path.dirname(__file__), "loop_index.pkl"), "rb") as f: LI = pickle.load(f)
     L = LI[fam]; keep, mu, sd = L["keep"], np.asarray(L["mu"], float), np.asarray(L["sd"], float)
@@ -173,7 +184,7 @@ def read(wav_path, with_audio=False, donor=None, only_leverage=False, ab=None):
             except Exception as e_: return {"ab": {"error": type(e_).__name__ + ": " + str(e_)[:140]}}
         if only_leverage and donor:
             # the second, lighter job Aim a track sends after the reading: tempo, key and the swaps, nothing else
-            rec = {k: S.measure_stem(v) for k, v in st.items()}; tempo_ = None
+            rec = _with_chroma(st); tempo_ = None
             try:
                 rh = S.rhythm_of_stem(st["drums"]) if "drums" in st else None; tempo_ = (rh or {}).get("beats_per_minute")
             except Exception: pass
