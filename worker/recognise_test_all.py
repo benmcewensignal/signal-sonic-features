@@ -45,7 +45,7 @@ def run(activate: bool = False):
             try: r = ask(tid)
             except Exception as e: rows.append({"id": tid, "error": type(e).__name__}); continue
             same = r.get("found") and (r["track_id"] == tid or (tid in G and G.get(r["track_id"]) == G[tid]))
-            rows.append({"id": tid, "found": bool(r.get("found")), "right": bool(same), "wrong": bool(r.get("found") and not same), "path": r.get("path"), "votes": r.get("votes"), "next": r.get("next_best")})
+            rows.append({"id": tid, "found": bool(r.get("found")), "right": bool(same), "wrong": bool(r.get("found") and not same), "path": r.get("path"), "votes": r.get("votes"), "next": r.get("next_best"), "runner_up": r.get("runner_up"), "answer": r.get("track_id"), "name": r.get("name")})
         res[kind] = rows
     summ = {k: {"n": len(v), "right": sum(x.get("right", False) for x in v), "wrong": sum(x.get("wrong", False) for x in v), "errors": sum(1 for x in v if x.get("error"))} for k, v in res.items()}
     activated = False
@@ -57,3 +57,10 @@ def run(activate: bool = False):
 def main(activate: bool = False):
     r = run.remote(activate); json.dump(r, open("data/recognise-test-all.json", "w"))
     print("::notice title=catalogue index test::" + json.dumps({"summary": r["summary"], "activated": r["activated"], "index": r["index"]}))
+    for k, rows in r["results"].items():
+        for x in rows:
+            if x.get("wrong"): print(f"::notice title=wrong answer::{k}: {x['id']} named {x.get('answer')} {str(x.get('name'))[:40]} via {x.get('path')}, votes {x.get('votes')}, runner-up {x.get('runner_up')}, next {x.get('next')}")
+    def stat(rows, path):
+        m = [((x.get("votes") or 0) / max(x.get("next") or 1, 1)) for x in rows if x.get("path") == path]
+        return (round(min(m), 2), round(max(m), 2), len(m)) if m else None
+    print("::notice title=margins::" + json.dumps({k: {"single": stat(v, "single"), "loops": stat(v, "loops")} for k, v in r["results"].items()}))
