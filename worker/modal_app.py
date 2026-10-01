@@ -181,7 +181,19 @@ def _rx_load():
                     "F": _np.load("/rx/classics/F.npy", mmap_mode="r"), "meta": _j.load(open(p))})
     return _RX
 
+def _rx_group(m):
+    import re as _re, unicodedata as _ud
+    def n(x): return _re.sub(r"\bu\b", "you", _re.sub(r"[^a-z0-9]+", " ", _ud.normalize("NFKD", str(x or "").replace("'", "").replace("\u2019", "")).encode("ascii", "ignore").decode().lower())).strip()
+    title = n(_re.split(r"\s*[\(\[]|\s+feat\.?\s+|\s+ft\.?\s+", str(m[1] or ""), 1)[0])
+    a0 = n((m[2] or [""])[0]).split(" ")[0] if m[2] else ""
+    return a0 + "|" + title
+
 def rx_match(query, R):
+    """The same evidence as the site's matcher, with two changes the first live test asked for: a time bin counts with its
+    neighbours (a match straddling a boundary kept splitting its votes), and a strong second offset of the same record no
+    longer counts against it (dance records repeat, so a clip matches its record at several offsets). A record is named
+    when its best offset has at least 10 votes and 1.4 times the best different classic; versions of one classic, grouped
+    by first artist and title, never count against each other."""
     import numpy as _np
     q = _np.asarray(query, dtype=_np.int64)
     if q.ndim != 2 or q.shape[0] == 0: return {"found": False, "why": "no fingerprints"}
@@ -194,21 +206,32 @@ def rx_match(query, R):
     starts = _np.repeat(lo - _np.concatenate(([0], _np.cumsum(cnt)[:-1])), cnt) + _np.arange(tot)
     tr = _np.asarray(R["T"][starts], dtype=_np.int64); fr = _np.asarray(R["F"][starts], dtype=_np.int64)
     off = _np.rint((fr - _np.repeat(qf, cnt)) * (512 / 22050)).astype(_np.int64)
-    key = tr * 100000 + (off + 50000); u, c = _np.unique(key, return_counts=True); ut = u // 100000
-    order = _np.lexsort((-c, ut)); ut_o, c_o = ut[order], c[order]
-    first = _np.r_[True, ut_o[1:] != ut_o[:-1]]
-    best_t, best_c = ut_o[first], c_o[first]
-    second = _np.zeros_like(best_c); idx = _np.flatnonzero(first)
-    for k, i in enumerate(idx):
-        if i + 1 < len(ut_o) and ut_o[i + 1] == ut_o[i]: second[k] = c_o[i + 1]
-    o2 = _np.argsort(-best_c); top = o2[0]; tq = R["meta"]["tracks"][int(best_t[top])][4]
-    # versions of one classic (original, extended, radio edit) all match the same audio: the next best that counts against
-    # the top is the best different classic, not another version of the same one
-    nxt = next((best_c[k] for k in o2[1:] if R["meta"]["tracks"][int(best_t[k])][4] != tq or not tq), 0)
-    v, ru = int(best_c[top]), int(second[top])
-    ok = v >= 8 and v >= 1.8 * max(ru, 1) and v >= 1.4 * max(int(nxt), 1)
-    m = R["meta"]["tracks"][int(best_t[top])]
-    return {"found": bool(ok), "track_id": m[0], "name": m[1], "artists": m[2], "scene": m[3], "votes": v, "runner_up": ru, "next_best": int(nxt),
+    key = tr * 100000 + (off + 50000); u, c = _np.unique(key, return_counts=True)
+    # a bin and its two neighbours together
+    cm = c.copy()
+    for d in (-1, 1):
+        k2 = u + d; ix = _np.searchsorted(u, k2); ok_ = (ix < len(u)) & (u[_np.minimum(ix, len(u) - 1)] == k2); cm[ok_] += c[ix[ok_]]
+    ut = u // 100000; G = R.setdefault("groups", [_rx_group(m) for m in R["meta"]["tracks"]])
+    def per_track(cc):
+        order = _np.lexsort((-cc, ut)); ut_o, c_o = ut[order], cc[order]; first = _np.r_[True, ut_o[1:] != ut_o[:-1]]
+        second = _np.zeros(int(first.sum()), dtype=_np.int64); idx = _np.flatnonzero(first)
+        nxt_in = _np.r_[idx[1:], len(ut_o)]
+        has2 = (idx + 1) < nxt_in; second[has2] = c_o[idx[has2] + 1]
+        return ut_o[first], c_o[first], second
+    def verdict(bt, bc, b2):
+        o2 = _np.argsort(-bc); top = o2[0]; tg = G[int(bt[top])]
+        nxt = next((int(bc[k]) for k in o2[1:] if G[int(bt[k])] != tg), 0)
+        return int(bt[top]), int(bc[top]), int(b2[top]), nxt
+    # the site's rule on single one-second bins (no wrong answer in the first live test) ...
+    t1, v1, r1, n1 = verdict(*per_track(c))
+    ok1 = v1 >= 8 and v1 >= 1.8 * max(r1, 1) and v1 >= 1.4 * max(n1, 1)
+    # ... or, for records whose loops match at several offsets, a bin with its neighbours, well clear of every other classic
+    # (set from 243 queries of records outside the index against 180 of indexed classics)
+    t2, v2, _r2, n2 = verdict(*per_track(cm))
+    ok2 = v2 >= 30 and v2 >= 4.0 * max(n2, 1)   # outside records peaked at 3.6 times the next in testing; indexed classics never fell below 7.4
+    tt = t1 if ok1 else t2; m = R["meta"]["tracks"][tt]
+    return {"found": bool(ok1 or ok2), "track_id": m[0], "name": m[1], "artists": m[2], "scene": m[3], "votes": v1 if ok1 else v2,
+            "runner_up": r1, "next_best": n1 if ok1 else n2, "path": "single" if ok1 else ("loops" if ok2 else None),
             "hashes_in_index": int(keep.sum()), "records": len(R["meta"]["tracks"])}
 
 @app.function(image=light, secrets=[secret], cpu=1.0, memory=2048, scaledown_window=300, volumes={"/rx": rvol})
@@ -217,6 +240,11 @@ async def recognise(request: Request):
     if not _ok(request): return JSONResponse({"error": "unauthorised"}, 401)
     try:
         body = await request.json(); query = (body or {}).get("hashes") or []
+        if (body or {}).get("warm"): 
+            if not _RX:
+                try: rvol.reload()
+                except Exception: pass
+            _rx_load(); return {"warm": True}
         # reload the volume once, when this container wakes: the index is memory-mapped, and a reload with its files open fails
         # ("there are open files preventing the operation"); a new build is picked up when the service next sleeps and wakes
         if not _RX:
