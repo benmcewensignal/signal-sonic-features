@@ -162,3 +162,64 @@ def result(request: Request, id: str):
         return {"status": "running"}
     except Exception as e:
         return {"status": "failed", "error": type(e).__name__}
+
+# ---- recognition in a room: the dense classics index (every fingerprint of each classic's preview, all versions) ----
+# built by worker/recognise_build.py onto the sonic-recognise volume; this endpoint sleeps when idle and memory-maps the
+# arrays when it wakes. The phone still sends only fingerprints. Same rule as the site's matcher: at least 8 votes at one
+# offset, 1.8 times the record's own next offset, 1.4 times the next record.
+light = modal.Image.debian_slim(python_version="3.12").pip_install("numpy", "fastapi[standard]")
+rvol = modal.Volume.from_name("sonic-recognise", create_if_missing=True)
+_RX = {}
+
+def _rx_load():
+    import json as _j, numpy as _np, os as _os
+    p = "/rx/classics/meta.json"
+    if not _os.path.exists(p): return None
+    st = _os.stat(p).st_mtime
+    if _RX.get("at") != st:
+        _RX.update({"at": st, "H": _np.load("/rx/classics/H.npy", mmap_mode="r"), "T": _np.load("/rx/classics/T.npy", mmap_mode="r"),
+                    "F": _np.load("/rx/classics/F.npy", mmap_mode="r"), "meta": _j.load(open(p))})
+    return _RX
+
+def rx_match(query, R):
+    import numpy as _np
+    q = _np.asarray(query, dtype=_np.int64)
+    if q.ndim != 2 or q.shape[0] == 0: return {"found": False, "why": "no fingerprints"}
+    qh = (q[:, 0] & 0xFFFFFFFF).astype(_np.uint32); qf = q[:, 1].astype(_np.int64)
+    H = R["H"]; lo = _np.searchsorted(H, qh, "left"); hi = _np.searchsorted(H, qh, "right"); cnt = hi - lo
+    keep = (cnt > 0) & (cnt <= 4000)          # a fingerprint shared by thousands of records says nothing
+    if not keep.any(): return {"found": False, "hashes_in_index": 0}
+    lo, cnt, qf = lo[keep], cnt[keep], qf[keep]; tot = int(cnt.sum())
+    if tot > 3_000_000: return {"found": False, "why": "too many postings"}
+    starts = _np.repeat(lo - _np.concatenate(([0], _np.cumsum(cnt)[:-1])), cnt) + _np.arange(tot)
+    tr = _np.asarray(R["T"][starts], dtype=_np.int64); fr = _np.asarray(R["F"][starts], dtype=_np.int64)
+    off = _np.rint((fr - _np.repeat(qf, cnt)) * (512 / 22050)).astype(_np.int64)
+    key = tr * 100000 + (off + 50000); u, c = _np.unique(key, return_counts=True); ut = u // 100000
+    order = _np.lexsort((-c, ut)); ut_o, c_o = ut[order], c[order]
+    first = _np.r_[True, ut_o[1:] != ut_o[:-1]]
+    best_t, best_c = ut_o[first], c_o[first]
+    second = _np.zeros_like(best_c); idx = _np.flatnonzero(first)
+    for k, i in enumerate(idx):
+        if i + 1 < len(ut_o) and ut_o[i + 1] == ut_o[i]: second[k] = c_o[i + 1]
+    o2 = _np.argsort(-best_c); top = o2[0]; tq = R["meta"]["tracks"][int(best_t[top])][4]
+    # versions of one classic (original, extended, radio edit) all match the same audio: the next best that counts against
+    # the top is the best different classic, not another version of the same one
+    nxt = next((best_c[k] for k in o2[1:] if R["meta"]["tracks"][int(best_t[k])][4] != tq or not tq), 0)
+    v, ru = int(best_c[top]), int(second[top])
+    ok = v >= 8 and v >= 1.8 * max(ru, 1) and v >= 1.4 * max(int(nxt), 1)
+    m = R["meta"]["tracks"][int(best_t[top])]
+    return {"found": bool(ok), "track_id": m[0], "name": m[1], "artists": m[2], "scene": m[3], "votes": v, "runner_up": ru, "next_best": int(nxt),
+            "hashes_in_index": int(keep.sum()), "records": len(R["meta"]["tracks"])}
+
+@app.function(image=light, secrets=[secret], cpu=1.0, memory=2048, scaledown_window=300, volumes={"/rx": rvol})
+@modal.fastapi_endpoint(method="POST")
+async def recognise(request: Request):
+    if not _ok(request): return JSONResponse({"error": "unauthorised"}, 401)
+    try:
+        body = await request.json(); query = (body or {}).get("hashes") or []
+        rvol.reload(); R = _rx_load()
+        if R is None: return {"found": False, "why": "no classics index yet"}
+        return rx_match(query[:20000], R)
+    except Exception as e:
+        return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:120]}, 500)
+

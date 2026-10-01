@@ -1,0 +1,20 @@
+name: recognise build
+# the dense classics index for recognition in a room: every fingerprint of each classic's preview, all versions, onto the
+# sonic-recognise volume (the recognise endpoint memory-maps it when it wakes). Daily, and by hand after canon waves.
+on:
+  workflow_dispatch: {}
+  schedule: [ { cron: "30 7 * * *" } ]
+permissions: { contents: read }
+concurrency: { group: sonic-recognise-build, cancel-in-progress: false }
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q modal
+      - name: build the dense classics index
+        env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: modal run worker/recognise_build.py
