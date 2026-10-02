@@ -756,3 +756,110 @@ def nonlin():
     res = {f: o for f, o in nonlin_family.starmap(calls)}
     os.makedirs("data/gap-tests", exist_ok=True); json.dump(res, open("data/gap-tests/nonlin.json", "w"), indent=1)
     print("NONLIN " + json.dumps(res))
+
+
+# ---------------------------------------------------------------- what a part plays: bass line and kick pattern
+# Records already carry these readings (features/stems.py: bassline_of_stem, kick_pattern_of_stem, rhythm_of_stem).
+# Loops get the same readings in practice mixes, clean and unmixed. Built so a pattern's starting point does not matter:
+# where notes and kicks fall within the beat, not which beat of the bar. Does adding them help an unmixed part find its
+# own original? Scored on loops the correction never saw, beside the sound measure alone, on the same queries.
+def bass_plays(bl):
+    if not bl or not bl.get("bass_voiced"): return [0.0] * 9
+    occ = [0.0] * 4; pat = (bl.get("bass_pattern") or "").split()
+    if len(pat) == 16:
+        for k, x in enumerate(pat): occ[k % 4] += (x != ".") / 4.0
+    return [1.0, float(bl.get("bass_notes") or 0), float(bl.get("bass_range") or 0), float(bl.get("bass_notes_per_bar") or 0), float(bl.get("bass_moves_per_bar") or 0)] + occ
+
+
+def drum_plays(rh, kp):
+    occ = [0.0] * 4; pat = (kp or {}).get("kick_pattern") or ""
+    if len(pat) == 16:
+        for k, c in enumerate(pat): occ[k % 4] += (c == "K") / 4.0
+    rh = rh or {}; sw = rh.get("swing16") if rh.get("swing16") is not None else rh.get("swing")
+    return occ + [sum(occ) * 4.0, float(rh.get("hits_per_beat") or 0), float(sw or 0), float(rh.get("beat_confidence") or 0)]
+
+
+def _plays(drums_path, bass_path):
+    from features import stems as S
+    rh = S.rhythm_of_stem(drums_path) or {}; beats = rh.get("_beats") or []
+    bl = S.bassline_of_stem(bass_path, beats) if beats else None
+    kp = S.kick_pattern_of_stem(drums_path, beats) if beats else None
+    return bass_plays(bl), drum_plays(rh, kp)
+
+
+@app.function(image=cpu_image, cpu=4.0, memory=8192, timeout=1200, retries=1)
+def mix_plays(parts):
+    import tempfile, numpy as np
+    from features import stems as S
+    w = tempfile.mkdtemp(); N = 16 * SR
+    try:
+        def tile(x): return np.tile(x, (int(math.ceil(N / len(x))), 1))[:N]
+        def rms(x, db): return x * (10 ** (db / 20) / (float(np.sqrt(np.mean(x ** 2))) + 1e-9))
+        X = {f: rms(tile(_load(u, f, w)), LEVEL[f]) for f, (i, u) in parts.items()}
+        mix = sum(X.values()); pk = float(np.abs(mix).max()); g = 0.89 / pk if pk > 0.89 else 1.0
+        cd, cb = _wav(X["drums"] * g, os.path.join(w, "cd.wav")), _wav(X["bass"] * g, os.path.join(w, "cb.wav"))
+        bp_c, dp_c = _plays(cd, cb)
+        st = S.separate(_wav(mix * g, os.path.join(w, "mix.wav")), os.path.join(w, "sep"))
+        bp_s, dp_s = _plays(st["drums"], st["bass"])
+        return {"bass": [parts["bass"][0], _measure(st["bass"]), bp_s, bp_c], "drums": [parts["drums"][0], _measure(st["drums"]), dp_s, dp_c]}
+    except Exception as ex:
+        return {"error": type(ex).__name__ + ": " + str(ex)[:160]}
+
+
+@app.local_entrypoint()
+def plays():
+    import random, zlib, collections, numpy as np
+    LI = _index(); rng = random.Random(53)
+    meta = {f: [(i, m) for i, m in enumerate(LI[f]["meta"]) if m.get("tempo") and m.get("preview")] for f in FAMS}
+    mixes = []
+    for i, m in [x for x in meta["bass"]] * 3:
+        T = float(m["tempo"]); parts = {"bass": (i, m["preview"])}
+        for f in ("drums", "melody"):
+            c = [x for x in meta[f] if abs(float(x[1]["tempo"]) - T) / T <= 0.03]
+            if c: j, x = rng.choice(c); parts[f] = (j, x["preview"])
+        if "drums" in parts: mixes.append(parts)
+    rng.shuffle(mixes); print(f"practice mixes: {len(mixes)}")
+    R = [r for r in mix_plays.map(mixes, return_exceptions=True) if isinstance(r, dict) and not r.get("error")]
+    res = {"mixes": len(mixes), "unmixed": len(R), "families": {}}; keep = {}
+    for f in ("bass", "drums"):
+        L = LI[f]; Zc = np.array(L["Z"], np.float32); Zc /= np.linalg.norm(Zc, axis=1, keepdims=True) + 1e-9; n = len(Zc)
+        lt = np.array([m.get("tempo") or 0 for m in L["meta"]], np.float32)
+        obs = [(r[f][0], _z(r[f][1], L), np.array(r[f][2], np.float32), np.array(r[f][3], np.float32)) for r in R if r.get(f) and r[f][1]]
+        pc = collections.defaultdict(list)
+        for i, z, ps, pcl in obs: pc[i].append(pcl)
+        allp = np.array([o[2] for o in obs] + [o[3] for o in obs]); pm, psd = allp.mean(0), allp.std(0) + 1e-3
+        Pc = np.zeros((n, allp.shape[1]), np.float32); hasp = np.zeros(n, bool)
+        for i, v in pc.items(): Pc[i] = np.clip((np.mean(v, axis=0) - pm) / psd, -8, 8); hasp[i] = True
+        res["families"][f] = {"smudges": len(obs), "loops": int(hasp.sum()),
+                              "plays_agreement_clean_vs_unmixed": round(float(np.median([np.corrcoef(o[2], o[3])[0, 1] for o in obs if np.std(o[2]) > 0 and np.std(o[3]) > 0])), 3)}
+        fold = np.array([zlib.crc32(f"{f}:{i}".encode()) % 5 for i in range(n)])
+        def run(use_plays):
+            X_c = np.hstack([Zc, Pc]) if use_plays else Zc
+            Q = [(i, np.concatenate([z, np.clip((ps - pm) / psd, -8, 8)]) if use_plays else z) for i, z, ps, _ in obs]
+            ranks = []
+            for q in range(5):
+                tr = [k for k in range(n) if fold[k] != q and hasp[k]]
+                o_, l_ = [X_c[k] for k in tr], list(tr)
+                for i, x in Q:
+                    if fold[i] != q: o_.append(x); l_.append(i)
+                W = _lda(o_, l_, 1e-7, X_c.shape[1])
+                C = X_c @ W; S_sum = np.zeros_like(C); S_n = np.zeros(n)
+                for i, x in Q: S_sum[i] += x @ W; S_n[i] += 1
+                lib = C + np.where(S_n[:, None] > 0, S_sum / np.maximum(S_n, 1)[:, None], 0)
+                lib = lib / (np.linalg.norm(lib, axis=1, keepdims=True) + 1e-9)
+                for i, x in Q:
+                    if fold[i] != q: continue
+                    ok = _fits(lt, float(L["meta"][i].get("tempo") or 0)) & hasp
+                    if not ok[i]: continue
+                    p = x @ W; p /= np.linalg.norm(p) + 1e-9; s = lib @ p
+                    # the target's own entry without this reading: its clean entry plus its other unmixed readings
+                    own = C[i] + ((S_sum[i] - p * np.linalg.norm(x @ W)) / (S_n[i] - 1) if S_n[i] > 1 else 0)
+                    s[i] = float((own / (np.linalg.norm(own) + 1e-9)) @ p)
+                    ranks.append(1 + int((s[ok] > s[i]).sum()))
+            r = np.array(ranks)
+            return {"n": int(len(r)), "top1": round(float((r == 1).mean()), 3), "top3": round(float((r <= 3).mean()), 3), "top10": round(float((r <= 10).mean()), 3)}
+        res["families"][f]["sound_only"] = run(False); res["families"][f]["sound_and_plays"] = run(True)
+        keep[f + "_Pc"] = Pc; keep[f + "_pm"] = pm; keep[f + "_psd"] = psd
+    os.makedirs("data/gap-tests", exist_ok=True); json.dump(res, open("data/gap-tests/plays.json", "w"), indent=1)
+    np.savez_compressed("data/gap-tests/loop-plays.npz", **keep)
+    print("PLAYS " + json.dumps(res))
