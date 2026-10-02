@@ -1028,3 +1028,84 @@ def embed():
         res["families"][f] = fam
     os.makedirs("data/gap-tests", exist_ok=True); json.dump(res, open("data/gap-tests/embed.json", "w"), indent=1)
     print("EMBED " + json.dumps(res))
+
+
+# ---------------------------------------------------------------- the re-separation pilot: what would MERT on records cost?
+# Real records through the full path: the two-minute preview, the records' own separator, MERT fingerprints of each part
+# (four ten-second windows, averaged). Timed step by step on a GPU machine and on an eight-core CPU machine; the model
+# load, paid once per machine, is counted apart. The fingerprints are kept.
+_MERT = {}
+
+
+def _mert(device):
+    if device in _MERT: return _MERT[device]
+    import torch
+    os.environ["HF_HOME"] = "/cache"; os.environ["HF_HUB_OFFLINE"] = "1"
+    from transformers import AutoModel, Wav2Vec2FeatureExtractor
+    m = AutoModel.from_pretrained("m-a-p/MERT-v1-95M", trust_remote_code=True, cache_dir="/cache").eval().to(device)
+    p = Wav2Vec2FeatureExtractor.from_pretrained("m-a-p/MERT-v1-95M", trust_remote_code=True, cache_dir="/cache")
+    _MERT[device] = (m, p); return _MERT[device]
+
+
+def _pilot_one(rec, device):
+    import time, tempfile, subprocess, urllib.request, numpy as np, soundfile as sf, librosa, torch
+    from features import stems as S
+    t = {}; w = tempfile.mkdtemp(); t0 = time.time()
+    first = device not in _MERT
+    m, p = _mert(device); t["model_load"] = round(time.time() - t0, 2) if first else 0.0
+    t1 = time.time()
+    src = os.path.join(w, "p.mp3"); urllib.request.urlretrieve(rec["url"], src)
+    wav = os.path.join(w, "p.wav"); subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-i", src, "-ac", "2", "-ar", str(SR), wav], check=True, timeout=120)
+    t["download"] = round(time.time() - t1, 2); t2 = time.time()
+    st = S.separate(wav, os.path.join(w, "sep")); t["separate"] = round(time.time() - t2, 2); t3 = time.time()
+    fps = {}
+    with torch.no_grad():
+        for k in ("drums", "bass", "other", "vocals"):
+            y, sr = sf.read(st[k], always_2d=True); y = y.mean(1); y = librosa.resample(y.astype(np.float32), orig_sr=sr, target_sr=24000)
+            L = len(y); win = 10 * 24000; vs = []
+            for c in (0.2, 0.4, 0.6, 0.8):
+                a = max(0, min(L - win, int(L * c) - win // 2)); seg = y[a:a + win]
+                if len(seg) < win // 2: continue
+                inp = {kk: vv.to(device) for kk, vv in p(seg, sampling_rate=24000, return_tensors="pt").items()}
+                hs = m(**inp, output_hidden_states=True).hidden_states; vs.append(torch.stack(hs).mean(dim=(0, 2))[0].float().cpu().numpy())
+            fps[k] = np.mean(vs, axis=0).astype(np.float16).tolist() if vs else None
+    t["fingerprint"] = round(time.time() - t3, 2); t["total_without_load"] = round(time.time() - t1, 2)
+    return {"id": rec["id"], "times": t, "fp": fps, "seconds_of_audio": round(L / 24000, 1)}
+
+
+@app.function(image=embed_image, gpu="A10G", cpu=4.0, memory=16384, timeout=1800, volumes={"/cache": HF})
+def pilot_gpu(rec):
+    try: return _pilot_one(rec, "cuda")
+    except Exception as ex: return {"id": rec["id"], "error": type(ex).__name__ + ": " + str(ex)[:160]}
+
+
+@app.function(image=embed_image, cpu=8.0, memory=16384, timeout=1800, volumes={"/cache": HF})
+def pilot_cpu(rec):
+    try: return _pilot_one(rec, "cpu")
+    except Exception as ex: return {"id": rec["id"], "error": type(ex).__name__ + ": " + str(ex)[:160]}
+
+
+@app.local_entrypoint()
+def pilot():
+    import random, urllib.request, numpy as np, collections
+    P = json.loads(urllib.request.urlopen(urllib.request.Request("https://www.earlysignal.live/data/previews.json", headers={"User-Agent": "sonic-tests"}), timeout=120).read())["previews"]
+    ids = sorted(P); rng = random.Random(71); pick = rng.sample(ids, 300)
+    gpu_set = [{"id": t, "url": P[t]} for t in pick[:150]]; cpu_set = [{"id": t, "url": P[t]} for t in pick[150:]]
+    res = {}
+    fps = {}
+    for name, fn, recs in (("gpu_a10g", pilot_gpu, gpu_set), ("cpu_8core", pilot_cpu, cpu_set)):
+        R = list(fn.map(recs, return_exceptions=True))
+        ok = [r for r in R if isinstance(r, dict) and not r.get("error")]
+        errs = collections.Counter((r.get("error") if isinstance(r, dict) else repr(r))[:70] for r in R if r not in ok)
+        def q(key):
+            a = np.array([r["times"][key] for r in ok]); return {"median": round(float(np.median(a)), 2), "p90": round(float(np.percentile(a, 90)), 2), "mean": round(float(a.mean()), 2)} if len(a) else {}
+        loads = [r["times"]["model_load"] for r in ok if r["times"]["model_load"] > 0]
+        res[name] = {"records": len(recs), "done": len(ok), "errors": dict(errs.most_common(3)), "machines": len(loads),
+                     "model_load_once_per_machine": round(float(np.median(loads)), 1) if loads else None,
+                     "download": q("download"), "separate": q("separate"), "fingerprint": q("fingerprint"), "per_record": q("total_without_load"),
+                     "audio_seconds_median": float(np.median([r["seconds_of_audio"] for r in ok])) if ok else None}
+        for r in ok: fps[r["id"]] = r["fp"]
+    os.makedirs("data/gap-tests", exist_ok=True); json.dump(res, open("data/gap-tests/pilot.json", "w"), indent=1)
+    ids_ok = sorted(t for t in fps if all(fps[t].get(k) for k in ("drums", "bass", "other", "vocals")))
+    np.savez_compressed("data/gap-tests/pilot-fingerprints.npz", ids=np.array(ids_ok), **{k: np.array([fps[t][k] for t in ids_ok], np.float16) for k in ("drums", "bass", "other", "vocals")})
+    print("PILOT " + json.dumps(res))
