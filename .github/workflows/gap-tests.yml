@@ -3,7 +3,7 @@ name: gap tests
 on:
   workflow_dispatch:
     inputs:
-      which: { description: "sep, gen or both", default: "both" }
+      which: { description: "sep, gen, both or cal", default: "both" }
 permissions: { contents: write }
 jobs:
   run:
@@ -21,11 +21,12 @@ jobs:
           W="${{ inputs.which }}"
           if [ "$W" = "sep" ] || [ "$W" = "both" ]; then modal run worker/gap_tests.py::sep 2>&1 | tee "$RUNNER_TEMP/sep.log" || true; fi
           if [ "$W" = "gen" ] || [ "$W" = "both" ]; then modal run worker/gap_tests.py::gen 2>&1 | tee "$RUNNER_TEMP/gen.log" || true; fi
+          if [ "$W" = "cal" ]; then modal run worker/gap_tests.py::cal 2>&1 | tee "$RUNNER_TEMP/cal.log" || true; fi
       - name: keep the results on their own branch
         if: always()
         run: |
-          cd "$RUNNER_TEMP" && mkdir -p res && cd res && git init -q && git checkout -q -b gap-tests-results
+          cd "$RUNNER_TEMP" && git clone -q --depth 1 -b gap-tests-results "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" res 2>/dev/null || (mkdir -p res && cd res && git init -q && git checkout -q -b gap-tests-results); cd res
           cp -r "$GITHUB_WORKSPACE/data/gap-tests/." . 2>/dev/null || true
-          for f in sep.log gen.log; do [ -f "$RUNNER_TEMP/$f" ] && tail -c 20000 "$RUNNER_TEMP/$f" > "$f"; done
+          for f in sep.log gen.log cal.log; do [ -f "$RUNNER_TEMP/$f" ] && tail -c 20000 "$RUNNER_TEMP/$f" > "$f"; done
           git config user.name "sonic-bot"; git config user.email "sonic@earlysignal.live"; git add -A && git commit -qm "gap tests $(date -u +%FT%TZ)" || true
           git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gap-tests-results:gap-tests-results
