@@ -386,3 +386,146 @@ def cal():
     np.savez_compressed("data/gap-tests/smudged-library.npz", **{f + "_Zs": np.array(lib[f]["Zs"], np.float16) for f in FAMS}, **{f + "_W": np.array(lib[f]["W"], np.float32) for f in FAMS})
     print("CAL " + json.dumps({k: v for k, v in res.items() if k != "gaps"}))
     for sc, d in res["gaps"].items(): print("CALGAP", sc, d["records"], {f: d[f] for f in FAMS if f in d})
+
+
+# ---------------------------------------------------------------- the fit test: do split records know what goes with what?
+# Step 1: predict a record's bass from its drums, melody (and vocals), artists held out whole; pick the true bass out of up
+# to 100 basses from the same scene within 4% in tempo, so neither scene nor tempo can give it away. Against chance, a
+# model trained on mismatched pairs (bass shuffled within scene), and the practice mixes, where parts were paired at random
+# and any success is separation leakage. Step 2: does a record's fit (its bass against what its other parts predict, out of
+# fold) say anything about whether it charted, or whether DJs played it, within its scene, beyond how typical the bass is?
+K51 = [i for i in range(53) if i not in (45, 52)]   # level and share of energy left out: shares sum to one across parts
+
+
+def _ridge(Xtr, Ytr, lam):
+    import numpy as np
+    return np.linalg.solve(Xtr.T @ Xtr + lam * np.eye(Xtr.shape[1], dtype=np.float32), Xtr.T @ Ytr)
+
+
+def _run(Xin, Y, folds, scene, tempo, nsc, lam=50.0, shuffle=False, seed=5):
+    """Out-of-fold ridge, then retrieval among same-scene, near-tempo basses in the test fold."""
+    import numpy as np
+    rng = np.random.default_rng(seed); N = len(Y); P = np.zeros_like(Y); top1 = top10 = cnt = 0; pct = []; chance = []
+    Ys = np.zeros_like(Y)
+    for k in range(5):
+        tr, te = folds != k, folds == k
+        mx, sx = Xin[tr].mean(0), Xin[tr].std(0) + 1e-6; my, sy = Y[tr].mean(0), Y[tr].std(0) + 1e-6
+        Xt = (Xin - mx) / sx; Yt = (Y - my) / sy; Ys[te] = Yt[te]
+        S1 = np.zeros((N, nsc), np.float32); S1[np.arange(N), scene] = 1.0
+        A = np.hstack([Xt, S1]).astype(np.float32); Ytr = Yt[tr].copy()
+        if shuffle:
+            idx = np.where(tr)[0]
+            for s in np.unique(scene[tr]):
+                g = idx[scene[idx] == s]; Ytr[np.isin(idx, g)] = Yt[rng.permutation(g)]
+        W = _ridge(A[tr], Ytr, lam); P[te] = A[te] @ W
+    Pn = P / (np.linalg.norm(P, axis=1, keepdims=True) + 1e-9); Yn = Ys / (np.linalg.norm(Ys, axis=1, keepdims=True) + 1e-9)
+    for k in range(5):
+        for s in np.unique(scene):
+            g = np.where((folds == k) & (scene == s))[0]
+            if len(g) < 20: continue
+            S = Pn[g] @ Yn[g].T
+            for a, i in enumerate(g):
+                c = np.where((np.abs(tempo[g] - tempo[i]) / max(tempo[i], 1) <= 0.04) & (g != i))[0]
+                if len(c) < 19: continue
+                if len(c) > 99: c = rng.choice(c, 99, replace=False)
+                r = 1 + int((S[a, c] > S[a, a]).sum()); n = len(c) + 1
+                top1 += r == 1; top10 += r <= 10; cnt += 1; pct.append((r - 1) / (n - 1)); chance.append(min(10, n) / n)
+    fitv = (Pn * Yn).sum(1)
+    return {"tested": cnt, "top1": round(top1 / max(1, cnt), 4), "top10": round(top10 / max(1, cnt), 4), "chance_top10": round(float(np.mean(chance)) if chance else 0, 4),
+            "median_rank_percentile": round(float(np.median(pct)) if pct else 0, 3)}, fitv, Ys
+
+
+def _auc(score, y):
+    import numpy as np
+    r = np.argsort(np.argsort(score)) + 1; p = y.sum(); n = len(y) - p
+    return (r[y == 1].sum() - p * (p + 1) / 2) / (p * n) if p and n else float("nan")
+
+
+def _within_scene_auc(score, y, scene, perm=0, seed=9):
+    import numpy as np
+    rng = np.random.default_rng(seed); ok = [s for s in np.unique(scene) if 10 <= y[scene == s].sum() <= (scene == s).sum() - 10]
+    def wauc(yy):
+        a = [(_auc(score[scene == s], yy[scene == s]), yy[scene == s].sum()) for s in ok]
+        return float(np.sum([x * w for x, w in a]) / np.sum([w for _, w in a])) if a else float("nan")
+    obs = wauc(y)
+    if not perm: return obs, None, len(ok)
+    null = []
+    for _ in range(perm):
+        yy = y.copy()
+        for s in ok: m = scene == s; yy[m] = rng.permutation(yy[m])
+        null.append(wauc(yy))
+    null = np.array(null); return obs, float((np.abs(null - 0.5) >= abs(obs - 0.5)).mean()), len(ok)
+
+
+@app.function(image=cpu_image, cpu=8.0, memory=32768, timeout=3600, volumes={"/embed": modal.Volume.from_name("sonic-embed")})
+def fit_records(meta, played, practice):
+    import numpy as np, zlib
+    R = np.load("/embed/record-parts.npz"); at = {t: i for i, t in enumerate(R["ids"].tolist())}
+    rows = [(at[m[0]], m) for m in meta if m[0] in at and float(R["tempo"][at[m[0]]]) > 0]
+    V = R["V"][[r for r, _ in rows]].astype(np.float32)[:, :, K51]
+    good = np.isfinite(V).all((1, 2)) & (np.abs(V).sum(2) > 0).all(1)
+    V = V[good]; rows = [x for x, g in zip(rows, good) if g]
+    ids = [m[0] for _, m in rows]; scene = np.array([m[1] for _, m in rows]); nsc = int(scene.max()) + 1
+    tempo = np.array([float(R["tempo"][r]) for r, _ in rows], np.float32)
+    folds = np.array([zlib.crc32((m[2] or m[0]).encode()) % 5 for _, m in rows]); charted = np.array([m[3] for _, m in rows], int)
+    pl = set(played); dj = np.array([1 if t in pl else 0 for t in ids], int)
+    D, B, M, Vo = V[:, 0], V[:, 1], V[:, 2], V[:, 3]
+    out = {"records": len(ids), "scenes": len(np.unique(scene)), "charted": int(charted.sum()), "dj_played": int(dj.sum())}
+    out["records_dm"], fit_dm, _ = _run(np.hstack([D, M]), B, folds, scene, tempo, nsc)
+    out["records_dmv"], fit_dmv, Ys = _run(np.hstack([D, M, Vo]), B, folds, scene, tempo, nsc)
+    out["records_shuffled_pairs"], _, _ = _run(np.hstack([D, M, Vo]), B, folds, scene, tempo, nsc, shuffle=True)
+    # the practice mixes: parts paired at random, so any success here is separation leakage
+    pr = [p for p in practice if p.get("drums") and p.get("bass") and p.get("melody")]
+    PD = np.array([np.array(p["drums"], np.float32)[K51] for p in pr]); PB = np.array([np.array(p["bass"], np.float32)[K51] for p in pr]); PM = np.array([np.array(p["melody"], np.float32)[K51] for p in pr])
+    pt = np.array([p["tempo"] for p in pr], np.float32); pf = np.array([p["grp"] % 5 for p in pr]); ps = np.zeros(len(pr), int)
+    out["practice_mixes"] = len(pr)
+    out["practice_dm_leakage"], _, _ = _run(np.hstack([PD, PM]), PB, pf, ps, pt, 1)
+    # step 2: fit against what people chose, within scene, beside how typical the bass is
+    typ = np.zeros(len(ids), np.float32)
+    for s in np.unique(scene):
+        m = scene == s; c = Ys[m].mean(0); c /= np.linalg.norm(c) + 1e-9; typ[m] = (Ys[m] / (np.linalg.norm(Ys[m], axis=1, keepdims=True) + 1e-9)) @ c
+    res = fit_dmv.copy()
+    for s in np.unique(scene):
+        m = scene == s
+        if m.sum() > 3: b = np.polyfit(typ[m], fit_dmv[m], 1); res[m] = fit_dmv[m] - np.polyval(b, typ[m])
+    st = {}
+    for name, y in (("charted", charted), ("dj_played", dj)):
+        st[name] = {}
+        for lab, sc in (("fit", fit_dmv), ("typicality", typ), ("fit_beyond_typicality", res)):
+            a, p, ns = _within_scene_auc(sc, y, scene, perm=400)
+            st[name][lab] = {"within_scene_auc": round(a, 4), "perm_p": round(p, 4) if p is not None else None, "scenes": ns}
+    out["fit_vs_choices"] = st
+    out["fit_median"] = round(float(np.median(fit_dmv)), 3)
+    return out
+
+
+@app.local_entrypoint()
+def fit():
+    import random, urllib.request, collections
+    LI = _index(); rng = random.Random(23)
+    meta_l = {f: [(i, m) for i, m in enumerate(LI[f]["meta"]) if m.get("tempo") and m.get("preview")] for f in FAMS}
+    mixes = []
+    for _ in range(1300):
+        i, m = rng.choice(meta_l["bass"]); T = float(m["tempo"]); parts = {"bass": (i, m["preview"])}
+        for f in ("drums", "melody") + (("vocals",) if rng.random() < 0.3 else ()):
+            c = [x for x in meta_l[f] if abs(float(x[1]["tempo"]) - T) / T <= 0.03]
+            if c: j, x = rng.choice(c); parts[f] = (j, x["preview"])
+        if "drums" in parts and "melody" in parts: mixes.append((parts, T, i))
+    R = list(mix_case.map([p for p, _, _ in mixes], return_exceptions=True))
+    practice = []
+    for (parts, T, gi), r in zip(mixes, R):
+        if isinstance(r, dict) and not r.get("error"):
+            practice.append({f: (r.get(f) or [None, None])[1] for f in FAMS} | {"tempo": T, "grp": gi})
+    I = json.loads(urllib.request.urlopen("https://raw.githubusercontent.com/benmcewensignal/signal-sonic-audio/main/out/index.json", timeout=120).read())
+    meta = [[t["track_id"], int(t["scene"]), ((t.get("artists") or [""])[0] or "").strip().lower(), 1 if t.get("chart_best") is not None else 0] for t in I["tracks"] if t.get("scene") is not None]
+    try:
+        S = json.loads(urllib.request.urlopen(urllib.request.Request("https://www.earlysignal.live/data/dj-sets.json", headers={"User-Agent": "sonic-tests"}), timeout=120).read())
+        played = set(S.get("next", {}).keys())
+        for k, v in S.get("next", {}).items(): played |= {x[0] for x in v}
+        for st in S.get("sets", []): played |= set(st[2])
+    except Exception as ex:
+        print("dj sets unavailable:", ex); played = set()
+    res = fit_records.remote(meta, sorted(played), practice)
+    res["practice_built"] = len(practice)
+    os.makedirs("data/gap-tests", exist_ok=True); json.dump(res, open("data/gap-tests/fit.json", "w"), indent=1)
+    print("FIT " + json.dumps(res))
