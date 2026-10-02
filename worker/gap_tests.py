@@ -1109,3 +1109,160 @@ def pilot():
     ids_ok = sorted(t for t in fps if all(fps[t].get(k) for k in ("drums", "bass", "other", "vocals")))
     np.savez_compressed("data/gap-tests/pilot-fingerprints.npz", ids=np.array(ids_ok), **{k: np.array([fps[t][k] for t in ids_ok], np.float16) for k in ("drums", "bass", "other", "vocals")})
     print("PILOT " + json.dumps(res))
+
+
+# ---------------------------------------------------------------- the listening check: live measure vs MERT plus live, on real records
+# The 300 pilot records (already fingerprinted) are matched to the loop library both ways, by the site's own rules (a
+# tempo that fits, a key that mixes for bass and melody, one loop per uploader, top three). Twenty parts where the two
+# disagree (twelve basslines, eight melodies) get clips: the record's own part, separated again, and each method's loops.
+def _mert24(y24, device, starts=None):
+    import torch, numpy as np
+    m, p = _mert(device); win = 10 * 24000; L = len(y24); vs = []
+    for a in (starts if starts is not None else [0]):
+        seg = y24[a:a + win]
+        if len(seg) < win // 2: continue
+        with torch.no_grad():
+            inp = {k: v.to(device) for k, v in p(seg, sampling_rate=24000, return_tensors="pt").items()}
+            hs = m(**inp, output_hidden_states=True).hidden_states
+        vs.append(torch.stack(hs).mean(dim=(0, 2))[0].float().cpu().numpy())
+    return np.mean(vs, axis=0).astype(float).tolist() if vs else None
+
+
+@app.function(image=embed_image, gpu="A10G", cpu=4.0, memory=16384, timeout=3600, volumes={"/cache": HF})
+def mert_loops_gpu(batch):
+    import tempfile, numpy as np, librosa
+    w = tempfile.mkdtemp(); out = []
+    for fam, i, url in batch:
+        try:
+            x = _load(url, f"l{i}", w); N = 10 * SR; x = np.tile(x, (int(math.ceil(N / len(x))), 1))[:N]
+            x = x * (10 ** (LEVEL[fam] / 20) / (float(np.sqrt(np.mean(x ** 2))) + 1e-9))
+            out.append([fam, i, _mert24(librosa.resample(x.mean(1).astype(np.float32), orig_sr=SR, target_sr=24000), "cuda")])
+        except Exception:
+            out.append([fam, i, None])
+    return out
+
+
+@app.function(image=embed_image, gpu="A10G", cpu=4.0, memory=16384, timeout=1800, retries=1, volumes={"/cache": HF})
+def mix_mert_gpu(parts):
+    import tempfile, numpy as np, soundfile as sf, librosa
+    from features import stems as S
+    w = tempfile.mkdtemp(); N = 16 * SR
+    try:
+        def tile(x): return np.tile(x, (int(math.ceil(N / len(x))), 1))[:N]
+        def rms(x, db): return x * (10 ** (db / 20) / (float(np.sqrt(np.mean(x ** 2))) + 1e-9))
+        X = {f: rms(tile(_load(u, f, w)), LEVEL[f]) for f, (i, u) in parts.items()}
+        mix = sum(X.values()); pk = float(np.abs(mix).max()); g = 0.89 / pk if pk > 0.89 else 1.0
+        st = S.separate(_wav(mix * g, os.path.join(w, "mix.wav")), os.path.join(w, "sep")); out = {}
+        for f, (i, u) in parts.items():
+            y, sr = sf.read(st[STEM[f]], always_2d=True)
+            out[f] = [i, _measure(st[STEM[f]]), _mert24(librosa.resample(y[:10 * sr].mean(1).astype(np.float32), orig_sr=sr, target_sr=24000), "cuda")]
+        return out
+    except Exception as ex:
+        return {"error": type(ex).__name__ + ": " + str(ex)[:160]}
+
+
+@app.function(image=cpu_image, memory=8192, timeout=600, volumes={"/embed": modal.Volume.from_name("sonic-embed")})
+def record_rows(ids):
+    import numpy as np
+    R = np.load("/embed/record-parts.npz"); at = {t: i for i, t in enumerate(R["ids"].tolist())}; K = R["key"] if "key" in R.files else None
+    return {t: {"V": R["V"][at[t]].astype(float).tolist(), "tempo": float(R["tempo"][at[t]]), "key": (str(K[at[t]]) if K is not None else "")} for t in ids if t in at}
+
+
+@app.function(image=embed_image, gpu="A10G", cpu=4.0, memory=16384, timeout=1800, volumes={"/cache": HF})
+def clip_record(url, stem):
+    import tempfile, subprocess, urllib.request, soundfile as sf, numpy as np
+    from features import stems as S
+    w = tempfile.mkdtemp(); src = os.path.join(w, "p.mp3"); urllib.request.urlretrieve(url, src)
+    wav = os.path.join(w, "p.wav"); subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-i", src, "-ac", "2", "-ar", str(SR), wav], check=True, timeout=120)
+    st = S.separate(wav, os.path.join(w, "sep")); y, sr = sf.read(st[stem], always_2d=True); y = y.mean(1)
+    a = max(0, len(y) // 2 - 6 * sr); seg = y[a:a + 12 * sr]; seg = seg / (np.abs(seg).max() + 1e-9) * 0.9
+    out = os.path.join(w, "c.wav"); sf.write(out, seg, sr); mp3 = os.path.join(w, "c.mp3")
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-i", out, "-ac", "1", "-b:a", "48k", mp3], check=True, timeout=60)
+    return open(mp3, "rb").read()
+
+
+@app.function(image=cpu_image, memory=4096, timeout=600)
+def clip_loop(url):
+    import tempfile, subprocess, numpy as np, soundfile as sf
+    w = tempfile.mkdtemp(); x = _load(url, "l", w); N = 8 * SR; x = np.tile(x, (int(math.ceil(N / len(x))), 1))[:N].mean(1); x = x / (np.abs(x).max() + 1e-9) * 0.9
+    out = os.path.join(w, "c.wav"); sf.write(out, x, SR); mp3 = os.path.join(w, "c.mp3")
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-i", out, "-ac", "1", "-b:a", "48k", mp3], check=True, timeout=60)
+    return open(mp3, "rb").read()
+
+
+@app.local_entrypoint()
+def check():
+    import random, zlib, collections, urllib.request, numpy as np
+    from worker.scene import _mixes
+    LI = _index(); rng = random.Random(83); ALPHA = {"bass": 0.5, "melody": 0.01}
+    PF = np.load(os.environ.get("PILOT", "/tmp/pilot-fingerprints.npz")); pids = PF["ids"].tolist()
+    P = json.loads(urllib.request.urlopen(urllib.request.Request("https://www.earlysignal.live/data/previews.json", headers={"User-Agent": "sonic-tests"}), timeout=120).read())["previews"]
+    meta = {f: [(i, m) for i, m in enumerate(LI[f]["meta"]) if m.get("tempo") and m.get("preview")] for f in ("bass", "melody", "drums")}
+    # 1. the loop library's clean fingerprints, and unmixed ones from practice mixes
+    jobs = [(f, i, m["preview"]) for f in ("bass", "melody") for i, m in meta[f]]
+    lib = {"bass": {}, "melody": {}}
+    for B in mert_loops_gpu.map([jobs[k:k + 60] for k in range(0, len(jobs), 60)], return_exceptions=True):
+        if isinstance(B, list):
+            for fam, i, v in B:
+                if v: lib[fam][i] = v
+    mixes = []
+    for i, m in [x for x in meta["bass"]] + rng.sample(meta["bass"], 560):
+        T = float(m["tempo"]); parts = {"bass": (i, m["preview"])}
+        for f in ("drums", "melody"):
+            c = [x for x in meta[f] if abs(float(x[1]["tempo"]) - T) / T <= 0.03]
+            if c: j, x = rng.choice(c); parts[f] = (j, x["preview"])
+        if len(parts) == 3: mixes.append(parts)
+    R = [r for r in mix_mert_gpu.map(mixes, return_exceptions=True) if isinstance(r, dict) and not r.get("error")]
+    # 2. the correction per family, learned on every loop: PCA on the clean library, then the Fisher re-weighting
+    corr = {}
+    for f in ("bass", "melody"):
+        n = len(LI[f]["meta"]); have = np.zeros(n, bool); have[list(lib[f])] = True
+        Ec = np.zeros((n, 768), np.float32)
+        for i, v in lib[f].items(): Ec[i] = v
+        mu = Ec[have].mean(0); U, Sv, Vt = np.linalg.svd(Ec[have] - mu, full_matrices=False); Pm = Vt[:128].T
+        obs, lab = [], []
+        for i in np.where(have)[0]: obs.append((Ec[i] - mu) @ Pm); lab.append(i)
+        for r in R:
+            if r.get(f) and r[f][2] and r[f][0] in lib[f]: obs.append((np.array(r[f][2]) - mu) @ Pm); lab.append(r[f][0])
+        W = _lda(obs, lab, ALPHA[f], 128); libm = ((Ec - mu) @ Pm) @ W; libm /= np.linalg.norm(libm, axis=1, keepdims=True) + 1e-9
+        corr[f] = (mu, Pm, W, libm, have)
+    # 3. the pilot records matched both ways, by the site's rules
+    rows = record_rows.remote(pids); PI = {"bass": (1, "bass"), "melody": (2, "other")}
+    def top3(f, score, tempo, key):
+        L = LI[f]; out, users = [], set()
+        for i in np.argsort(-score):
+            m_ = L["meta"][i]; lt = m_.get("tempo")
+            if not corr[f][4][i]: continue
+            if tempo and lt and not any(abs(lt * k - tempo) / tempo <= 0.08 for k in (1, 2, 0.5)): continue
+            if key and m_.get("key") and _mixes(key, m_["key"]) is False: continue
+            if m_.get("user") in users: continue
+            users.add(m_.get("user")); out.append(int(i))
+            if len(out) >= 3: break
+        return out
+    cands = {"bass": [], "melody": []}
+    for t in pids:
+        if t not in rows or t not in P: continue
+        row = rows[t]
+        for f in ("bass", "melody"):
+            L = LI[f]; vi, pk = PI[f]; z = _z(row["V"][vi], L); pl = z @ np.asarray(L["W"], np.float32); pl /= np.linalg.norm(pl) + 1e-9
+            live = np.asarray(L["Zp"], np.float32) @ pl
+            mu, Pm, W, libm, have = corr[f]; q = ((np.asarray(PF[pk][pids.index(t)], np.float32) - mu) @ Pm) @ W; q /= np.linalg.norm(q) + 1e-9
+            a, b = top3(f, live, row["tempo"], row["key"]), top3(f, libm @ q + live, row["tempo"], row["key"])
+            if len(a) == 3 and len(b) == 3: cands[f].append({"record": t, "part": f, "live": a, "mert": b, "overlap": len(set(a) & set(b))})
+    res = {"loops_fingerprinted": {f: len(lib[f]) for f in lib}, "practice_mixes": len(R),
+           "agreement": {f: {"records": len(c), "same_three": sum(1 for x in c if x["overlap"] == 3), "mean_overlap": round(float(np.mean([x["overlap"] for x in c])), 2) if c else None} for f, c in cands.items()}}
+    pick = {"bass": 12, "melody": 8}; items = []
+    for f in ("bass", "melody"):
+        diff = [x for x in cands[f] if x["overlap"] < 3]; rng.shuffle(diff); items += diff[:pick[f]]
+    os.makedirs("data/gap-tests/check", exist_ok=True)
+    recs = list(clip_record.starmap([(P[x["record"]], PI[x["part"]][1]) for x in items], return_exceptions=True))
+    loop_ids = sorted({(x["part"], i) for x in items for i in x["live"] + x["mert"]})
+    lclips = dict(zip(loop_ids, clip_loop.map([LI[f]["meta"][i]["preview"] for f, i in loop_ids], return_exceptions=True)))
+    for k, (x, rc) in enumerate(zip(items, recs)):
+        if isinstance(rc, (bytes, bytearray)): open(f"data/gap-tests/check/r{k:02d}.mp3", "wb").write(rc); x["clip"] = f"r{k:02d}.mp3"
+    for (f, i), c in lclips.items():
+        if isinstance(c, (bytes, bytearray)): open(f"data/gap-tests/check/{f}-{i}.mp3", "wb").write(c)
+    for x in items:
+        x["loops"] = {str(i): {k: LI[x["part"]]["meta"][i].get(k) for k in ("name", "user", "page", "license", "tempo", "key")} for i in set(x["live"] + x["mert"])}
+    res["items"] = items; json.dump(res, open("data/gap-tests/check.json", "w"), indent=1)
+    print("CHECK " + json.dumps({k: v for k, v in res.items() if k != "items"}) + f" items {len(items)}")
