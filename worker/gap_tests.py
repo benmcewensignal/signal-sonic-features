@@ -572,3 +572,98 @@ def loops():
         res["families"][f] = {k: summ(v) for k, v in rk.items()} | {"library": len(Zc), "smudged_entries": int(has.sum()), "typical_candidates_at_tempo": int(np.median(cands))}
     os.makedirs("data/gap-tests", exist_ok=True); json.dump(res, open("data/gap-tests/loops.json", "w"), indent=1)
     print("LOOPS " + json.dumps(res))
+
+
+# ---------------------------------------------------------------- a measure that sees through the smudge
+# New practice mixes keep every smudged reading per loop. Per family, a linear re-weighting of the measure (Fisher
+# discriminant: within-loop scatter, clean and smudged readings of one loop, against between-loop scatter) is learned on
+# four fifths of the loops and scored on the fifth it never saw: does a held-out loop's smudged reading find its own
+# original, at a tempo that fits? Against today's clean library and the smudged library now live.
+def _lda(obs, lab, alpha, k):
+    import numpy as np
+    X = np.asarray(obs, np.float64); y = np.asarray(lab); mu = X.mean(0); d = X.shape[1]
+    Sw = np.zeros((d, d)); Sb = np.zeros((d, d))
+    for c in np.unique(y):
+        Xc = X[y == c]; mc = Xc.mean(0); Sw += (Xc - mc).T @ (Xc - mc); Sb += len(Xc) * np.outer(mc - mu, mc - mu)
+    Sw += alpha * np.trace(Sw) / d * np.eye(d)
+    e, U = np.linalg.eigh(Sw); Wh = U @ np.diag(1 / np.sqrt(np.maximum(e, 1e-12))) @ U.T
+    e2, V2 = np.linalg.eigh(Wh @ Sb @ Wh); order = np.argsort(-e2)[:k]
+    return (Wh @ V2[:, order]).astype(np.float32)
+
+
+@app.local_entrypoint()
+def robust():
+    import random, zlib, collections, numpy as np
+    LI = _index(); rng = random.Random(41); SL = np.load(os.environ.get("SMUDGED", "/tmp/smudged-library.npz"))
+    meta = {f: [(i, m) for i, m in enumerate(LI[f]["meta"]) if m.get("tempo") and m.get("preview")] for f in FAMS}
+    anchors = [("drums", x) for x in meta["drums"]] + [("melody", x) for x in meta["melody"]] + [("vocals", x) for x in meta["vocals"]]
+    rng.shuffle(anchors); mixes = []
+    for fam, (i, m) in anchors:
+        T = float(m["tempo"]); parts = {fam: (i, m["preview"])}
+        for f in ("drums", "bass", "melody") + (("vocals",) if rng.random() < 0.3 else ()):
+            if f in parts: continue
+            c = [x for x in meta[f] if abs(float(x[1]["tempo"]) - T) / T <= 0.03]
+            if c: j, x = rng.choice(c); parts[f] = (j, x["preview"])
+        if len(parts) >= 3: mixes.append(parts)
+    print(f"practice mixes: {len(mixes)}")
+    R = [r for r in mix_case.map(mixes, return_exceptions=True) if isinstance(r, dict) and not r.get("error")]
+    sm = {f: [(r[f][0], r[f][1]) for r in R if f in r and r[f][1]] for f in FAMS}
+    os.makedirs("data/gap-tests", exist_ok=True)
+    np.savez_compressed("data/gap-tests/smudges.npz", **{f + "_idx": np.array([i for i, _ in sm[f]], np.int32) for f in FAMS}, **{f + "_v": np.array([v for _, v in sm[f]], np.float32) for f in FAMS})
+    res = {"mixes": len(mixes), "unmixed": len(R), "families": {}}; deploy = {}
+    for f in FAMS:
+        L = LI[f]; Zc = np.array(L["Z"], np.float32); Zc /= np.linalg.norm(Zc, axis=1, keepdims=True) + 1e-9
+        Zs = SL[f + "_Zs"].astype(np.float32); has = np.linalg.norm(Zs, axis=1) > 0.5; Zl = np.where(has[:, None], Zs, Zc)
+        lt = np.array([m.get("tempo") or 0 for m in L["meta"]], np.float32)
+        Q = [(i, _z(v, L)) for i, v in sm[f]]
+        fold = lambda i: zlib.crc32(f"{f}:{i}".encode()) % 5
+        def ranks(score_fn):
+            out = []
+            for i, z in Q:
+                ok = _fits(lt, float(L["meta"][i].get("tempo") or 0))
+                if not ok[i]: continue
+                s = score_fn(i, z); out.append(1 + int((s[ok] > s[i]).sum()))
+            return np.array(out)
+        def summ(a): return {"n": int(len(a)), "first": round(float((a == 1).mean()), 3), "top3": round(float((a <= 3).mean()), 3), "top10": round(float((a <= 10).mean()), 3), "median_rank": float(np.median(a))} if len(a) else {"n": 0}
+        fam = {"clean_library": summ(ranks(lambda i, z: Zc @ z)), "smudged_library_live": summ(ranks(lambda i, z: Zl @ z))}
+        best = None
+        for alpha in (0.03, 0.1, 0.3):
+            for k in (16, 32, 51):
+                W = {}
+                for q in range(5):   # one projection per fold, learned without that fold's loops
+                    obs, lab = [], []
+                    for i in range(len(Zc)):
+                        if fold(i) == q: continue
+                        obs.append(Zc[i]); lab.append(i)
+                        if has[i]: obs.append(Zs[i]); lab.append(i)
+                    for i, z in Q:
+                        if fold(i) != q: obs.append(z); lab.append(i)
+                    W[q] = _lda(obs, lab, alpha, k)
+                P = {q: None for q in range(5)}
+                def lib(q, which):
+                    key = (q, which)
+                    if key not in P or P.get(key) is None:
+                        Wq = W[q]; A = (Zc if which == "clean" else Zl) @ Wq
+                        if which == "both": A = Zc @ Wq + Zl @ Wq
+                        P[key] = A / (np.linalg.norm(A, axis=1, keepdims=True) + 1e-9)
+                    return P[key]
+                for which in ("clean", "smudged", "both"):
+                    def sf(i, z, which=which):
+                        q = fold(i); p = z @ W[q]; p /= np.linalg.norm(p) + 1e-9; return lib(q, which) @ p
+                    sres = summ(ranks(sf)); tag = f"lda_a{alpha}_k{k}_{which}"
+                    if best is None or sres["top3"] > best[1]["top3"]: best = (tag, sres, alpha, k, which)
+        fam["best_heldout"] = {"variant": best[0], **best[1]}
+        # the deployable projection: learned on every loop with the chosen settings
+        obs, lab = [], []
+        for i in range(len(Zc)):
+            obs.append(Zc[i]); lab.append(i)
+            if has[i]: obs.append(Zs[i]); lab.append(i)
+        for i, z in Q: obs.append(z); lab.append(i)
+        Wf = _lda(obs, lab, best[2], best[3])
+        A = (Zc @ Wf) if best[4] == "clean" else (Zl @ Wf) if best[4] == "smudged" else (Zc @ Wf + Zl @ Wf)
+        deploy[f + "_W"] = Wf; deploy[f + "_Zp"] = (A / (np.linalg.norm(A, axis=1, keepdims=True) + 1e-9)).astype(np.float16)
+        fam["smudges"] = len(Q); fam["loops_with_smudges"] = len(set(i for i, _ in Q)); fam["library"] = len(Zc)
+        res["families"][f] = fam
+    np.savez_compressed("data/gap-tests/robust-measure.npz", **deploy)
+    json.dump(res, open("data/gap-tests/robust.json", "w"), indent=1)
+    print("ROBUST " + json.dumps(res))
