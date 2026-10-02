@@ -1,0 +1,31 @@
+name: gap tests
+# Is the Catalogue gap the music or the pipeline, and can a generator fill it? (worker/gap_tests.py)
+on:
+  workflow_dispatch:
+    inputs:
+      which: { description: "sep, gen or both", default: "both" }
+permissions: { contents: write }
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q modal numpy
+      - name: run on Modal
+        env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: |
+          set -o pipefail; mkdir -p data/gap-tests
+          W="${{ inputs.which }}"
+          if [ "$W" = "sep" ] || [ "$W" = "both" ]; then modal run worker/gap_tests.py::sep 2>&1 | tee "$RUNNER_TEMP/sep.log" || true; fi
+          if [ "$W" = "gen" ] || [ "$W" = "both" ]; then modal run worker/gap_tests.py::gen 2>&1 | tee "$RUNNER_TEMP/gen.log" || true; fi
+      - name: keep the results on their own branch
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP" && mkdir -p res && cd res && git init -q && git checkout -q -b gap-tests-results
+          cp -r "$GITHUB_WORKSPACE/data/gap-tests/." . 2>/dev/null || true
+          for f in sep.log gen.log; do [ -f "$RUNNER_TEMP/$f" ] && tail -c 20000 "$RUNNER_TEMP/$f" > "$f"; done
+          git config user.name "sonic-bot"; git config user.email "sonic@earlysignal.live"; git add -A && git commit -qm "gap tests $(date -u +%FT%TZ)" || true
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gap-tests-results:gap-tests-results
