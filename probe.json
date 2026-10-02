@@ -1,0 +1,16 @@
+{
+ "window_records": 150,
+ "window_times": {
+  "download": 0.44,
+  "separate": 6.25,
+  "fingerprint": 0.71,
+  "total": 7.45,
+  "audio_seconds": 56.0
+ },
+ "mixes": 1498,
+ "mixes_done": 1498,
+ "loops": {
+  "bass": 938,
+  "melody": 1193
+ }
+}
