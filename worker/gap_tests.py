@@ -189,10 +189,16 @@ def sep():
 def gen():
     import numpy as np
     LI = _index(); L = LI["bass"]; Z = np.array(L["Z"], np.float32); lt = np.array([m.get("tempo") or 0 for m in L["meta"]], np.float32)
-    far = json.load(open("worker/catalogue_far.json"))["scenes"]["drum-and-bass"]["bass"]
-    V = record_vectors.remote(far); ids = [t for t in far if t in V]
-    target = {t: _z(V[t]["bass"], L) for t in ids}
-    base = {t: float((Z[_fits(lt, V[t]["tempo"])] @ target[t]).max()) if V[t]["tempo"] and _fits(lt, V[t]["tempo"]).any() else -1.0 for t in ids}
+    # the far set is recomputed from today's record vectors, the same rule as the gap report (best openly licensed bass
+    # loop at a workable tempo under 0.45; the key filter left out, as it narrows nothing in practice): the far file in
+    # worker/catalogue_far.json predates a remeasure, and nine in ten of its records are no longer far
+    stale = json.load(open("worker/catalogue_far.json"))["scenes"]["drum-and-bass"]["bass"]
+    pool = sorted(set(r[0] for r in json.load(open("data/scene-records-2026.json"))["scenes"]["drum-and-bass"]) | set(stale))
+    V = record_vectors.remote(pool); allids = [t for t in pool if t in V and V[t]["tempo"]]
+    zall = {t: _z(V[t]["bass"], L) for t in allids}
+    base_all = {t: float((Z[_fits(lt, V[t]["tempo"])] @ zall[t]).max()) if _fits(lt, V[t]["tempo"]).any() else -1.0 for t in allids}
+    ids = [t for t in allids if base_all[t] < 0.45]; target = {t: zall[t] for t in ids}; base = {t: base_all[t] for t in ids}
+    stale_now_far = sum(1 for t in stale if t in base_all and base_all[t] < 0.45)
     P = ["isolated reese bassline, drum and bass, 174 bpm, bright gritty mid-range bass, no drums, F minor",
          "neurofunk bass loop, 174 bpm, punchy distorted mid bass, solo bass, no drums",
          "liquid drum and bass bassline, 174 bpm, warm tonal melodic bass, solo bass, no drums",
@@ -224,7 +230,8 @@ def gen():
         zc = _z(r["clean"], L); s = [float(zc @ target[t]) for t in ids]
         per.setdefault(r["prompt"], []).append({"k": r["k"], "tempo": r["tempo"], "near": int(sum(1 for x in s if x >= 0.45)), "best": round(max(s), 3),
                                                 "centroid_hz": round(r["clean"][45 + SC.index("centroid_hz")], 1), "onsets_per_s": round(r["clean"][45 + SC.index("onsets_per_s")], 2)})
-    res = {"far_records": len(far), "with_vectors": len(ids), "clips": len(clips), "measured": len(M),
+    res = {"dnb_records_with_bass_vectors": len(allids), "far_now": len(ids), "far_share_now": round(len(ids) / max(1, len(allids)), 3),
+           "stale_far_file": len(stale), "stale_far_still_far": stale_now_far, "clips": len(clips), "measured": len(M),
            "clips_that_fit_174_bpm": sum(1 for r in M if r["tempo"] and _fits(np.array([r["tempo"]], np.float32), 174.0)[0]),
            "freesound_best": _q([base[t] for t in ids if base[t] > -0.5]), "freesound_no_loop_at_tempo": sum(1 for t in ids if base[t] < -0.5),
            "targeted_clean": {"no_longer_far": share(b_clean, 0.45), "close": share(b_clean, 0.7), "best": _q([v for v in b_clean.values() if v > -0.5]), "no_clip_at_tempo": nofit(b_clean)},
@@ -240,5 +247,7 @@ def gen():
         fn = f"clip{n + 1:02d}.mp3"; open(os.path.join("data/gap-tests/clips", fn), "wb").write(r["mp3"])
         res["kept_clips"].append({"file": fn, "prompt": r["prompt"], "tempo": r["tempo"], "control": r["prompt"] in CONTROL,
                                   "far_records_now_near": int(sum(1 for t in ids if float(_z(r["clean"], L) @ target[t]) >= 0.45))})
+    res["clip_vectors"] = [{"prompt": r["prompt"], "k": r["k"], "tempo": r["tempo"], "clean": r["clean"], "sep_bass": r.get("sep_bass")} for r in M]
+    res["far_records_detail"] = {t: {"tempo": V[t]["tempo"], "freesound_best": round(base[t], 3), "gen_clean": round(b_clean[t], 3), "gen_sep": round(b_sep[t], 3), "control": round(b_ctl[t], 3)} for t in ids}
     json.dump(res, open("data/gap-tests/generate.json", "w"), indent=1)
-    print("GEN " + json.dumps({k: v for k, v in res.items() if k != "per_prompt"}))
+    print("GEN " + json.dumps({k: v for k, v in res.items() if k not in ("per_prompt", "clip_vectors", "far_records_detail")}))
