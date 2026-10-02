@@ -865,3 +865,163 @@ def plays():
     os.makedirs("data/gap-tests", exist_ok=True); json.dump(res, open("data/gap-tests/plays.json", "w"), indent=1)
     np.savez_compressed("data/gap-tests/loop-plays.npz", **keep)
     print("PLAYS " + json.dumps(res))
+
+
+# ---------------------------------------------------------------- a richer measure: pretrained audio fingerprints
+# CLAP (laion/larger_clap_music) and MERT (m-a-p/MERT-v1-95M) fingerprint ten seconds of a part. Every library loop gets
+# a clean fingerprint; ~1,500 new practice mixes give unmixed ones (and the live 51-number reading of the same part). The
+# same test: does an unmixed part find its own original among loops at a tempo that fits? Raw fingerprints, fingerprints
+# with a smudge correction learned on other loops (its one setting chosen on a separate fifth), and fingerprints added to
+# the live measure, all beside the live measure on the same queries.
+embed_image = cpu_image.pip_install("transformers==4.46.3", "nnAudio==0.3.3", "huggingface_hub")
+_MODELS = {}
+
+
+def _models():
+    if _MODELS: return _MODELS
+    import torch
+    os.environ["HF_HOME"] = "/cache"; os.environ["HF_HUB_OFFLINE"] = "1"; torch.set_num_threads(4)
+    from transformers import ClapModel, ClapProcessor, AutoModel, Wav2Vec2FeatureExtractor
+    try: _MODELS["clap"] = (ClapModel.from_pretrained("laion/larger_clap_music", cache_dir="/cache").eval(), ClapProcessor.from_pretrained("laion/larger_clap_music", cache_dir="/cache"))
+    except Exception as ex: _MODELS["clap_error"] = repr(ex)[:300]
+    try: _MODELS["mert"] = (AutoModel.from_pretrained("m-a-p/MERT-v1-95M", trust_remote_code=True, cache_dir="/cache").eval(), Wav2Vec2FeatureExtractor.from_pretrained("m-a-p/MERT-v1-95M", trust_remote_code=True, cache_dir="/cache"))
+    except Exception as ex: _MODELS["mert_error"] = repr(ex)[:300]
+    return _MODELS
+
+
+def _fingerprint(x, sr=SR):
+    """x: mono, ten seconds at sr. Returns {model: vector}."""
+    import torch, librosa, numpy as np
+    M = _models(); out = {}
+    with torch.no_grad():
+        if "clap" in M:
+            m, p = M["clap"]; y = librosa.resample(np.asarray(x, np.float32), orig_sr=sr, target_sr=48000)
+            out["clap"] = m.get_audio_features(**p(audios=[y], sampling_rate=48000, return_tensors="pt"))[0].numpy().astype(float).tolist()
+        if "mert" in M:
+            m, p = M["mert"]; y = librosa.resample(np.asarray(x, np.float32), orig_sr=sr, target_sr=24000)
+            hs = m(**p(y, sampling_rate=24000, return_tensors="pt"), output_hidden_states=True).hidden_states
+            out["mert"] = torch.stack(hs).mean(dim=(0, 2))[0].numpy().astype(float).tolist()
+    return out
+
+
+@app.function(image=embed_image, cpu=4.0, memory=16384, timeout=1800, volumes={"/cache": HF})
+def prep_models():
+    import numpy as np
+    from huggingface_hub import snapshot_download
+    for r in ("laion/larger_clap_music", "m-a-p/MERT-v1-95M"): snapshot_download(r, cache_dir="/cache")
+    HF.commit()
+    fp = _fingerprint(np.random.default_rng(0).normal(0, 0.1, 10 * SR).astype(np.float32))
+    return {k: len(v) for k, v in fp.items()} | {k: v for k, v in _MODELS.items() if k.endswith("_error")}
+
+
+@app.function(image=embed_image, cpu=4.0, memory=16384, timeout=1800, volumes={"/cache": HF})
+def fingerprint_loops(batch):
+    import tempfile, numpy as np
+    w = tempfile.mkdtemp(); out = []
+    for fam, i, url in batch:
+        try:
+            x = _load(url, f"l{i}", w); N = 10 * SR; x = np.tile(x, (int(math.ceil(N / len(x))), 1))[:N]
+            x = x * (10 ** (LEVEL[fam] / 20) / (float(np.sqrt(np.mean(x ** 2))) + 1e-9))
+            out.append([fam, i, _fingerprint(x.mean(1))])
+        except Exception as ex:
+            out.append([fam, i, {"error": type(ex).__name__}])
+    return out
+
+
+@app.function(image=embed_image, cpu=4.0, memory=16384, timeout=1800, retries=1, volumes={"/cache": HF})
+def mix_fingerprint(parts):
+    import tempfile, numpy as np, soundfile as sf
+    from features import stems as S
+    w = tempfile.mkdtemp(); N = 16 * SR; T10 = 10 * SR
+    try:
+        def tile(x): return np.tile(x, (int(math.ceil(N / len(x))), 1))[:N]
+        def rms(x, db): return x * (10 ** (db / 20) / (float(np.sqrt(np.mean(x ** 2))) + 1e-9))
+        X = {f: rms(tile(_load(u, f, w)), LEVEL[f]) for f, (i, u) in parts.items()}
+        mix = sum(X.values()); pk = float(np.abs(mix).max()); g = 0.89 / pk if pk > 0.89 else 1.0
+        st = S.separate(_wav(mix * g, os.path.join(w, "mix.wav")), os.path.join(w, "sep")); out = {}
+        for f, (i, u) in parts.items():
+            y, _ = sf.read(st[STEM[f]], always_2d=True)
+            out[f] = [i, _measure(st[STEM[f]]), _fingerprint(y[:T10].mean(1))]
+        return out
+    except Exception as ex:
+        return {"error": type(ex).__name__ + ": " + str(ex)[:160]}
+
+
+@app.local_entrypoint()
+def embed():
+    import random, zlib, collections, numpy as np
+    st = prep_models.remote(); print("MODELS " + json.dumps(st))
+    models = [m for m in ("clap", "mert") if m in st]
+    if not models: raise SystemExit("no fingerprint model loaded")
+    LI = _index(); rng = random.Random(61)
+    meta = {f: [(i, m) for i, m in enumerate(LI[f]["meta"]) if m.get("tempo") and m.get("preview")] for f in FAMS}
+    jobs = [(f, i, m["preview"]) for f in FAMS for i, m in meta[f]]
+    batches = [jobs[k:k + 40] for k in range(0, len(jobs), 40)]
+    lib = {f: {} for f in FAMS}
+    for B in fingerprint_loops.map(batches, return_exceptions=True):
+        if isinstance(B, list):
+            for fam, i, fp in B:
+                if "error" not in fp: lib[fam][i] = fp
+    mixes = []
+    for i, m in [x for x in meta["bass"]] + rng.sample(meta["bass"], 560):
+        T = float(m["tempo"]); parts = {"bass": (i, m["preview"])}
+        for f in ("drums", "melody") + (("vocals",) if rng.random() < 0.4 else ()):
+            c = [x for x in meta[f] if abs(float(x[1]["tempo"]) - T) / T <= 0.03]
+            if c: j, x = rng.choice(c); parts[f] = (j, x["preview"])
+        if len(parts) >= 3: mixes.append(parts)
+    print(f"practice mixes: {len(mixes)}")
+    R = [r for r in mix_fingerprint.map(mixes, return_exceptions=True) if isinstance(r, dict) and not r.get("error")]
+    res = {"models": st, "loops_fingerprinted": {f: len(lib[f]) for f in FAMS}, "mixes": len(mixes), "unmixed": len(R), "families": {}}
+    for f in FAMS:
+        L = LI[f]; n = len(L["meta"]); lt = np.array([m.get("tempo") or 0 for m in L["meta"]], np.float32)
+        W_live, Zp_live = np.asarray(L["W"], np.float32), np.asarray(L["Zp"], np.float32)
+        Q = [(r[f][0], r[f][1], r[f][2]) for r in R if r.get(f) and r[f][1] and r[f][0] in lib[f]]
+        have = np.zeros(n, bool); have[list(lib[f])] = True
+        fold = np.array([zlib.crc32(f"{f}:{i}".encode()) % 5 for i in range(n)])
+        E = {}
+        for mname in models:
+            Ec = np.zeros((n, len(next(iter(lib[f].values()))[mname])), np.float32)
+            for i, fp in lib[f].items(): Ec[i] = fp[mname]
+            E[mname] = Ec
+        def ranks_of(score_fn, folds):
+            out = []
+            for k, (i, v, fp) in enumerate(Q):
+                if fold[i] not in folds: continue
+                ok = _fits(lt, float(L["meta"][i].get("tempo") or 0)) & have
+                if not ok[i]: continue
+                s = score_fn(k, i, v, fp); out.append(1 + int((s[ok] > s[i]).sum()))
+            r = np.array(out); return {"n": int(len(r)), "top1": round(float((r == 1).mean()), 3), "top3": round(float((r <= 3).mean()), 3), "top10": round(float((r <= 10).mean()), 3)} if len(r) else {"n": 0}
+        def live(k, i, v, fp):
+            z = _z(v, L); p = z @ W_live; p /= np.linalg.norm(p) + 1e-9; return Zp_live @ p
+        fam = {"queries": len(Q), "live_measure": ranks_of(live, {1, 2, 3, 4})}
+        for mname in models:
+            Ec = E[mname]; Ecn = Ec / (np.linalg.norm(Ec, axis=1, keepdims=True) + 1e-9)
+            fam[f"{mname}_raw"] = ranks_of(lambda k, i, v, fp, Ecn=Ecn, m=mname: Ecn @ (np.array(fp[m]) / (np.linalg.norm(fp[m]) + 1e-9)), {1, 2, 3, 4})
+            # correction: PCA on the clean library, then the Fisher re-weighting from training loops' clean and unmixed fingerprints
+            mu = Ec[have].mean(0); U, Sv, Vt = np.linalg.svd(Ec[have] - mu, full_matrices=False); P = Vt[:min(128, Vt.shape[0])].T
+            pc = (Ec - mu) @ P; pq = np.array([(np.array(fp[mname]) - mu) @ P for _, _, fp in Q], np.float32)
+            Ws = {}
+            def fitW(q, alpha):
+                key = (q, alpha)
+                if key not in Ws:
+                    obs, lab = [], []
+                    for i in np.where(have & (fold != q))[0]: obs.append(pc[i]); lab.append(i)
+                    for k, (i, _, _) in enumerate(Q):
+                        if fold[i] != q: obs.append(pq[k]); lab.append(i)
+                    Ws[key] = _lda(obs, lab, alpha, pc.shape[1])
+                return Ws[key]
+            LIBM = {}
+            def corr(alpha):
+                def sf(k, i, v, fp):
+                    q = fold[i]; Wq = fitW(q, alpha)
+                    if (q, alpha) not in LIBM:
+                        lm = pc @ Wq; LIBM[(q, alpha)] = lm / (np.linalg.norm(lm, axis=1, keepdims=True) + 1e-9)
+                    p = pq[k] @ Wq; p /= np.linalg.norm(p) + 1e-9; return LIBM[(q, alpha)] @ p
+                return sf
+            choice = {a: ranks_of(corr(a), {0})["top3"] for a in (0.01, 0.1, 0.5)}
+            a_best = max(choice, key=choice.get)
+            fam[f"{mname}_corrected"] = ranks_of(corr(a_best), {1, 2, 3, 4}) | {"alpha": a_best}
+            fam[f"{mname}_corrected_plus_live"] = ranks_of(lambda k, i, v, fp, sfc=corr(a_best): sfc(k, i, v, fp) + live(k, i, v, fp), {1, 2, 3, 4})
+        res["families"][f] = fam
+    os.makedirs("data/gap-tests", exist_ok=True); json.dump(res, open("data/gap-tests/embed.json", "w"), indent=1)
+    print("EMBED " + json.dumps(res))
