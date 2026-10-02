@@ -529,3 +529,46 @@ def fit():
     res["practice_built"] = len(practice)
     os.makedirs("data/gap-tests", exist_ok=True); json.dump(res, open("data/gap-tests/fit.json", "w"), indent=1)
     print("FIT " + json.dumps(res))
+
+
+# ---------------------------------------------------------------- the loop-suggestion test
+# Fresh practice mixes (new random pairings, not the ones the smudged library was built from) are unmixed; each loop's new
+# smudged measurement searches (a) the clean library the site uses today and (b) the smudged library, at a tempo that fits.
+# Does it find its own original? Scored on loops the smudged library covers, so both libraries are searched over the same
+# candidates; drums are only partly covered, so a mixed library (smudged where there is one, clean otherwise) is scored too.
+@app.local_entrypoint()
+def loops():
+    import random, numpy as np
+    LI = _index(); rng = random.Random(31)
+    SL = np.load(os.environ.get("SMUDGED", "/tmp/smudged-library.npz"))
+    meta = {f: [(i, m) for i, m in enumerate(LI[f]["meta"]) if m.get("tempo") and m.get("preview")] for f in FAMS}
+    mixes = []
+    for _ in range(900):
+        i, m = rng.choice(meta["bass"]); T = float(m["tempo"]); parts = {"bass": (i, m["preview"])}
+        for f in ("drums", "melody") + (("vocals",) if rng.random() < 0.4 else ()):
+            c = [x for x in meta[f] if abs(float(x[1]["tempo"]) - T) / T <= 0.03]
+            if c: j, x = rng.choice(c); parts[f] = (j, x["preview"])
+        if len(parts) >= 3: mixes.append(parts)
+    R = [r for r in mix_case.map(mixes, return_exceptions=True) if isinstance(r, dict) and not r.get("error")]
+    res = {"mixes": len(mixes), "unmixed": len(R), "families": {}}
+    for f in FAMS:
+        L = LI[f]; Zc = np.array(L["Z"], np.float32); Zc /= np.linalg.norm(Zc, axis=1, keepdims=True) + 1e-9
+        Zs = SL[f + "_Zs"].astype(np.float32); has = np.linalg.norm(Zs, axis=1) > 0.5
+        lt = np.array([m.get("tempo") or 0 for m in L["meta"]], np.float32)
+        Zmix = np.where(has[:, None], Zs, Zc)
+        rk = {"clean": [], "smudged": [], "mixed_all": [], "clean_all": []}
+        for r in R:
+            if f not in r or not r[f][1]: continue
+            i, v = r[f]; zq = _z(v, L); ok = _fits(lt, float(L["meta"][i].get("tempo") or 0))
+            if not ok[i]: continue
+            def rank(Z, mask): s = Z @ zq; return 1 + int((s[mask] > s[i]).sum())
+            rk["clean_all"].append(rank(Zc, ok)); rk["mixed_all"].append(rank(Zmix, ok))
+            if has[i]:
+                m2 = ok & has; rk["clean"].append(rank(Zc, m2)); rk["smudged"].append(rank(Zs, m2))
+        def summ(a):
+            a = np.array(a)
+            return {"n": int(len(a)), "first": round(float((a == 1).mean()), 3), "top3": round(float((a <= 3).mean()), 3), "top10": round(float((a <= 10).mean()), 3), "median_rank": float(np.median(a))} if len(a) else {"n": 0}
+        cands = [int(_fits(lt, float(m.get("tempo") or 0)).sum()) for m in L["meta"][:200]]
+        res["families"][f] = {k: summ(v) for k, v in rk.items()} | {"library": len(Zc), "smudged_entries": int(has.sum()), "typical_candidates_at_tempo": int(np.median(cands))}
+    os.makedirs("data/gap-tests", exist_ok=True); json.dump(res, open("data/gap-tests/loops.json", "w"), indent=1)
+    print("LOOPS " + json.dumps(res))
