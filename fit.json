@@ -1,0 +1,73 @@
+{
+ "records": 41689,
+ "scenes": 37,
+ "charted": 1527,
+ "dj_played": 8881,
+ "records_dm": {
+  "tested": 36059,
+  "top1": 0.0841,
+  "top10": 0.3589,
+  "chance_top10": 0.1289,
+  "median_rank_percentile": 0.222
+ },
+ "records_dmv": {
+  "tested": 36059,
+  "top1": 0.0983,
+  "top10": 0.3937,
+  "chance_top10": 0.1289,
+  "median_rank_percentile": 0.192
+ },
+ "records_shuffled_pairs": {
+  "tested": 36059,
+  "top1": 0.0137,
+  "top10": 0.1306,
+  "chance_top10": 0.1289,
+  "median_rank_percentile": 0.495
+ },
+ "practice_mixes": 1300,
+ "practice_dm_leakage": {
+  "tested": 1013,
+  "top1": 0.1046,
+  "top10": 0.4867,
+  "chance_top10": 0.2729,
+  "median_rank_percentile": 0.279
+ },
+ "fit_vs_choices": {
+  "charted": {
+   "fit": {
+    "within_scene_auc": 0.5178,
+    "perm_p": 0.01,
+    "scenes": 25
+   },
+   "typicality": {
+    "within_scene_auc": 0.5386,
+    "perm_p": 0.0,
+    "scenes": 25
+   },
+   "fit_beyond_typicality": {
+    "within_scene_auc": 0.499,
+    "perm_p": 0.8775,
+    "scenes": 25
+   }
+  },
+  "dj_played": {
+   "fit": {
+    "within_scene_auc": 0.4891,
+    "perm_p": 0.0175,
+    "scenes": 25
+   },
+   "typicality": {
+    "within_scene_auc": 0.5206,
+    "perm_p": 0.0,
+    "scenes": 25
+   },
+   "fit_beyond_typicality": {
+    "within_scene_auc": 0.4744,
+    "perm_p": 0.0,
+    "scenes": 25
+   }
+  }
+ },
+ "fit_median": 0.52,
+ "practice_built": 1300
+}
