@@ -1266,3 +1266,95 @@ def check():
         x["loops"] = {str(i): {k: LI[x["part"]]["meta"][i].get(k) for k in ("name", "user", "page", "license", "tempo", "key")} for i in set(x["live"] + x["mert"])}
     res["items"] = items; json.dump(res, open("data/gap-tests/check.json", "w"), indent=1)
     print("CHECK " + json.dumps({k: v for k, v in res.items() if k != "items"}) + f" items {len(items)}")
+
+
+# ---------------------------------------------------------------- two cheaper ways to the MERT result
+# (2) window check: separate only the four ten-second windows MERT listens to (two seconds of padding each side, joined into
+# one file), against the pilot's full separation. (4) mix probe: practice mixes fingerprinted whole, separated, and as clean
+# loops, so a probe from the whole-mix fingerprint to each part can be learned and tested. Raw fingerprints are saved.
+@app.function(image=embed_image, gpu="A10G", cpu=4.0, memory=16384, timeout=1800, retries=1, volumes={"/cache": HF})
+def mix_probe_gpu(parts):
+    import tempfile, numpy as np, soundfile as sf, librosa
+    from features import stems as S
+    w = tempfile.mkdtemp(); N = 16 * SR
+    try:
+        def tile(x): return np.tile(x, (int(math.ceil(N / len(x))), 1))[:N]
+        def rms(x, db): return x * (10 ** (db / 20) / (float(np.sqrt(np.mean(x ** 2))) + 1e-9))
+        X = {f: rms(tile(_load(u, f, w)), LEVEL[f]) for f, (i, u) in parts.items()}
+        mix = sum(X.values()); pk = float(np.abs(mix).max()); g = 0.89 / pk if pk > 0.89 else 1.0; mix = mix * g
+        out = {"mix": _mert24(librosa.resample(mix[:10 * SR].mean(1).astype(np.float32), orig_sr=SR, target_sr=24000), "cuda")}
+        st = S.separate(_wav(mix, os.path.join(w, "mix.wav")), os.path.join(w, "sep"))
+        for f, (i, u) in parts.items():
+            y, sr = sf.read(st[STEM[f]], always_2d=True)
+            out[f] = [i, _measure(st[STEM[f]]), _mert24(librosa.resample(y[:10 * sr].mean(1).astype(np.float32), orig_sr=sr, target_sr=24000), "cuda")]
+        return out
+    except Exception as ex:
+        return {"error": type(ex).__name__ + ": " + str(ex)[:160]}
+
+
+@app.function(image=embed_image, gpu="A10G", cpu=4.0, memory=16384, timeout=1800, volumes={"/cache": HF})
+def window_sep_gpu(rec):
+    import time, tempfile, subprocess, urllib.request, numpy as np, soundfile as sf, librosa
+    from features import stems as S
+    w = tempfile.mkdtemp(); t = {}
+    try:
+        _mert("cuda"); t0 = time.time()
+        src = os.path.join(w, "p.mp3"); urllib.request.urlretrieve(rec["url"], src)
+        wav = os.path.join(w, "p.wav"); subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-i", src, "-ac", "2", "-ar", str(SR), wav], check=True, timeout=120)
+        x, _ = sf.read(wav, always_2d=True); L = len(x); t["download"] = round(time.time() - t0, 2)
+        win, pad = 10 * SR, 2 * SR; segs, keep = [], []
+        for c in (0.2, 0.4, 0.6, 0.8):   # the pilot's windows, centred at a fifth, two fifths, three and four fifths of the record
+            a = max(0, min(L - win, int(L * c) - win // 2)); lo, hi = max(0, a - pad), min(L, a + win + pad)
+            keep.append((sum(len(s_) for s_ in segs) + (a - lo), win)); segs.append(x[lo:hi])
+        joined = os.path.join(w, "w.wav"); sf.write(joined, np.concatenate(segs), SR); t["audio_seconds"] = round(sum(len(s_) for s_ in segs) / SR, 1)
+        t1 = time.time(); st = S.separate(joined, os.path.join(w, "sep")); t["separate"] = round(time.time() - t1, 2); t2 = time.time()
+        fps = {}
+        for k in ("drums", "bass", "other", "vocals"):
+            y, sr = sf.read(st[k], always_2d=True); y = y.mean(1); vs = []
+            for off, n in keep:
+                seg = librosa.resample(y[off:off + n].astype(np.float32), orig_sr=sr, target_sr=24000)
+                v = _mert24(seg, "cuda");  vs.append(v) if v else None
+            fps[k] = np.mean(vs, axis=0).astype(float).tolist() if vs else None
+        t["fingerprint"] = round(time.time() - t2, 2); t["total"] = round(time.time() - t0, 2)
+        return {"id": rec["id"], "fp": fps, "times": t}
+    except Exception as ex:
+        return {"id": rec["id"], "error": type(ex).__name__ + ": " + str(ex)[:160]}
+
+
+@app.local_entrypoint()
+def probe():
+    import random, urllib.request, numpy as np
+    LI = _index(); rng = random.Random(97)
+    PF = np.load(os.environ.get("PILOT", "/tmp/pilot-fingerprints.npz")); pids = PF["ids"].tolist()
+    P = json.loads(urllib.request.urlopen(urllib.request.Request("https://www.earlysignal.live/data/previews.json", headers={"User-Agent": "sonic-tests"}), timeout=120).read())["previews"]
+    os.makedirs("data/gap-tests", exist_ok=True)
+    # (2) the window check, on 150 pilot records
+    recs = [{"id": t, "url": P[t]} for t in pids[:150] if t in P]
+    W = [r for r in window_sep_gpu.map(recs, return_exceptions=True) if isinstance(r, dict) and not r.get("error")]
+    json.dump(W, open("data/gap-tests/window-check.json", "w"))
+    # (4) the mix probe: the loop library's clean fingerprints, and practice mixes fingerprinted three ways
+    meta = {f: [(i, m) for i, m in enumerate(LI[f]["meta"]) if m.get("tempo") and m.get("preview")] for f in ("bass", "melody", "drums")}
+    jobs = [(f, i, m["preview"]) for f in ("bass", "melody") for i, m in meta[f]]
+    lib = {"bass": {}, "melody": {}}
+    for B in mert_loops_gpu.map([jobs[k:k + 60] for k in range(0, len(jobs), 60)], return_exceptions=True):
+        if isinstance(B, list):
+            for fam, i, v in B:
+                if v: lib[fam][i] = v
+    mixes = []
+    for i, m in [x for x in meta["bass"]] + rng.sample(meta["bass"], 560):
+        T = float(m["tempo"]); parts = {"bass": (i, m["preview"])}
+        for f in ("drums", "melody"):
+            c = [x for x in meta[f] if abs(float(x[1]["tempo"]) - T) / T <= 0.03]
+            if c: j, x = rng.choice(c); parts[f] = (j, x["preview"])
+        if len(parts) == 3: mixes.append(parts)
+    R = [r for r in mix_probe_gpu.map(mixes, return_exceptions=True) if isinstance(r, dict) and not r.get("error") and r.get("mix")]
+    save = {}
+    for f in ("bass", "melody"):
+        ids = sorted(lib[f]); save[f + "_lib_idx"] = np.array(ids, np.int32); save[f + "_lib"] = np.array([lib[f][i] for i in ids], np.float16)
+        rows = [r for r in R if r.get(f) and r[f][1] and r[f][2]]
+        save[f + "_mix_idx"] = np.array([r[f][0] for r in rows], np.int32); save[f + "_mix"] = np.array([r["mix"] for r in rows], np.float16)
+        save[f + "_sep"] = np.array([r[f][2] for r in rows], np.float16); save[f + "_v53"] = np.array([r[f][1] for r in rows], np.float32)
+    np.savez_compressed("data/gap-tests/probe-data.npz", **save)
+    summ = {"window_records": len(W), "window_times": {k: round(float(np.median([r["times"][k] for r in W])), 2) for k in ("download", "separate", "fingerprint", "total", "audio_seconds")} if W else {},
+            "mixes": len(mixes), "mixes_done": len(R), "loops": {f: len(lib[f]) for f in lib}}
+    json.dump(summ, open("data/gap-tests/probe.json", "w"), indent=1); print("PROBE " + json.dumps(summ))
