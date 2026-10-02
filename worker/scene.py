@@ -255,9 +255,12 @@ def licensed_parts(stems, tempo=None, key=None, k=3):
         s = (stems or {}).get(p) or {}; e = s.get("embedding"); L = _LI.get(fam)
         if not L or not (isinstance(e, list) and len(e) == 45): continue
         v = np.array([float(x) for x in e] + [float(s.get(c)) if isinstance(s.get(c), (int, float)) else 0.0 for c in SC], float)[L["keep"]]
-        z = (v - L["mu"]) / L["sd"]; z = z / (np.linalg.norm(z) + 1e-9); sim = L.get("Zs", L["Z"]).astype(np.float32) @ z.astype(np.float32)   # separated parts search the smudged library (tools/add_smudged_library.py)
+        z = (v - L["mu"]) / L["sd"]; z = z / (np.linalg.norm(z) + 1e-9); sim = L.get("Zs", L["Z"]).astype(np.float32) @ z.astype(np.float32)   # the closeness shown: the plain measure, against the smudged library (tools/add_smudged_library.py)
+        rank_by = sim
+        if "W" in L and "Zp" in L:   # the order: the smudge-robust measure (tools/add_robust_measure.py)
+            pz = z.astype(np.float32) @ L["W"].astype(np.float32); pz /= np.linalg.norm(pz) + 1e-9; rank_by = L["Zp"].astype(np.float32) @ pz
         order, users = [], set()
-        for i in np.argsort(-sim):
+        for i in np.argsort(-rank_by):
             m_ = L["meta"][i]; lt = m_.get("tempo")
             if tempo and lt and not any(abs(lt * f - tempo) / tempo <= 0.08 for f in (1, 2, 0.5)): continue
             if fam in ("bass", "melody") and key and m_.get("key") and _mixes(key, m_["key"]) is False: continue
