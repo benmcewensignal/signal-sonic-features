@@ -14,7 +14,7 @@ import io, json, math, os, modal
 
 app = modal.App("sonic-gap-tests")
 cpu_image = (modal.Image.debian_slim(python_version="3.12").apt_install("ffmpeg", "libsndfile1")
-             .pip_install("numpy<2", "librosa==0.10.2", "soundfile", "demucs==4.0.1", "torch==2.3.1", "torchaudio==2.3.1", "scikit-learn==1.8.0", "requests")
+             .pip_install("numpy<2", "librosa==0.10.2", "soundfile", "demucs==4.0.1", "torch==2.3.1", "torchaudio==2.3.1", "essentia-tensorflow", "scikit-learn==1.8.0", "requests")
              .add_local_python_source("features", "worker"))
 gpu_image = (modal.Image.debian_slim(python_version="3.12").apt_install("ffmpeg")
              .pip_install("numpy<2", "torch==2.3.1", "transformers==4.46.3", "soundfile", "scipy", "sentencepiece"))
@@ -821,6 +821,8 @@ def plays():
     rng.shuffle(mixes); print(f"practice mixes: {len(mixes)}")
     R = [r for r in mix_plays.map(mixes, return_exceptions=True) if isinstance(r, dict) and not r.get("error")]
     res = {"mixes": len(mixes), "unmixed": len(R), "families": {}}; keep = {}
+    res["empty_readings"] = {f: {"unmixed": sum(1 for r in R if r.get(f) and not any(r[f][2])), "clean": sum(1 for r in R if r.get(f) and not any(r[f][3]))} for f in ("bass", "drums")}
+    print("EMPTY " + json.dumps(res["empty_readings"]))
     for f in ("bass", "drums"):
         L = LI[f]; Zc = np.array(L["Z"], np.float32); Zc /= np.linalg.norm(Zc, axis=1, keepdims=True) + 1e-9; n = len(Zc)
         lt = np.array([m.get("tempo") or 0 for m in L["meta"]], np.float32)
