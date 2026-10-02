@@ -1,0 +1,148 @@
+✓ Initialized. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-ufYCcR9b6RUxrRV6QT7Sjx
+✓ Created objects.
+├── ✓ Uploaded 
+│   /home/runner/work/signal-sonic-features/signal-sonic-features/worker/gap_tes
+│   ts.py
+├── ✓ Uploaded PythonPackage:features, PythonPackage:worker
+├── ✓ Created Function gen_batch.
+├── ✓ Created Function sep_case.
+├── ✓ Created Function gen_measure.
+└── ✓ Created Function record_vectors.
+/usr/local/lib/python3.12/site-packages/transformers/models/encodec/modeling_encodec.py:124: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
+  self.register_buffer("padding_total", torch.tensor(kernel_size - stride, dtype=torch.int64), persistent=False)
+Config of the text_encoder: <class 'transformers.models.t5.modeling_t5.T5EncoderModel'> is overwritten by shared text_encoder config: T5Config {
+  "_name_or_path": "t5-base",
+  "architectures": [
+    "T5ForConditionalGeneration"
+  ],
+  "classifier_dropout": 0.0,
+  "d_ff": 3072,
+  "d_kv": 64,
+  "d_model": 768,
+  "decoder_start_token_id": 0,
+  "dense_act_fn": "relu",
+  "dropout_rate": 0.1,
+  "eos_token_id": 1,
+  "feed_forward_proj": "relu",
+  "initializer_factor": 1.0,
+  "is_encoder_decoder": true,
+  "is_gated_act": false,
+  "layer_norm_epsilon": 1e-06,
+  "model_type": "t5",
+  "n_positions": 512,
+  "num_decoder_layers": 12,
+  "num_heads": 12,
+  "num_layers": 12,
+  "output_past": true,
+  "pad_token_id": 0,
+  "relative_attention_max_distance": 128,
+  "relative_attention_num_buckets": 32,
+  "task_specific_params": {
+    "summarization": {
+      "early_stopping": true,
+      "length_penalty": 2.0,
+      "max_length": 200,
+      "min_length": 30,
+      "no_repeat_ngram_size": 3,
+      "num_beams": 4,
+      "prefix": "summarize: "
+    },
+    "translation_en_to_de": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to German: "
+    },
+    "translation_en_to_fr": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to French: "
+    },
+    "translation_en_to_ro": {
+      "early_stopping": true,
+      "max_length": 300,
+      "num_beams": 4,
+      "prefix": "translate English to Romanian: "
+    }
+  },
+  "transformers_version": "4.46.3",
+  "use_cache": true,
+  "vocab_size": 32128
+}
+
+Config of the audio_encoder: <class 'transformers.models.encodec.modeling_encodec.EncodecModel'> is overwritten by shared audio_encoder config: EncodecConfig {
+  "_name_or_path": "facebook/encodec_32khz",
+  "architectures": [
+    "EncodecModel"
+  ],
+  "audio_channels": 1,
+  "chunk_length_s": null,
+  "codebook_dim": 128,
+  "codebook_size": 2048,
+  "compress": 2,
+  "dilation_growth_rate": 2,
+  "hidden_size": 128,
+  "kernel_size": 7,
+  "last_kernel_size": 7,
+  "model_type": "encodec",
+  "norm_type": "weight_norm",
+  "normalize": false,
+  "num_filters": 64,
+  "num_lstm_layers": 2,
+  "num_residual_layers": 1,
+  "overlap": null,
+  "pad_mode": "reflect",
+  "residual_kernel_size": 3,
+  "sampling_rate": 32000,
+  "target_bandwidths": [
+    2.2
+  ],
+  "torch_dtype": "float32",
+  "transformers_version": "4.46.3",
+  "trim_right_ratio": 1.0,
+  "upsampling_ratios": [
+    8,
+    5,
+    4,
+    4
+  ],
+  "use_causal_conv": false,
+  "use_conv_shortcut": false
+}
+
+Config of the decoder: <class 'transformers.models.musicgen.modeling_musicgen.MusicgenForCausalLM'> is overwritten by shared decoder config: MusicgenDecoderConfig {
+  "activation_dropout": 0.0,
+  "activation_function": "gelu",
+  "attention_dropout": 0.0,
+  "audio_channels": 1,
+  "bos_token_id": 2048,
+  "classifier_dropout": 0.0,
+  "dropout": 0.1,
+  "ffn_dim": 6144,
+  "hidden_size": 1536,
+  "initializer_factor": 0.02,
+  "layerdrop": 0.0,
+  "max_position_embeddings": 2048,
+  "model_type": "musicgen_decoder",
+  "num_attention_heads": 24,
+  "num_codebooks": 4,
+  "num_hidden_layers": 48,
+  "pad_token_id": 2048,
+  "scale_embedding": false,
+  "tie_word_embeddings": false,
+  "transformers_version": "4.46.3",
+  "use_cache": true,
+  "vocab_size": 2048
+}
+
+`torch.nn.functional.scaled_dot_product_attention` does not support having an empty attention mask. Falling back to the manual attention implementation. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.Note that this probably happens because `guidance_scale>1` or because you used `get_unconditional_inputs`. See https://github.com/huggingface/transformers/issues/31189 for more information.
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+GEN {"dnb_records_with_bass_vectors": 1311, "far_now": 32, "far_share_now": 0.024, "stale_far_file": 297, "stale_far_still_far": 32, "clips": 32, "measured": 32, "clips_that_fit_174_bpm": 23, "freesound_best": {"n": 32, "median": 0.418, "p10": 0.336, "p90": 0.443, "under_0.45": 1.0, "at_least_0.7": 0.0}, "freesound_no_loop_at_tempo": 0, "targeted_clean": {"no_longer_far": 0.062, "close": 0.0, "best": {"n": 24, "median": 0.333, "p10": 0.061, "p90": 0.434, "under_0.45": 0.917, "at_least_0.7": 0.0}, "no_clip_at_tempo": 8}, "targeted_separated": {"no_longer_far": 0.25, "close": 0.0, "best": {"n": 23, "median": 0.379, "p10": 0.126, "p90": 0.594, "under_0.45": 0.652, "at_least_0.7": 0.0}}, "control_clean": {"no_longer_far": 0.0, "close": 0.0, "best": {"n": 22, "median": 0.115, "p10": -0.068, "p90": 0.361, "under_0.45": 1.0, "at_least_0.7": 0.0}}, "far_median_plain": {"centroid_hz": 1664.5, "onsets_per_s": 2.61}, "kept_clips": [{"file": "clip01.mp3", "prompt": "isolated reese bassline, drum and bass, 174 bpm, bright gritty mid-range bass, no drums, F minor", "tempo": 83.4, "control": false, "far_records_now_near": 2}, {"file": "clip02.mp3", "prompt": "isolated reese bassline, drum and bass, 174 bpm, bright gritty mid-range bass, no drums, F minor", "tempo": 172.3, "control": false, "far_records_now_near": 1}, {"file": "clip03.mp3", "prompt": "rolling drum and bass sub bass with a growl on top, 174 bpm, isolated bass, no drums", "tempo": 112.3, "control": false, "far_records_now_near": 1}, {"file": "clip04.mp3", "prompt": "drum and bass bass stab riff, 174 bpm, bright tonal bass, no drums", "tempo": 161.5, "control": false, "far_records_now_near": 1}, {"file": "clip05.mp3", "prompt": "drum and bass bass stab riff, 174 bpm, bright tonal bass, no drums", "tempo": 161.5, "control": false, "far_records_now_near": 1}, {"file": "clip06.mp3", "prompt": "bass loop, 174 bpm", "tempo": 89.1, "control": true, "far_records_now_near": 1}, {"file": "clip07.mp3", "prompt": "bass loop, 174 bpm", "tempo": 161.5, "control": true, "far_records_now_near": 0}, {"file": "clip08.mp3", "prompt": "bass loop, 174 bpm", "tempo": 89.1, "control": true, "far_records_now_near": 0}]}
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-ufYCcR9b6RUxrRV6QT7Sjx
