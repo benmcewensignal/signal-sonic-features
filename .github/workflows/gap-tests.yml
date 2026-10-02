@@ -3,12 +3,12 @@ name: gap tests
 on:
   workflow_dispatch:
     inputs:
-      which: { description: "sep, gen, both, cal, fit or loops", default: "both" }
+      which: { description: "sep, gen, both, cal, fit, loops or robust", default: "both" }
 permissions: { contents: write }
 jobs:
   run:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 170
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -27,11 +27,15 @@ jobs:
             git fetch -q origin gap-tests-results && git show FETCH_HEAD:smudged-library.npz > /tmp/smudged-library.npz
             SMUDGED=/tmp/smudged-library.npz modal run worker/gap_tests.py::loops 2>&1 | tee "$RUNNER_TEMP/loops.log" || true
           fi
+          if [ "$W" = "robust" ]; then
+            git fetch -q origin gap-tests-results && git show FETCH_HEAD:smudged-library.npz > /tmp/smudged-library.npz
+            SMUDGED=/tmp/smudged-library.npz modal run worker/gap_tests.py::robust 2>&1 | tee "$RUNNER_TEMP/robust.log" || true
+          fi
       - name: keep the results on their own branch
         if: always()
         run: |
           cd "$RUNNER_TEMP" && git clone -q --depth 1 -b gap-tests-results "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" res 2>/dev/null || (mkdir -p res && cd res && git init -q && git checkout -q -b gap-tests-results); cd res
           cp -r "$GITHUB_WORKSPACE/data/gap-tests/." . 2>/dev/null || true
-          for f in sep.log gen.log cal.log fit.log loops.log; do [ -f "$RUNNER_TEMP/$f" ] && tail -c 20000 "$RUNNER_TEMP/$f" > "$f"; done
+          for f in sep.log gen.log cal.log fit.log loops.log robust.log; do [ -f "$RUNNER_TEMP/$f" ] && tail -c 20000 "$RUNNER_TEMP/$f" > "$f"; done
           git config user.name "sonic-bot"; git config user.email "sonic@earlysignal.live"; git add -A && git commit -qm "gap tests $(date -u +%FT%TZ)" || true
           git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gap-tests-results:gap-tests-results
