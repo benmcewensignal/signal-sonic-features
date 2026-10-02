@@ -1,0 +1,153 @@
+✓ Initialized. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-jORaNqJcqv1AYzzYeY8F9U
+✓ Created objects.
+├── ✓ Uploaded 
+│   /home/runner/work/signal-sonic-features/signal-sonic-features/worker/gap_tes
+│   ts.py
+├── ✓ Uploaded PythonPackage:features, PythonPackage:worker
+├── ✓ Created Function sep_case.
+├── ✓ Created Function gen_measure.
+├── ✓ Created Function record_vectors.
+├── ✓ Created Function mix_case.
+├── ✓ Created Function cal_gaps.
+└── ✓ Created Function gen_batch.
+practice mixes: 3224
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+Runner failed with exception: Worker disappeared, in-progress inputs will be re-scheduled.
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+CAL {"mixes": 3224, "separated": 3224, "errors": {}, "families": {"drums": {"loops_smudged": 1937, "of": 2968, "smudges": 3224, "smudged_vs_own_clean": {"n": 3224, "median": 0.673, "p10": 0.136, "p90": 0.938, "under_0.45": 0.304, "at_least_0.7": 0.471}, "two_smudges_of_one_loop": {"n": 859, "median": 0.826, "p10": 0.348, "p90": 0.965, "under_0.45": 0.143, "at_least_0.7": 0.673}, "corrected_vs_own_clean_heldout": {"n": 3224, "median": 0.757, "p10": 0.369, "p90": 0.921, "under_0.45": 0.146, "at_least_0.7": 0.606}, "ridge_lambda": 1.0, "finds_own_loop_first": {"smudged": 0.243, "corrected": 0.177}}, "bass": {"loops_smudged": 938, "of": 938, "smudges": 3224, "smudged_vs_own_clean": {"n": 3224, "median": 0.461, "p10": -0.034, "p90": 0.813, "under_0.45": 0.489, "at_least_0.7": 0.237}, "two_smudges_of_one_loop": {"n": 816, "median": 0.648, "p10": -0.022, "p90": 0.912, "under_0.45": 0.335, "at_least_0.7": 0.44}, "corrected_vs_own_clean_heldout": {"n": 3224, "median": 0.706, "p10": 0.364, "p90": 0.883, "under_0.45": 0.149, "at_least_0.7": 0.512}, "ridge_lambda": 0.3, "finds_own_loop_first": {"smudged": 0.067, "corrected": 0.029}}, "melody": {"loops_smudged": 1186, "of": 1193, "smudges": 3224, "smudged_vs_own_clean": {"n": 3224, "median": 0.602, "p10": -0.011, "p90": 0.887, "under_0.45": 0.354, "at_least_0.7": 0.383}, "two_smudges_of_one_loop": {"n": 879, "median": 0.603, "p10": -0.038, "p90": 0.884, "under_0.45": 0.353, "at_least_0.7": 0.379}, "corrected_vs_own_clean_heldout": {"n": 3224, "median": 0.693, "p10": 0.215, "p90": 0.897, "under_0.45": 0.233, "at_least_0.7": 0.485}, "ridge_lambda": 0.3, "finds_own_loop_first": {"smudged": 0.163, "corrected": 0.128}}, "vocals": {"loops_smudged": 354, "of": 354, "smudges": 1182, "smudged_vs_own_clean": {"n": 1182, "median": 0.783, "p10": 0.137, "p90": 0.959, "under_0.45": 0.225, "at_least_0.7": 0.591}, "two_smudges_of_one_loop": {"n": 307, "median": 0.856, "p10": 0.222, "p90": 0.972, "under_0.45": 0.16, "at_least_0.7": 0.671}, "corrected_vs_own_clean_heldout": {"n": 1182, "median": 0.84, "p10": 0.413, "p90": 0.971, "under_0.45": 0.115, "at_least_0.7": 0.686}, "ridge_lambda": 1.0, "finds_own_loop_first": {"smudged": 0.326, "corrected": 0.241}}}, "dnb_bass": {"records": 1311, "far_today": 0.024, "far_A": 0.047, "far_B": 0.0, "median_best": [0.72, 0.77, 0.837]}}
+CALGAP drum-and-bass 1311 {'drums': {'today': 0.01, 'A': 0.015, 'B': 0.001}, 'bass': {'today': 0.024, 'A': 0.047, 'B': 0.0}, 'melody': {'today': 0.027, 'A': 0.015, 'B': 0.0}, 'vocals': {'today': 0.229, 'A': 0.21, 'B': 0.025}}
+CALGAP breaks-breakbeat-uk-bass 1326 {'drums': {'today': 0.008, 'A': 0.023, 'B': 0.001}, 'bass': {'today': 0.026, 'A': 0.044, 'B': 0.0}, 'melody': {'today': 0.014, 'A': 0.013, 'B': 0.001}, 'vocals': {'today': 0.225, 'A': 0.198, 'B': 0.008}}
+CALGAP techno-peak-time 1287 {'drums': {'today': 0.011, 'A': 0.032, 'B': 0.001}, 'bass': {'today': 0.034, 'A': 0.023, 'B': 0.0}, 'melody': {'today': 0.013, 'A': 0.008, 'B': 0.002}, 'vocals': {'today': 0.168, 'A': 0.117, 'B': 0.012}}
+CALGAP tech-house 1301 {'drums': {'today': 0.009, 'A': 0.061, 'B': 0.002}, 'bass': {'today': 0.035, 'A': 0.035, 'B': 0.0}, 'melody': {'today': 0.005, 'A': 0.008, 'B': 0.0}, 'vocals': {'today': 0.215, 'A': 0.137, 'B': 0.008}}
+CALGAP house 1307 {'drums': {'today': 0.01, 'A': 0.031, 'B': 0.001}, 'bass': {'today': 0.025, 'A': 0.028, 'B': 0.0}, 'melody': {'today': 0.007, 'A': 0.013, 'B': 0.0}, 'vocals': {'today': 0.14, 'A': 0.122, 'B': 0.01}}
+CALGAP deep-house 1319 {'drums': {'today': 0.015, 'A': 0.039, 'B': 0.001}, 'bass': {'today': 0.054, 'A': 0.047, 'B': 0.0}, 'melody': {'today': 0.004, 'A': 0.008, 'B': 0.0}, 'vocals': {'today': 0.18, 'A': 0.114, 'B': 0.008}}
+CALGAP melodic-house-techno 1347 {'drums': {'today': 0.013, 'A': 0.067, 'B': 0.001}, 'bass': {'today': 0.022, 'A': 0.03, 'B': 0.0}, 'melody': {'today': 0.001, 'A': 0.001, 'B': 0.0}, 'vocals': {'today': 0.213, 'A': 0.123, 'B': 0.007}}
+CALGAP afro-house 1271 {'drums': {'today': 0.013, 'A': 0.039, 'B': 0.0}, 'bass': {'today': 0.039, 'A': 0.036, 'B': 0.0}, 'melody': {'today': 0.005, 'A': 0.007, 'B': 0.0}, 'vocals': {'today': 0.136, 'A': 0.082, 'B': 0.003}}
+CALGAP progressive-house 1249 {'drums': {'today': 0.01, 'A': 0.042, 'B': 0.002}, 'bass': {'today': 0.034, 'A': 0.043, 'B': 0.001}, 'melody': {'today': 0.002, 'A': 0.006, 'B': 0.001}, 'vocals': {'today': 0.227, 'A': 0.099, 'B': 0.009}}
+CALGAP trance-main-floor 1243 {'drums': {'today': 0.015, 'A': 0.039, 'B': 0.0}, 'bass': {'today': 0.023, 'A': 0.033, 'B': 0.0}, 'melody': {'today': 0.013, 'A': 0.005, 'B': 0.0}, 'vocals': {'today': 0.211, 'A': 0.274, 'B': 0.031}}
+CALGAP techno-raw-deep-hypnotic 1283 {'drums': {'today': 0.007, 'A': 0.017, 'B': 0.0}, 'bass': {'today': 0.052, 'A': 0.013, 'B': 0.0}, 'melody': {'today': 0.012, 'A': 0.008, 'B': 0.0}, 'vocals': {'today': 0.178, 'A': 0.086, 'B': 0.005}}
+CALGAP indie-dance 1280 {'drums': {'today': 0.012, 'A': 0.051, 'B': 0.001}, 'bass': {'today': 0.028, 'A': 0.039, 'B': 0.0}, 'melody': {'today': 0.009, 'A': 0.007, 'B': 0.0}, 'vocals': {'today': 0.184, 'A': 0.113, 'B': 0.009}}
+CALGAP minimal-deep-tech 1189 {'drums': {'today': 0.009, 'A': 0.045, 'B': 0.001}, 'bass': {'today': 0.056, 'A': 0.033, 'B': 0.0}, 'melody': {'today': 0.004, 'A': 0.003, 'B': 0.0}, 'vocals': {'today': 0.203, 'A': 0.087, 'B': 0.006}}
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-jORaNqJcqv1AYzzYeY8F9U
