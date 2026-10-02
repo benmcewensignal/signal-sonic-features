@@ -1,0 +1,45 @@
+✓ Initialized. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-qPdAzGLCdLqjYglMPbNltR
+✓ Created objects.
+├── ✓ Uploaded 
+│   /home/runner/work/signal-sonic-features/signal-sonic-features/worker/gap_tes
+│   ts.py
+├── ✓ Uploaded PythonPackage:features, PythonPackage:worker
+├── ✓ Created Function gen_batch.
+├── ✓ Created Function sep_case.
+├── ✓ Created Function gen_measure.
+├── ✓ Created Function record_vectors.
+├── ✓ Created Function mix_case.
+├── ✓ Created Function cal_gaps.
+└── ✓ Created Function fit_records.
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+LOOPS {"mixes": 900, "unmixed": 900, "families": {"drums": {"clean": {"n": 620, "first": 0.323, "top3": 0.405, "top10": 0.495, "median_rank": 11.0}, "smudged": {"n": 620, "first": 0.447, "top3": 0.565, "top10": 0.681, "median_rank": 2.0}, "mixed_all": {"n": 900, "first": 0.384, "top3": 0.49, "top10": 0.596, "median_rank": 4.0}, "clean_all": {"n": 900, "first": 0.304, "top3": 0.391, "top10": 0.478, "median_rank": 13.0}, "library": 2968, "smudged_entries": 1937, "typical_candidates_at_tempo": 877}, "bass": {"clean": {"n": 900, "first": 0.1, "top3": 0.176, "top10": 0.291, "median_rank": 37.0}, "smudged": {"n": 900, "first": 0.229, "top3": 0.367, "top10": 0.492, "median_rank": 11.0}, "mixed_all": {"n": 900, "first": 0.229, "top3": 0.367, "top10": 0.492, "median_rank": 11.0}, "clean_all": {"n": 900, "first": 0.1, "top3": 0.176, "top10": 0.291, "median_rank": 37.0}, "library": 938, "smudged_entries": 938, "typical_candidates_at_tempo": 268}, "melody": {"clean": {"n": 900, "first": 0.194, "top3": 0.292, "top10": 0.404, "median_rank": 21.0}, "smudged": {"n": 900, "first": 0.216, "top3": 0.309, "top10": 0.428, "median_rank": 18.0}, "mixed_all": {"n": 900, "first": 0.216, "top3": 0.309, "top10": 0.428, "median_rank": 18.0}, "clean_all": {"n": 900, "first": 0.194, "top3": 0.292, "top10": 0.404, "median_rank": 21.0}, "library": 1193, "smudged_entries": 1186, "typical_candidates_at_tempo": 373}, "vocals": {"clean": {"n": 359, "first": 0.443, "top3": 0.546, "top10": 0.652, "median_rank": 2.0}, "smudged": {"n": 359, "first": 0.543, "top3": 0.674, "top10": 0.783, "median_rank": 1.0}, "mixed_all": {"n": 359, "first": 0.543, "top3": 0.674, "top10": 0.783, "median_rank": 1.0}, "clean_all": {"n": 359, "first": 0.443, "top3": 0.546, "top10": 0.652, "median_rank": 2.0}, "library": 354, "smudged_entries": 354, "typical_candidates_at_tempo": 89}}}
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-qPdAzGLCdLqjYglMPbNltR
