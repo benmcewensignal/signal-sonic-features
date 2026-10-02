@@ -873,7 +873,10 @@ def plays():
 # same test: does an unmixed part find its own original among loops at a tempo that fits? Raw fingerprints, fingerprints
 # with a smudge correction learned on other loops (its one setting chosen on a separate fifth), and fingerprints added to
 # the live measure, all beside the live measure on the same queries.
-embed_image = cpu_image.pip_install("transformers==4.46.3", "nnAudio==0.3.3", "huggingface_hub")
+embed_image = (modal.Image.debian_slim(python_version="3.12").apt_install("ffmpeg", "libsndfile1")
+               .pip_install("numpy<2", "librosa==0.10.2", "soundfile", "demucs==4.0.1", "torch==2.3.1", "torchaudio==2.3.1", "essentia-tensorflow",
+                            "scikit-learn==1.8.0", "requests", "transformers==4.46.3", "nnAudio==0.3.3", "huggingface_hub")
+               .add_local_python_source("features", "worker"))
 _MODELS = {}
 
 
