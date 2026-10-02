@@ -255,7 +255,7 @@ def licensed_parts(stems, tempo=None, key=None, k=3):
         s = (stems or {}).get(p) or {}; e = s.get("embedding"); L = _LI.get(fam)
         if not L or not (isinstance(e, list) and len(e) == 45): continue
         v = np.array([float(x) for x in e] + [float(s.get(c)) if isinstance(s.get(c), (int, float)) else 0.0 for c in SC], float)[L["keep"]]
-        z = (v - L["mu"]) / L["sd"]; z = z / (np.linalg.norm(z) + 1e-9); sim = L["Z"].astype(np.float32) @ z.astype(np.float32)
+        z = (v - L["mu"]) / L["sd"]; z = z / (np.linalg.norm(z) + 1e-9); sim = L.get("Zs", L["Z"]).astype(np.float32) @ z.astype(np.float32)   # separated parts search the smudged library (tools/add_smudged_library.py)
         order, users = [], set()
         for i in np.argsort(-sim):
             m_ = L["meta"][i]; lt = m_.get("tempo")
