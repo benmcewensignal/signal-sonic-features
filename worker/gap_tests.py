@@ -251,3 +251,138 @@ def gen():
     res["far_records_detail"] = {t: {"tempo": V[t]["tempo"], "freesound_best": round(base[t], 3), "gen_clean": round(b_clean[t], 3), "gen_sep": round(b_sep[t], 3), "control": round(b_ctl[t], 3)} for t in ids}
     json.dump(res, open("data/gap-tests/generate.json", "w"), indent=1)
     print("GEN " + json.dumps({k: v for k, v in res.items() if k not in ("per_prompt", "clip_vectors", "far_records_detail")}))
+
+
+# ---------------------------------------------------------------- the practice-mix calibration
+# Every library loop is mixed with other library loops at a matching tempo and unmixed with the records' own htdemucs,
+# so each loop has a clean measurement (its index entry) and one or more smudged ones. Two fair versions of the gap:
+#   A: record parts against the smudged library (both sides have been through the separator)
+#   B: a correction learned from the practice pairs (smudged -> clean), checked on loops it never saw, applied to the
+#      record parts, which are then compared with the clean library as today
+# Limits: practice mixes are three or four loops with no mastering; real records' smudge may differ.
+FAMS = ("drums", "bass", "melody", "vocals")
+STEM = {"drums": "drums", "bass": "bass", "melody": "other", "vocals": "vocals"}
+LEVEL = {"drums": -14.0, "bass": -16.0, "melody": -19.0, "vocals": -17.0}
+
+
+@app.function(image=cpu_image, cpu=4.0, memory=8192, timeout=900, retries=1)
+def mix_case(parts):
+    import tempfile, numpy as np
+    from features import stems as S
+    w = tempfile.mkdtemp(); N = 16 * SR
+    try:
+        def tile(x): return np.tile(x, (int(math.ceil(N / len(x))), 1))[:N]
+        def rms(x, db): return x * (10 ** (db / 20) / (float(np.sqrt(np.mean(x ** 2))) + 1e-9))
+        X = {f: rms(tile(_load(u, f, w)), LEVEL[f]) for f, (i, u) in parts.items()}
+        mix = sum(X.values()); pk = float(np.abs(mix).max()); g = 0.89 / pk if pk > 0.89 else 1.0
+        st = S.separate(_wav(mix * g, os.path.join(w, "mix.wav")), os.path.join(w, "sep"))
+        return {f: [i, _measure(st[STEM[f]])] for f, (i, u) in parts.items()}
+    except Exception as ex:
+        return {"error": type(ex).__name__ + ": " + str(ex)[:160]}
+
+
+@app.function(image=cpu_image, memory=16384, timeout=1800, volumes={"/embed": modal.Volume.from_name("sonic-embed")})
+def cal_gaps(lib, scenes):
+    """Far shares per scene and part: today's rule, A (smudged library) and B (corrected record parts)."""
+    import numpy as np
+    R = np.load("/embed/record-parts.npz"); at = {t: i for i, t in enumerate(R["ids"].tolist())}; V = R["V"].astype(np.float32); TEMPO = R["tempo"]
+    PI = {"drums": 0, "bass": 1, "melody": 2, "vocals": 3}; out = {}; dnb = {}
+    for sc, ids in scenes.items():
+        rows = [at[t] for t in ids if t in at]
+        if len(rows) < 15: continue
+        out[sc] = {"records": len(rows)}
+        for f in FAMS:
+            L = lib[f]; keep = np.array(L["keep"]); mu = np.array(L["mu"], np.float32); sd = np.array(L["sd"], np.float32)
+            Zc = np.array(L["Z"], np.float32); Zs = np.array(L["Zs"], np.float32); has = np.array(L["has"], bool); lt = np.array(L["tempo"], np.float32)
+            W = np.array(L["W"], np.float32)
+            far = {"today": 0, "A": 0, "B": 0}; n = 0
+            for i in rows:
+                T = float(TEMPO[i]) or 0
+                ok = np.zeros(len(lt), bool)
+                if T:
+                    for m in (1, 2, 0.5): ok |= (lt > 0) & (np.abs(lt * m - T) / T <= 0.08)
+                else: ok[:] = True
+                z = (V[i, PI[f]][keep] - mu) / sd; z /= np.linalg.norm(z) + 1e-9
+                zb = np.append(z, 1.0) @ W; zb /= np.linalg.norm(zb) + 1e-9
+                okA = ok & has
+                b0 = float((Zc[ok] @ z).max()) if ok.any() else -1.0
+                bA = float((Zs[okA] @ z).max()) if okA.any() else -1.0
+                bB = float((Zc[ok] @ zb).max()) if ok.any() else -1.0
+                far["today"] += b0 < 0.45; far["A"] += bA < 0.45; far["B"] += bB < 0.45; n += 1
+                if sc == "drum-and-bass" and f == "bass": dnb.setdefault("best", []).append([round(b0, 3), round(bA, 3), round(bB, 3)])
+            out[sc][f] = {k: round(v / max(1, n), 3) for k, v in far.items()}
+    return {"scenes": out, "dnb_bass_best": dnb.get("best", [])}
+
+
+@app.local_entrypoint()
+def cal():
+    import random, collections, numpy as np
+    LI = _index(); rng = random.Random(11)
+    meta = {f: [(i, m) for i, m in enumerate(LI[f]["meta"]) if m.get("tempo") and m.get("preview")] for f in FAMS}
+    anchors = [("bass", x) for x in meta["bass"]] + [("melody", x) for x in meta["melody"]] + [("vocals", x) for x in meta["vocals"]] + \
+              [("drums", x) for x in rng.sample(meta["drums"], min(500, len(meta["drums"])))] + [("bass", x) for x in rng.sample(meta["bass"], 250)]
+    rng.shuffle(anchors); mixes = []
+    for fam, (i, m) in anchors:
+        T = float(m["tempo"]); parts = {fam: (i, m["preview"])}
+        for f in ("drums", "bass", "melody") + (("vocals",) if rng.random() < 0.3 else ()):
+            if f in parts: continue
+            c = [x for x in meta[f] if abs(float(x[1]["tempo"]) - T) / T <= 0.03]
+            if c: j, x = rng.choice(c); parts[f] = (j, x["preview"])
+        if len(parts) >= 3: mixes.append(parts)
+    print(f"practice mixes: {len(mixes)}")
+    R = list(mix_case.map(mixes, return_exceptions=True))
+    good = [r for r in R if isinstance(r, dict) and not r.get("error")]
+    errs = collections.Counter((r.get("error") if isinstance(r, dict) else repr(r))[:60] for r in R if r not in good)
+    sm = {f: collections.defaultdict(list) for f in FAMS}
+    for r in good:
+        for f, (i, v) in r.items():
+            if v: sm[f][i].append(v)
+    res = {"mixes": len(mixes), "separated": len(good), "errors": dict(errs.most_common(3)), "families": {}}
+    lib = {}
+    for f in FAMS:
+        L = LI[f]; Zc = np.array(L["Z"], np.float32); Zc /= np.linalg.norm(Zc, axis=1, keepdims=True) + 1e-9
+        loops = sorted(sm[f]); zs = {i: [_z(v, L) for v in sm[f][i]] for i in loops}
+        # how consistent is the smudge, and how far does it move a loop from itself
+        self_raw = [float(z @ Zc[i]) for i in loops for z in zs[i]]
+        twice = [float(zs[i][0] @ zs[i][1]) for i in loops if len(zs[i]) >= 2]
+        # B: ridge from smudged to clean, five folds by loop
+        X = np.array([np.append(z, 1.0) for i in loops for z in zs[i]], np.float32); Y = np.array([Zc[i] for i in loops for z in zs[i]], np.float32)
+        grp = np.array([k % 5 for k, i in enumerate(loops) for z in zs[i]])
+        best = None
+        for lam in (0.3, 1.0, 3.0, 10.0):
+            cv = []
+            for k in range(5):
+                tr, te = grp != k, grp == k
+                W = np.linalg.solve(X[tr].T @ X[tr] + lam * np.eye(X.shape[1]), X[tr].T @ Y[tr])
+                P = X[te] @ W; P /= np.linalg.norm(P, axis=1, keepdims=True) + 1e-9
+                cv += list((P * Y[te]).sum(1))
+            if best is None or np.median(cv) > np.median(best[1]): best = (lam, cv)
+        lam, cvs = best
+        W = np.linalg.solve(X.T @ X + lam * np.eye(X.shape[1]), X.T @ Y)
+        # does a corrected part find its own loop first in the clean library? (held-out folds)
+        first_raw, first_cor = [], []
+        for k in range(5):
+            tr = grp != k; Wk = np.linalg.solve(X[tr].T @ X[tr] + lam * np.eye(X.shape[1]), X[tr].T @ Y[tr])
+            for kk, i in enumerate(loops):
+                if kk % 5 != k: continue
+                for z in zs[i]:
+                    first_raw.append(int(np.argmax(Zc @ z) == i)); c = np.append(z, 1.0) @ Wk; c /= np.linalg.norm(c) + 1e-9; first_cor.append(int(np.argmax(Zc @ c) == i))
+        res["families"][f] = {"loops_smudged": len(loops), "of": len(Zc), "smudges": len(self_raw),
+                              "smudged_vs_own_clean": _q(self_raw), "two_smudges_of_one_loop": _q(twice),
+                              "corrected_vs_own_clean_heldout": _q(cvs), "ridge_lambda": lam,
+                              "finds_own_loop_first": {"smudged": round(float(np.mean(first_raw)), 3), "corrected": round(float(np.mean(first_cor)), 3)}}
+        Zs = np.zeros_like(Zc); has = np.zeros(len(Zc), bool)
+        for i in loops:
+            m = np.mean(zs[i], axis=0); Zs[i] = m / (np.linalg.norm(m) + 1e-9); has[i] = True
+        lib[f] = {"keep": list(map(int, L["keep"])), "mu": [float(x) for x in L["mu"]], "sd": [float(x) for x in L["sd"]], "Z": Zc.tolist(), "Zs": Zs.tolist(),
+                  "has": has.tolist(), "tempo": [float(m.get("tempo") or 0) for m in L["meta"]], "W": W.tolist()}
+    scenes = {sc: [r[0] for r in rows] for sc, rows in json.load(open("data/scene-records-2026.json"))["scenes"].items()}
+    G = cal_gaps.remote(lib, scenes)
+    res["gaps"] = G["scenes"]
+    b = np.array(G["dnb_bass_best"]) if G["dnb_bass_best"] else np.zeros((0, 3))
+    if len(b): res["dnb_bass"] = {"records": len(b), "far_today": round(float((b[:, 0] < 0.45).mean()), 3), "far_A": round(float((b[:, 1] < 0.45).mean()), 3),
+                                  "far_B": round(float((b[:, 2] < 0.45).mean()), 3), "median_best": [round(float(np.median(b[:, k])), 3) for k in range(3)]}
+    os.makedirs("data/gap-tests", exist_ok=True); json.dump(res, open("data/gap-tests/calibration.json", "w"), indent=1)
+    np.savez_compressed("data/gap-tests/smudged-library.npz", **{f + "_Zs": np.array(lib[f]["Zs"], np.float16) for f in FAMS}, **{f + "_W": np.array(lib[f]["W"], np.float32) for f in FAMS})
+    print("CAL " + json.dumps({k: v for k, v in res.items() if k != "gaps"}))
+    for sc, d in res["gaps"].items(): print("CALGAP", sc, d["records"], {f: d[f] for f in FAMS if f in d})
