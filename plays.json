@@ -5,36 +5,46 @@
   "bass": {
    "smudges": 2814,
    "loops": 938,
-   "plays_agreement_clean_vs_unmixed": NaN,
+   "plays_agreement_clean_vs_unmixed": 0.937,
    "sound_only": {
     "n": 2814,
-    "top1": 0.489,
-    "top3": 0.618,
-    "top10": 0.721
+    "top1": 0.479,
+    "top3": 0.609,
+    "top10": 0.73
    },
    "sound_and_plays": {
     "n": 2814,
-    "top1": 0.489,
-    "top3": 0.618,
-    "top10": 0.721
+    "top1": 0.488,
+    "top3": 0.608,
+    "top10": 0.73
    }
   },
   "drums": {
    "smudges": 2814,
    "loops": 1714,
-   "plays_agreement_clean_vs_unmixed": NaN,
+   "plays_agreement_clean_vs_unmixed": 0.963,
    "sound_only": {
     "n": 2814,
-    "top1": 0.661,
-    "top3": 0.756,
-    "top10": 0.83
+    "top1": 0.655,
+    "top3": 0.757,
+    "top10": 0.831
    },
    "sound_and_plays": {
     "n": 2814,
-    "top1": 0.661,
-    "top3": 0.756,
-    "top10": 0.83
+    "top1": 0.666,
+    "top3": 0.765,
+    "top10": 0.843
    }
+  }
+ },
+ "empty_readings": {
+  "bass": {
+   "unmixed": 365,
+   "clean": 1034
+  },
+  "drums": {
+   "unmixed": 0,
+   "clean": 0
   }
  }
 }
