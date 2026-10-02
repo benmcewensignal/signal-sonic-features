@@ -1,23 +1,168 @@
-✓ Initialized. View run at 
-https://modal.com/apps/benmcewensignal/main/ap-YO5XgObXKTnhmbgOebzFAR
-Stopping app - uncaught exception raised locally: InvalidError('An image tried to run a build step after using `image.add_local_*` to include local files.\n\nRun `image.add_local_*` commands last in your image build to avoid rebuilding images with every local file change. Modal will then add these files to containers on startup instead, saving build time.\nIf you need to run other build steps after adding local files, set `copy=True` to copy the files directly into the image, at the expense of some added build time.\n\nExample:\n\nmy_image = (\n    Image.debian_slim()\n    .add_local_file("data.json", copy=True)\n    .run_commands("python -m mypak")  # this now works!\n)\n').
-╭─ Error ──────────────────────────────────────────────────────────────────────╮
-│ An image tried to run a build step after using `image.add_local_*` to        │
-│ include local files.                                                         │
-│                                                                              │
-│ Run `image.add_local_*` commands last in your image build to avoid           │
-│ rebuilding images with every local file change. Modal will then add these    │
-│ files to containers on startup instead, saving build time.                   │
-│ If you need to run other build steps after adding local files, set           │
-│ `copy=True` to copy the files directly into the image, at the expense of     │
-│ some added build time.                                                       │
-│                                                                              │
-│ Example:                                                                     │
-│                                                                              │
-│ my_image = (                                                                 │
-│     Image.debian_slim()                                                      │
-│     .add_local_file("data.json", copy=True)                                  │
-│     .run_commands("python -m mypak")  # this now works!                      │
-│ )                                                                            │
-│                                                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 176.2/176.2 MB 422.8 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/nvidia-nvtx-cu12/nvidia_nvtx_cu12-12.1.105-py3-none-manylinux1_x86_64.whl (99 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/huggingface-hub/huggingface_hub-0.36.2-py3-none-any.whl (566 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 566.4/566.4 kB 585.4 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/numpy/numpy-1.26.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (18.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18.0/18.0 MB 440.5 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/hf-xet/hf_xet-1.6.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (4.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.5/4.5 MB 496.3 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/tokenizers/tokenizers-0.20.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.0/3.0 MB 267.4 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/essentia-tensorflow/essentia_tensorflow-2.1b6.dev1389-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (291.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 291.5/291.5 MB 76.6 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/requests/requests-2.34.2-py3-none-any.whl (73 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/charset-normalizer/charset_normalizer-3.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (257 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/idna/idna-3.20-py3-none-any.whl (69 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/urllib3/urllib3-2.8.0-py3-none-any.whl (135 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/soundfile/soundfile-0.14.0-py2.py3-none-manylinux_2_28_x86_64.whl (1.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 502.9 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/audioread/audioread-3.1.0-py3-none-any.whl (23 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/certifi/certifi-2026.7.22-py3-none-any.whl (136 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/cffi/cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (221 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/decorator/decorator-5.3.1-py3-none-any.whl (10 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/fsspec/fsspec-2026.9.0-py3-none-any.whl (221 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/joblib/joblib-1.6.0-py3-none-any.whl (306 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/cloudpickle/cloudpickle-3.1.2-py3-none-any.whl (22 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/julius/julius-0.2.8-py3-none-any.whl (21 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/lameenc/lameenc-1.8.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_34_x86_64.whl (247 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/lazy-loader/lazy_loader-0.6-py3-none-any.whl (8.8 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/msgpack/msgpack-1.2.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (472 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/numba/numba-0.68.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (3.9 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.9/3.9 MB 496.7 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/llvmlite/llvmlite-0.50.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (59.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 59.7/59.7 MB 499.8 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/packaging/packaging-26.3-py3-none-any.whl (129 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/pooch/pooch-1.9.0-py3-none-any.whl (67 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/platformdirs/platformdirs-4.12.2-py3-none-any.whl (32 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/pyyaml/pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (807 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 807.9/807.9 kB 906.2 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/regex/regex-2026.9.29-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (807 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 807.8/807.8 kB 715.3 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/safetensors/safetensors-0.8.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (516 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/scipy/scipy-1.17.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (35.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 35.2/35.2 MB 252.4 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/soxr/soxr-1.1.0-cp312-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (240 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/threadpoolctl/threadpoolctl-3.7.0-py3-none-any.whl (26 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/tqdm/tqdm-4.70.1-py3-none-any.whl (80 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/typing-extensions/typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/dora-search/dora_search-0.1.13-py3-none-any.whl (73 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/einops/einops-0.8.2-py3-none-any.whl (65 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/filelock/filelock-4.0.9-py3-none-any.whl (110 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/jinja2/jinja2-3.1.6-py3-none-any.whl (134 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/markupsafe/markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (22 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/networkx/networkx-3.7-py3-none-any.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 425.0 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/nvidia-nvjitlink-cu12/nvidia_nvjitlink_cu12-12.9.86-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl (39.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 39.7/39.7 MB 439.5 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/omegaconf/omegaconf-2.3.1-py3-none-any.whl (79 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/openunmix/openunmix-1.3.0-py3-none-any.whl (40 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/pycparser/pycparser-3.0-py3-none-any.whl (48 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/retrying/retrying-1.4.2-py3-none-any.whl (10 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/six/six-1.17.0-py2.py3-none-any.whl (11 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/submitit/submitit-1.5.4-py3-none-any.whl (76 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/sympy/sympy-1.14.0-py3-none-any.whl (6.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.3/6.3 MB 447.0 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/mpmath/mpmath-1.3.0-py3-none-any.whl (536 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 536.2/536.2 kB 989.5 MB/s eta 0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/treetable/treetable-0.2.6-py3-none-any.whl (7.4 kB)
+Building wheels for collected packages: demucs, antlr4-python3-runtime
+  Building wheel for demucs (pyproject.toml): started
+  Building wheel for demucs (pyproject.toml): finished with status 'done'
+  Created wheel for demucs: filename=demucs-4.0.1-py3-none-any.whl size=78480 sha256=fff0f8a216f867d8d6251f803680adea2d6a560ac1bc1b76591c6b00f205e019
+  Stored in directory: /tmp/pip-ephem-wheel-cache-wtdxqiia/wheels/b5/de/4d/f7557cfa3953467d88fc76cbebb13bf3c3acac8fe6d0405c9b
+  Building wheel for antlr4-python3-runtime (pyproject.toml): started
+  Building wheel for antlr4-python3-runtime (pyproject.toml): finished with status 'done'
+  Created wheel for antlr4-python3-runtime: filename=antlr4_python3_runtime-4.9.3-py3-none-any.whl size=144590 sha256=60476089d820cba59f89ed303fa033650166f0e2e76e894cc3fc850b8d2f74e8
+  Stored in directory: /tmp/pip-ephem-wheel-cache-wtdxqiia/wheels/f5/0a/7f/5032ab4aec3323b89283901cb6fbbe44ac6cbfe79be6691d52
+Successfully built demucs antlr4-python3-runtime
+Installing collected packages: mpmath, antlr4-python3-runtime, urllib3, typing-extensions, treetable, tqdm, threadpoolctl, sympy, six, safetensors, retrying, regex, pyyaml, pycparser, platformdirs, packaging, nvidia-nvtx-cu12, nvidia-nvjitlink-cu12, nvidia-nccl-cu12, nvidia-curand-cu12, nvidia-cufft-cu12, nvidia-cuda-runtime-cu12, nvidia-cuda-nvrtc-cu12, nvidia-cuda-cupti-cu12, nvidia-cublas-cu12, numpy, networkx, msgpack, MarkupSafe, llvmlite, lameenc, idna, hf-xet, fsspec, filelock, einops, decorator, cloudpickle, charset_normalizer, certifi, audioread, submitit, soxr, scipy, requests, omegaconf, nvidia-cusparse-cu12, nvidia-cudnn-cu12, numba, lazy-loader, joblib, jinja2, essentia-tensorflow, cffi, soundfile, scikit-learn, pooch, nvidia-cusolver-cu12, huggingface_hub, torch, tokenizers, librosa, transformers, torchaudio, nnAudio, julius, dora-search, openunmix, demucs
+
+Successfully installed MarkupSafe-3.0.3 antlr4-python3-runtime-4.9.3 audioread-3.1.0 certifi-2026.7.22 cffi-2.1.1 charset_normalizer-3.5.2 cloudpickle-3.1.2 decorator-5.3.1 demucs-4.0.1 dora-search-0.1.13 einops-0.8.2 essentia-tensorflow-2.1b6.dev1389 filelock-4.0.9 fsspec-2026.9.0 hf-xet-1.6.0 huggingface_hub-0.36.2 idna-3.20 jinja2-3.1.6 joblib-1.6.0 julius-0.2.8 lameenc-1.8.4 lazy-loader-0.6 librosa-0.10.2 llvmlite-0.50.0 mpmath-1.3.0 msgpack-1.2.3 networkx-3.7 nnAudio-0.3.3 numba-0.68.0 numpy-1.26.4 nvidia-cublas-cu12-12.1.3.1 nvidia-cuda-cupti-cu12-12.1.105 nvidia-cuda-nvrtc-cu12-12.1.105 nvidia-cuda-runtime-cu12-12.1.105 nvidia-cudnn-cu12-8.9.2.26 nvidia-cufft-cu12-11.0.2.54 nvidia-curand-cu12-10.3.2.106 nvidia-cusolver-cu12-11.4.5.107 nvidia-cusparse-cu12-12.1.0.106 nvidia-nccl-cu12-2.20.5 nvidia-nvjitlink-cu12-12.9.86 nvidia-nvtx-cu12-12.1.105 omegaconf-2.3.1 openunmix-1.3.0 packaging-26.3 platformdirs-4.12.2 pooch-1.9.0 pycparser-3.0 pyyaml-6.0.3 regex-2026.9.29 requests-2.34.2 retrying-1.4.2 safetensors-0.8.0 scikit-learn-1.8.0 scipy-1.17.1 six-1.17.0 soundfile-0.14.0 soxr-1.1.0 submitit-1.5.4 sympy-1.14.0 threadpoolctl-3.7.0 tokenizers-0.20.3 torch-2.3.1 torchaudio-2.3.1 tqdm-4.70.1 transformers-4.46.3 treetable-0.2.6 typing-extensions-4.16.0 urllib3-2.8.0
+
+[notice] A new release of pip is available: 25.1.1 -> 26.2.1
+[notice] To update, run: pip install --upgrade pip
+Saving image...
+Image saved, took 2.52s
+
+Built image im-a64zFgSqhbQyc2DsSnU47L in 84.86s
+
+
+✓ Created objects.
+├── ✓ Uploaded 
+│   /home/runner/work/signal-sonic-features/signal-sonic-features/worker/gap_tes
+│   ts.py
+├── ✓ Uploaded PythonPackage:features, PythonPackage:worker
+├── ✓ Created Function gen_batch.
+├── ✓ Created Function sep_case.
+├── ✓ Created Function gen_measure.
+├── ✓ Created Function record_vectors.
+├── ✓ Created Function mix_case.
+├── ✓ Created Function cal_gaps.
+├── ✓ Created Function fit_records.
+├── ✓ Created Function nonlin_family.
+├── ✓ Created Function mix_plays.
+├── ✓ Created Function prep_models.
+├── ✓ Created Function fingerprint_loops.
+└── ✓ Created Function mix_fingerprint.
+
+[1AFetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+[1AFetching 10 files:  80%|████████  | 8/10 [00:00<00:00, 11.85it/s]
+[1AFetching 10 files: 100%|██████████| 10/10 [00:04<00:00,  2.14it/s]
+
+[1AFetching 8 files:   0%|          | 0/8 [00:00<?, ?it/s]
+[1AFetching 8 files:  12%|█▎        | 1/8 [00:00<00:01,  5.24it/s]
+[1AFetching 8 files:  38%|███▊      | 3/8 [00:00<00:00, 15.63it/s]
+[1AFetching 8 files:  38%|███▊      | 3/8 [00:00<00:00, 15.59it/s]
+[1AFetching 8 files:  75%|███████▌  | 6/8 [00:00<00:00, 18.05it/s]
+[1AFetching 8 files: 100%|██████████| 8/8 [00:06<00:00,  1.22it/s]
+MODELS {"clap": 512, "mert": 768}
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+practice mixes: 1498
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+/usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+  return pitch_tuning(
+EMBED {"models": {"clap": 512, "mert": 768}, "loops_fingerprinted": {"drums": 2968, "bass": 938, "melody": 1193, "vocals": 354}, "mixes": 1498, "unmixed": 1498, "families": {"drums": {"queries": 1498, "live_measure": {"n": 1235, "top1": 0.646, "top3": 0.731, "top10": 0.807}, "clap_raw": {"n": 1235, "top1": 0.097, "top3": 0.14, "top10": 0.202}, "clap_corrected": {"n": 1235, "top1": 0.628, "top3": 0.679, "top10": 0.75, "alpha": 0.01}, "clap_corrected_plus_live": {"n": 1235, "top1": 0.736, "top3": 0.795, "top10": 0.847}, "mert_raw": {"n": 1235, "top1": 0.499, "top3": 0.566, "top10": 0.626}, "mert_corrected": {"n": 1235, "top1": 0.709, "top3": 0.784, "top10": 0.841, "alpha": 0.01}, "mert_corrected_plus_live": {"n": 1235, "top1": 0.737, "top3": 0.806, "top10": 0.869}}, "bass": {"queries": 1498, "live_measure": {"n": 1218, "top1": 0.476, "top3": 0.614, "top10": 0.72}, "clap_raw": {"n": 1218, "top1": 0.035, "top3": 0.075, "top10": 0.144}, "clap_corrected": {"n": 1218, "top1": 0.369, "top3": 0.492, "top10": 0.648, "alpha": 0.01}, "clap_corrected_plus_live": {"n": 1218, "top1": 0.581, "top3": 0.69, "top10": 0.782}, "mert_raw": {"n": 1218, "top1": 0.397, "top3": 0.502, "top10": 0.621}, "mert_corrected": {"n": 1218, "top1": 0.599, "top3": 0.709, "top10": 0.793, "alpha": 0.5}, "mert_corrected_plus_live": {"n": 1218, "top1": 0.627, "top3": 0.741, "top10": 0.808}}, "melody": {"queries": 1498, "live_measure": {"n": 1179, "top1": 0.645, "top3": 0.751, "top10": 0.835}, "clap_raw": {"n": 1179, "top1": 0.142, "top3": 0.21, "top10": 0.315}, "clap_corrected": {"n": 1179, "top1": 0.696, "top3": 0.784, "top10": 0.858, "alpha": 0.01}, "clap_corrected_plus_live": {"n": 1179, "top1": 0.787, "top3": 0.851, "top10": 0.902}, "mert_raw": {"n": 1179, "top1": 0.611, "top3": 0.696, "top10": 0.762}, "mert_corrected": {"n": 1179, "top1": 0.788, "top3": 0.854, "top10": 0.898, "alpha": 0.01}, "mert_corrected_plus_live": {"n": 1179, "top1": 0.781, "top3": 0.862, "top10": 0.906}}, "vocals": {"queries": 567, "live_measure": {"n": 474, "top1": 0.812, "top3": 0.884, "top10": 0.941}, "clap_raw": {"n": 474, "top1": 0.291, "top3": 0.392, "top10": 0.525}, "clap_corrected": {"n": 474, "top1": 0.808, "top3": 0.857, "top10": 0.888, "alpha": 0.1}, "clap_corrected_plus_live": {"n": 474, "top1": 0.857, "top3": 0.907, "top10": 0.951}, "mert_raw": {"n": 474, "top1": 0.686, "top3": 0.768, "top10": 0.819}, "mert_corrected": {"n": 474, "top1": 0.842, "top3": 0.895, "top10": 0.939, "alpha": 0.01}, "mert_corrected_plus_live": {"n": 474, "top1": 0.876, "top3": 0.928, "top10": 0.96}}}}
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-SBUIOVmkF9YKo1HLxtysea
