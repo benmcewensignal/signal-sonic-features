@@ -24,5 +24,13 @@ for fam, st in S["families"].items():
     V = np.array([np.array(r["v"])[keep] for r in rows]); Z = (V - mu) / sd; Z /= np.linalg.norm(Z, axis=1, keepdims=True) + 1e-9
     meta = [{k: r.get(k) for k in ("id", "name", "user", "license", "preview", "tempo", "key", "page", "src")} | {"plain": {n: round(float(r["v"][45 + SC.index(n)]), 4) for n in ("crest", "centroid_hz", "flatness", "onsets_per_s")}} for r in rows]
     out[fam] = {"keep": keep, "mu": mu, "sd": sd, "Z": Z.astype(np.float16), "meta": meta}
+try:   # the smudged library (worker/gap_tests.py::cal), so separated parts search loops that went through the same separation
+    S_ = np.load("data/smudged-library.npz")
+    for f_, L_ in out.items():
+        Zs_ = S_[f_ + "_Zs"].astype(np.float32) if f_ + "_Zs" in S_ else None
+        if Zs_ is not None and Zs_.shape == L_["Z"].shape:
+            h_ = np.linalg.norm(Zs_, axis=1) > 0.5; L_["Zs"] = np.where(h_[:, None], Zs_, L_["Z"].astype(np.float32)).astype(np.float16)
+except FileNotFoundError:
+    pass
 pickle.dump(out, open("worker/loop_index.pkl", "wb"))
 print("loop library:", {f: len(v["meta"]) for f, v in out.items()})

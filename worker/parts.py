@@ -135,7 +135,7 @@ def ab_render(st, ab):
     L = LI[fam]; keep, mu, sd = L["keep"], np.asarray(L["mu"], float), np.asarray(L["sd"], float)
     v = np.asarray(ab.get("tc") or [], float)
     if v.shape[0] != 53: return {"error": "no target for that part"}
-    z = (v[keep] - mu) / sd; z /= np.linalg.norm(z) + 1e-9; sim = L["Z"].astype(np.float32) @ z.astype(np.float32)
+    z = (v[keep] - mu) / sd; z /= np.linalg.norm(z) + 1e-9; sim = L.get("Zs", L["Z"]).astype(np.float32) @ z.astype(np.float32)   # a separated part: the smudged library
     pick = None
     for j in np.argsort(-sim)[:400]:
         m_ = L["meta"][int(j)]; lt = float(m_.get("tempo") or 0)
