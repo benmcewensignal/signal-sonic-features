@@ -234,6 +234,78 @@ def bassline_of_stem(path, beats, rotation=0):
         return None
 
 
+def bassline_from(f0, on, env, sr, hop, beats, rotation=0):
+    """bassline_of_stem from stored workings (bass_f0, bass_onsets, bass_env, bass_sr, bass_hop, drums_beats), so the
+    reading can be redone without separating again. The same steps after the audio is read; pyin marks unvoiced frames
+    NaN in the pitch line, so voiced is read from it."""
+    try:
+        import numpy as np, librosa, collections
+        if beats is None or len(beats) < 17:
+            return None
+        f0 = np.asarray(f0, dtype=float); voiced = ~np.isnan(f0); env = np.asarray(env, dtype=float); on = np.asarray(on, dtype=float)
+        if not len(f0) or not len(env):
+            return None
+        grid = []
+        for a, b in zip(beats[:-1], beats[1:]):
+            for q in range(4):
+                grid.append(a + (b - a) * q / 4)
+        grid = np.array(grid)
+        if len(grid) < 32:
+            return None
+        stepw = float(np.median(np.diff(grid)))
+        # The tracker's grid sits a fraction of a step off where the bass notes actually start;
+        # the kick tolerates that because it takes the peak anywhere in a step, the bass does
+        # not. Shift the grid by the median distance from each strong onset to its nearest point.
+        strong = [t for t in on if env[min(len(env) - 1, int(t * sr / hop))] > 0.3 * env.max()]
+        if len(strong) >= 8:
+            offs = [t - grid[int(np.argmin(np.abs(grid - t)))] for t in strong]
+            grid = grid + float(np.median(offs))
+        on = strong if len(strong) >= 8 else on
+        steps = [None] * len(grid)
+        for t in on:
+            k = int(np.argmin(np.abs(grid - t)))
+            if abs(grid[k] - t) > stepw * 0.45:
+                continue
+            i0 = int((t + stepw * 0.10) * sr / hop); i1 = int((t + stepw * 0.60) * sr / hop)
+            if i1 > len(f0) or i1 <= i0:
+                continue
+            v = voiced[i0:i1]
+            if v.sum() < (i1 - i0) * 0.4:
+                continue
+            steps[k] = int(round(float(librosa.hz_to_midi(np.nanmedian(f0[i0:i1][v])))))
+        steps = steps[rotation:]
+        bars = len(steps) // 16
+        if bars < 2:
+            return None
+        per = [[] for _ in range(16)]
+        for i, m in enumerate(steps[:bars * 16]):
+            per[i % 16].append(m)
+        pat = []
+        for x in per:
+            c = collections.Counter(x).most_common(1)[0]
+            pat.append(c[0] if c[1] >= bars * 0.5 else None)
+        # bass_version 2: the notes, root, range and movement come from every pitched note the line plays. Version 1
+        # took them only from the one-bar pattern, which keeps a step's note only if the same pitch lands there in half
+        # the bars: a line that follows the chords passes on no step, so 78% of real records read as unpitched and most
+        # of the rest as a single note. The pattern is still read, for a line that does repeat bar to bar.
+        pitched = [m for m in steps[:bars * 16] if m is not None]
+        if len(pitched) < 8:
+            return {"bass_voiced": False, "bass_version": 2}
+        pcs_all = collections.Counter(m % 12 for m in pitched); tot = sum(pcs_all.values())
+        used = [pc for pc, k in pcs_all.items() if k >= 0.05 * tot]   # a stray misread pitch does not count as a note
+        lo, hi = np.percentile(pitched, [5, 95])
+        out = {"bass_voiced": True, "bass_version": 2, "bass_notes": len(used),
+               "bass_root": librosa.midi_to_note(pcs_all.most_common(1)[0][0] + 36, octave=False),
+               "bass_range": int(round(float(hi - lo))), "bass_notes_per_bar": round(len(pitched) / bars, 2),
+               "bass_moves_per_bar": round(sum(1 for a, b in zip(pitched, pitched[1:]) if a != b) / bars, 2)}
+        notes = [m for m in pat if m is not None]
+        if notes:
+            out["bass_pattern"] = " ".join(librosa.midi_to_note(m, octave=False) if m is not None else "." for m in pat)
+        return out
+
+    except Exception:
+        return None
+
 def kick_pattern_of_stem(path, beats):
     """The kick pattern, read off the drum part: which of sixteen steps in a bar carry a kick.
 
