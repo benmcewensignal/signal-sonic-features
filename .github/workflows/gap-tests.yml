@@ -3,7 +3,7 @@ name: gap tests
 on:
   workflow_dispatch:
     inputs:
-      which: { description: "sep, gen, both, cal, fit, loops, robust, nonlin, plays, embed or pilot", default: "both" }
+      which: { description: "sep, gen, both, cal, fit, loops, robust, nonlin, plays, embed, pilot or check", default: "both" }
 permissions: { contents: write }
 jobs:
   run:
@@ -31,6 +31,10 @@ jobs:
             git fetch -q origin gap-tests-results && git show FETCH_HEAD:smudged-library.npz > /tmp/smudged-library.npz
             SMUDGED=/tmp/smudged-library.npz modal run worker/gap_tests.py::robust 2>&1 | tee "$RUNNER_TEMP/robust.log" || true
           fi
+          if [ "$W" = "check" ]; then
+            git fetch -q origin gap-tests-results && git show FETCH_HEAD:pilot-fingerprints.npz > /tmp/pilot-fingerprints.npz
+            PILOT=/tmp/pilot-fingerprints.npz modal run worker/gap_tests.py::check 2>&1 | tee "$RUNNER_TEMP/check.log" || true
+          fi
           if [ "$W" = "pilot" ]; then modal run worker/gap_tests.py::pilot 2>&1 | tee "$RUNNER_TEMP/pilot.log" || true; fi
           if [ "$W" = "embed" ]; then modal run worker/gap_tests.py::embed 2>&1 | tee "$RUNNER_TEMP/embed.log" || true; fi
           if [ "$W" = "plays" ]; then modal run worker/gap_tests.py::plays 2>&1 | tee "$RUNNER_TEMP/plays.log" || true; fi
@@ -43,6 +47,6 @@ jobs:
         run: |
           cd "$RUNNER_TEMP" && git clone -q --depth 1 -b gap-tests-results "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" res 2>/dev/null || (mkdir -p res && cd res && git init -q && git checkout -q -b gap-tests-results); cd res
           cp -r "$GITHUB_WORKSPACE/data/gap-tests/." . 2>/dev/null || true
-          for f in sep.log gen.log cal.log fit.log loops.log robust.log nonlin.log plays.log embed.log pilot.log; do [ -f "$RUNNER_TEMP/$f" ] && tail -c 20000 "$RUNNER_TEMP/$f" > "$f"; done
+          for f in sep.log gen.log cal.log fit.log loops.log robust.log nonlin.log plays.log embed.log pilot.log check.log; do [ -f "$RUNNER_TEMP/$f" ] && tail -c 20000 "$RUNNER_TEMP/$f" > "$f"; done
           git config user.name "sonic-bot"; git config user.email "sonic@earlysignal.live"; git add -A && git commit -qm "gap tests $(date -u +%FT%TZ)" || true
           git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gap-tests-results:gap-tests-results
