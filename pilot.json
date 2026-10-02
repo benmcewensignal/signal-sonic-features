@@ -1,0 +1,58 @@
+{
+ "gpu_a10g": {
+  "records": 150,
+  "done": 150,
+  "errors": {},
+  "machines": 10,
+  "model_load_once_per_machine": 3.5,
+  "download": {
+   "median": 0.47,
+   "p90": 0.61,
+   "mean": 0.48
+  },
+  "separate": {
+   "median": 8.27,
+   "p90": 11.27,
+   "mean": 9.04
+  },
+  "fingerprint": {
+   "median": 1.19,
+   "p90": 1.42,
+   "mean": 2.4
+  },
+  "per_record": {
+   "median": 9.91,
+   "p90": 13.5,
+   "mean": 11.92
+  },
+  "audio_seconds_median": 120.0
+ },
+ "cpu_8core": {
+  "records": 150,
+  "done": 150,
+  "errors": {},
+  "machines": 90,
+  "model_load_once_per_machine": 4.5,
+  "download": {
+   "median": 0.62,
+   "p90": 0.95,
+   "mean": 0.69
+  },
+  "separate": {
+   "median": 31.57,
+   "p90": 43.68,
+   "mean": 33.7
+  },
+  "fingerprint": {
+   "median": 25.74,
+   "p90": 35.42,
+   "mean": 21.81
+  },
+  "per_record": {
+   "median": 56.07,
+   "p90": 80.07,
+   "mean": 56.2
+  },
+  "audio_seconds_median": 120.0
+ }
+}
