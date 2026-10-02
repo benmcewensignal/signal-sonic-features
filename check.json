@@ -1,0 +1,1093 @@
+{
+ "loops_fingerprinted": {
+  "bass": 938,
+  "melody": 1193
+ },
+ "practice_mixes": 1498,
+ "agreement": {
+  "bass": {
+   "records": 294,
+   "same_three": 44,
+   "mean_overlap": 1.74
+  },
+  "melody": {
+   "records": 295,
+   "same_three": 61,
+   "mean_overlap": 1.88
+  }
+ },
+ "items": [
+  {
+   "record": "bp:24241905",
+   "part": "bass",
+   "live": [
+    187,
+    607,
+    39
+   ],
+   "mert": [
+    187,
+    607,
+    463
+   ],
+   "overlap": 2,
+   "clip": "r00.mp3",
+   "loops": {
+    "463": {
+     "name": "MeinBeat.wav",
+     "user": "Chris196",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "G#"
+    },
+    "187": {
+     "name": "TS_808_Loop_772.wav",
+     "user": "truscience",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 143.6,
+     "key": "C#"
+    },
+    "39": {
+     "name": "bass synth 295 by CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 136.0,
+     "key": "G#"
+    },
+    "607": {
+     "name": "Dubstep Bass Loop 25.wav",
+     "user": "Ongitak",
+     "page": null,
+     "license": "http://creativecommons.org/licenses/by/3.0/",
+     "tempo": 143.6,
+     "key": "C#"
+    }
+   }
+  },
+  {
+   "record": "bp:20813668",
+   "part": "bass",
+   "live": [
+    732,
+    382,
+    106
+   ],
+   "mert": [
+    732,
+    382,
+    761
+   ],
+   "overlap": 2,
+   "clip": "r01.mp3",
+   "loops": {
+    "761": {
+     "name": "Subbas Reese Sequenced.wav",
+     "user": "laffik",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "F#m"
+    },
+    "106": {
+     "name": "Synth Bass Loop 7.wav",
+     "user": "EvapOfficial",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "F#m"
+    },
+    "732": {
+     "name": "Bassline3 -MiniV Seq Stuff - J2Sesh1P3 - Bmin",
+     "user": "jeremiah2jacobs",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "Bm"
+    },
+    "382": {
+     "name": "alotf_loop_bass2.wav",
+     "user": "sdotlyre",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 130,
+     "key": "C#m"
+    }
+   }
+  },
+  {
+   "record": "bp:20538068",
+   "part": "bass",
+   "live": [
+    506,
+    544,
+    95
+   ],
+   "mert": [
+    603,
+    544,
+    395
+   ],
+   "overlap": 1,
+   "clip": "r02.mp3",
+   "loops": {
+    "544": {
+     "name": "bass f e dd 120bpm delay-10.wav",
+     "user": "@realdavidfloat",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 120,
+     "key": "D#"
+    },
+    "395": {
+     "name": "Experiments - bass 6.mp3",
+     "user": "Wonki_B",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 123.0,
+     "key": "Cm"
+    },
+    "506": {
+     "name": "bass synth 260 by CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 123.0,
+     "key": "Cm"
+    },
+    "603": {
+     "name": "alien synth goop sfx.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 123.0,
+     "key": "Fm"
+    },
+    "95": {
+     "name": "Bass Loop.wav",
+     "user": "Spol",
+     "page": null,
+     "license": "http://creativecommons.org/licenses/by/3.0/",
+     "tempo": 120.2,
+     "key": "Cm"
+    }
+   }
+  },
+  {
+   "record": "bp:23207558",
+   "part": "bass",
+   "live": [
+    837,
+    133,
+    212
+   ],
+   "mert": [
+    837,
+    133,
+    860
+   ],
+   "overlap": 2,
+   "clip": "r03.mp3",
+   "loops": {
+    "212": {
+     "name": "161 - Bassline 2",
+     "user": "madnessxd",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 161.5,
+     "key": "Cm"
+    },
+    "837": {
+     "name": "Bass Loop (7).wav",
+     "user": "Spol",
+     "page": null,
+     "license": "http://creativecommons.org/licenses/by/3.0/",
+     "tempo": 156.6,
+     "key": "Cm"
+    },
+    "133": {
+     "name": "bass synth 296 by CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 161.5,
+     "key": "Cm"
+    },
+    "860": {
+     "name": "Money Makers Bass - 80BPM G Minor",
+     "user": "walkURB",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 80,
+     "key": "Gm"
+    }
+   }
+  },
+  {
+   "record": "bp:19750135",
+   "part": "bass",
+   "live": [
+    624,
+    594,
+    190
+   ],
+   "mert": [
+    775,
+    190,
+    667
+   ],
+   "overlap": 1,
+   "clip": "r04.mp3",
+   "loops": {
+    "775": {
+     "name": "bass synth 293 by CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 184.6,
+     "key": "C"
+    },
+    "624": {
+     "name": "58-Acid Bass - SpankMyFilth.wav",
+     "user": "SpankMyFilth",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 89.1,
+     "key": "C"
+    },
+    "594": {
+     "name": "bass synth 211 by CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 92.3,
+     "key": "C"
+    },
+    "667": {
+     "name": "90 Subatomik Bassline 03.wav",
+     "user": "gunnbladez",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 89.1,
+     "key": "C"
+    },
+    "190": {
+     "name": "Bass Loop BM.wav",
+     "user": "Spol",
+     "page": null,
+     "license": "http://creativecommons.org/licenses/by/3.0/",
+     "tempo": 92.3,
+     "key": "C"
+    }
+   }
+  },
+  {
+   "record": "bp:20538762",
+   "part": "bass",
+   "live": [
+    7,
+    114,
+    849
+   ],
+   "mert": [
+    378,
+    114,
+    843
+   ],
+   "overlap": 1,
+   "clip": "r05.mp3",
+   "loops": {
+    "7": {
+     "name": "bass fx - by_CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 123.0,
+     "key": "D"
+    },
+    "843": {
+     "name": "bass dark blues riff 2 - by_CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "D"
+    },
+    "849": {
+     "name": "Synth Bass Loop 17.wav",
+     "user": "EvapOfficial",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "A"
+    },
+    "114": {
+     "name": "90 Subatomik Bassline 07.wav",
+     "user": "gunnbladez",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 123.0,
+     "key": "D"
+    },
+    "378": {
+     "name": "Synth Bass Loop 16.wav",
+     "user": "EvapOfficial",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "A"
+    }
+   }
+  },
+  {
+   "record": "bp:21853298",
+   "part": "bass",
+   "live": [
+    129,
+    396,
+    276
+   ],
+   "mert": [
+    143,
+    396,
+    354
+   ],
+   "overlap": 1,
+   "clip": "r06.mp3",
+   "loops": {
+    "129": {
+     "name": "bass synth oneshot 2 by CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 143.6,
+     "key": "C"
+    },
+    "354": {
+     "name": "DistortionForest_2.wav",
+     "user": "Flick3r",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 150,
+     "key": "C"
+    },
+    "396": {
+     "name": "angry-sawtooth-wobble-down.wav",
+     "user": "luckylittleraven",
+     "page": null,
+     "license": "http://creativecommons.org/licenses/by/3.0/",
+     "tempo": 140,
+     "key": "C"
+    },
+    "143": {
+     "name": "Bass Synth 176 by CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 152.0,
+     "key": "F"
+    },
+    "276": {
+     "name": "Bass Loop (10).wav",
+     "user": "Spol",
+     "page": null,
+     "license": "http://creativecommons.org/licenses/by/3.0/",
+     "tempo": 161.5,
+     "key": "Dm"
+    }
+   }
+  },
+  {
+   "record": "bp:27976660",
+   "part": "bass",
+   "live": [
+    7,
+    577,
+    756
+   ],
+   "mert": [
+    7,
+    287,
+    567
+   ],
+   "overlap": 1,
+   "clip": "r07.mp3",
+   "loops": {
+    "577": {
+     "name": "It's alright",
+     "user": "lovescotch",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 117.5,
+     "key": "D"
+    },
+    "7": {
+     "name": "bass fx - by_CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 123.0,
+     "key": "D"
+    },
+    "756": {
+     "name": "Synth Bass Loop 31.wav",
+     "user": "EvapOfficial",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "A"
+    },
+    "567": {
+     "name": "Synth Bass Loop 33.wav",
+     "user": "EvapOfficial",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "A"
+    },
+    "287": {
+     "name": "New House rmx_6.wav",
+     "user": "Dolfeus",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 123.0,
+     "key": "A"
+    }
+   }
+  },
+  {
+   "record": "bp:23082041",
+   "part": "bass",
+   "live": [
+    470,
+    374,
+    116
+   ],
+   "mert": [
+    470,
+    297,
+    116
+   ],
+   "overlap": 2,
+   "clip": "r08.mp3",
+   "loops": {
+    "297": {
+     "name": "bassriff_12.wav",
+     "user": "Jackie-makes-noiz",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 152.0,
+     "key": "Gm"
+    },
+    "374": {
+     "name": "bass_loop_13.wav",
+     "user": "junggle",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 136.0,
+     "key": "Dm"
+    },
+    "116": {
+     "name": "bassline_oh.wav",
+     "user": "harri",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 143.6,
+     "key": "Gm"
+    },
+    "470": {
+     "name": "bass suspended chord - by_CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 136.0,
+     "key": "Gm"
+    }
+   }
+  },
+  {
+   "record": "bp:22329364",
+   "part": "bass",
+   "live": [
+    233,
+    241,
+    544
+   ],
+   "mert": [
+    406,
+    544,
+    429
+   ],
+   "overlap": 1,
+   "clip": "r09.mp3",
+   "loops": {
+    "544": {
+     "name": "bass f e dd 120bpm delay-10.wav",
+     "user": "@realdavidfloat",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 120,
+     "key": "D#"
+    },
+    "233": {
+     "name": "bass synth oneshot 93 by CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 117.5,
+     "key": null
+    },
+    "429": {
+     "name": "Nord Low4 Dirty.wav",
+     "user": "KatHakaku",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 117.5,
+     "key": "D#"
+    },
+    "241": {
+     "name": "Nord Low3 Dirty.wav",
+     "user": "KatHakaku",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 112.3,
+     "key": "D#"
+    },
+    "406": {
+     "name": "bass synth 249 by CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 112.3,
+     "key": "Cm"
+    }
+   }
+  },
+  {
+   "record": "bp:28935492",
+   "part": "bass",
+   "live": [
+    485,
+    288,
+    734
+   ],
+   "mert": [
+    485,
+    844,
+    288
+   ],
+   "overlap": 2,
+   "clip": "r10.mp3",
+   "loops": {
+    "288": {
+     "name": "90 Subatomik Bassline 09.wav",
+     "user": "gunnbladez",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 117.5,
+     "key": "Em"
+    },
+    "844": {
+     "name": "bass blues funk riff - by_CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 123.0,
+     "key": "G"
+    },
+    "485": {
+     "name": "Cliche House Chords Bassline.wav",
+     "user": "Teacoma",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 123.0,
+     "key": "Bm"
+    },
+    "734": {
+     "name": "bass 1.wav",
+     "user": "Georgke",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 129.2,
+     "key": "Em"
+    }
+   }
+  },
+  {
+   "record": "bp:28690768",
+   "part": "bass",
+   "live": [
+    118,
+    488,
+    937
+   ],
+   "mert": [
+    118,
+    5,
+    488
+   ],
+   "overlap": 2,
+   "clip": "r11.mp3",
+   "loops": {
+    "488": {
+     "name": "Bass 128 Bpm",
+     "user": "deleted_user_4397472",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 128,
+     "key": "F"
+    },
+    "937": {
+     "name": "Future PAD 120bpm.mp3",
+     "user": "Johnnie_Holiday",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 120,
+     "key": "F"
+    },
+    "5": {
+     "name": "bass rock riff 4 - by_CVLTIV8R.wav",
+     "user": "CVLTIV8R",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 123.0,
+     "key": "Dm"
+    },
+    "118": {
+     "name": "boom bass loop 135_1.mp3",
+     "user": "stellarartwars15",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 136.0,
+     "key": "F"
+    }
+   }
+  },
+  {
+   "record": "bp:23436682",
+   "part": "melody",
+   "live": [
+    887,
+    659,
+    585
+   ],
+   "mert": [
+    769,
+    887,
+    636
+   ],
+   "overlap": 1,
+   "clip": "r12.mp3",
+   "loops": {
+    "769": {
+     "name": "Dramatic_Pop_Piano_by_DSQT_83_bpm.wav",
+     "user": "Disquantic",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 83,
+     "key": "Em"
+    },
+    "585": {
+     "name": "Traut1.wav",
+     "user": "NoiseCollector",
+     "page": null,
+     "license": "http://creativecommons.org/licenses/by/3.0/",
+     "tempo": 152.0,
+     "key": "Em"
+    },
+    "659": {
+     "name": "FX_SPOOK_DANGLE_LOOP",
+     "user": "adularescence777",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 161.5,
+     "key": "G"
+    },
+    "887": {
+     "name": "piano_loop_0014_084bpm.wav",
+     "user": "stixthule",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 84,
+     "key": "G"
+    },
+    "636": {
+     "name": "Piano Loop Em 160 BPM.wav",
+     "user": "holizna",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 160,
+     "key": "Em"
+    }
+   }
+  },
+  {
+   "record": "bp:23289326",
+   "part": "melody",
+   "live": [
+    742,
+    1134,
+    950
+   ],
+   "mert": [
+    1134,
+    195,
+    742
+   ],
+   "overlap": 2,
+   "clip": "r13.mp3",
+   "loops": {
+    "1134": {
+     "name": "arp trap2.flac",
+     "user": "klcisa",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "F#m"
+    },
+    "195": {
+     "name": "arp pad thing",
+     "user": "IanStarGem",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 128,
+     "key": "F#m"
+    },
+    "950": {
+     "name": "Synth Loop 3.wav",
+     "user": "BConstructSound",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 123.0,
+     "key": "F#m"
+    },
+    "742": {
+     "name": "STORYENDING_04.wav",
+     "user": "phantastonia",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 123.0,
+     "key": "F#m"
+    }
+   }
+  },
+  {
+   "record": "bp:13328778",
+   "part": "melody",
+   "live": [
+    322,
+    298,
+    1014
+   ],
+   "mert": [
+    298,
+    1103,
+    525
+   ],
+   "overlap": 1,
+   "clip": "r14.mp3",
+   "loops": {
+    "322": {
+     "name": "Robotic arp sequence 2",
+     "user": "Garzul",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "D#"
+    },
+    "298": {
+     "name": "140bpm Piano Solo 11.Apr_13.wav",
+     "user": "shitefromaheight",
+     "page": null,
+     "license": "http://creativecommons.org/licenses/by/3.0/",
+     "tempo": 140,
+     "key": "Cm"
+    },
+    "525": {
+     "name": "Mystery Loop #1",
+     "user": "danlucaz",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "Cm"
+    },
+    "1103": {
+     "name": "Sky High Synth Pad 01 - 140bpm - Cmin - New Nation",
+     "user": "nnaudio",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 140,
+     "key": "Cm"
+    },
+    "1014": {
+     "name": "Gliss.aif",
+     "user": "LogicMoon",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 143.6,
+     "key": "Gm"
+    }
+   }
+  },
+  {
+   "record": "bp:23441879",
+   "part": "melody",
+   "live": [
+    310,
+    1143,
+    53
+   ],
+   "mert": [
+    310,
+    1143,
+    405
+   ],
+   "overlap": 2,
+   "clip": "r15.mp3",
+   "loops": {
+    "405": {
+     "name": "73BPM - Piano stem - Cat stride in wet grass 2",
+     "user": "Sadiquecat",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 73,
+     "key": "D#m"
+    },
+    "53": {
+     "name": "Ambient Piano Loop 54 (Ambiance)-(140 BPM)",
+     "user": "Erokia",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 140,
+     "key": "A#m"
+    },
+    "310": {
+     "name": "Sneaky Fox Pad Chords - 135bpm - D#min.wav",
+     "user": "nnaudio",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 135,
+     "key": "D#m"
+    },
+    "1143": {
+     "name": "mel140bpm.wav",
+     "user": "stk13",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 140,
+     "key": "D#m"
+    }
+   }
+  },
+  {
+   "record": "bp:24283167",
+   "part": "melody",
+   "live": [
+    771,
+    660,
+    505
+   ],
+   "mert": [
+    505,
+    771,
+    945
+   ],
+   "overlap": 2,
+   "clip": "r16.mp3",
+   "loops": {
+    "945": {
+     "name": "lullaby 2.wav",
+     "user": "Logicogonist",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "C#m"
+    },
+    "505": {
+     "name": "plucked Rickenbacker.wav",
+     "user": "jus",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 136.0,
+     "key": "C#m"
+    },
+    "771": {
+     "name": "LoFi Loop 2",
+     "user": "deleted_user_11009121",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 117.5,
+     "key": "C#m"
+    },
+    "660": {
+     "name": "FA_FREE_120_arp_loop_bedtime_A9",
+     "user": "formaudioworks",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 120,
+     "key": "E"
+    }
+   }
+  },
+  {
+   "record": "bp:20687411",
+   "part": "melody",
+   "live": [
+    179,
+    192,
+    760
+   ],
+   "mert": [
+    192,
+    760,
+    980
+   ],
+   "overlap": 2,
+   "clip": "r17.mp3",
+   "loops": {
+    "192": {
+     "name": "sample rising pad 146bpm_1.mp3",
+     "user": "stellarartwars15",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 146,
+     "key": "A#"
+    },
+    "760": {
+     "name": "pianoLoop.wav",
+     "user": "nicStage",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 129.2,
+     "key": "A#"
+    },
+    "179": {
+     "name": "rhodes loop 1.aif",
+     "user": "tim.kahn",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 143.6,
+     "key": "A#"
+    },
+    "980": {
+     "name": "apprehensive chord 2",
+     "user": "Saltbearer",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 129.2,
+     "key": "A#"
+    }
+   }
+  },
+  {
+   "record": "bp:20680175",
+   "part": "melody",
+   "live": [
+    1189,
+    619,
+    371
+   ],
+   "mert": [
+    1189,
+    1163,
+    619
+   ],
+   "overlap": 2,
+   "clip": "r18.mp3",
+   "loops": {
+    "371": {
+     "name": "_130 BPM arpeggiated loop - G#3 - variation 6.flac",
+     "user": "Jovica",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 130,
+     "key": "G#"
+    },
+    "619": {
+     "name": "chord beat 4.wav",
+     "user": "THE_bizniss",
+     "page": null,
+     "license": "http://creativecommons.org/licenses/by/3.0/",
+     "tempo": 117.5,
+     "key": "G#"
+    },
+    "1163": {
+     "name": "Lead Squared 128 bpm",
+     "user": "deleted_user_4397472",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 128,
+     "key": "G#"
+    },
+    "1189": {
+     "name": "Spooky Loopy2 FINAL FORM_116BPM_Fm_PSS560 & SK5.aif",
+     "user": "Crabflag",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 116,
+     "key": "Fm"
+    }
+   }
+  },
+  {
+   "record": "bp:20600908",
+   "part": "melody",
+   "live": [
+    410,
+    153,
+    851
+   ],
+   "mert": [
+    931,
+    24,
+    153
+   ],
+   "overlap": 1,
+   "clip": "r19.mp3",
+   "loops": {
+    "931": {
+     "name": "intro_jazz.wav",
+     "user": "levelclearer",
+     "page": null,
+     "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+     "tempo": 129.2,
+     "key": "D#m"
+    },
+    "851": {
+     "name": "short loops 09 03 2015 2.mp3",
+     "user": "B_Lamerichs",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 117.5,
+     "key": "D#m"
+    },
+    "24": {
+     "name": "GuitChordLoop.wav",
+     "user": "MattesHaus",
+     "page": null,
+     "license": "http://creativecommons.org/licenses/by/3.0/",
+     "tempo": 123.0,
+     "key": "F#"
+    },
+    "153": {
+     "name": "Cloud Surf Synth Pad 07 - 126bpm - G#min - New Nation",
+     "user": "nnaudio",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 126,
+     "key": "G#m"
+    },
+    "410": {
+     "name": "intro_travel_piano",
+     "user": "levelclearer",
+     "page": null,
+     "license": "https://creativecommons.org/licenses/by/4.0/",
+     "tempo": 129.2,
+     "key": "D#m"
+    }
+   }
+  }
+ ]
+}
