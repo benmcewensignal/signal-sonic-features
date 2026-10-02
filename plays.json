@@ -1,0 +1,40 @@
+{
+ "mixes": 2814,
+ "unmixed": 2814,
+ "families": {
+  "bass": {
+   "smudges": 2814,
+   "loops": 938,
+   "plays_agreement_clean_vs_unmixed": NaN,
+   "sound_only": {
+    "n": 2814,
+    "top1": 0.489,
+    "top3": 0.618,
+    "top10": 0.721
+   },
+   "sound_and_plays": {
+    "n": 2814,
+    "top1": 0.489,
+    "top3": 0.618,
+    "top10": 0.721
+   }
+  },
+  "drums": {
+   "smudges": 2814,
+   "loops": 1714,
+   "plays_agreement_clean_vs_unmixed": NaN,
+   "sound_only": {
+    "n": 2814,
+    "top1": 0.661,
+    "top3": 0.756,
+    "top10": 0.83
+   },
+   "sound_and_plays": {
+    "n": 2814,
+    "top1": 0.661,
+    "top3": 0.756,
+    "top10": 0.83
+   }
+  }
+ }
+}
