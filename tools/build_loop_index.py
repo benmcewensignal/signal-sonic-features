@@ -32,5 +32,11 @@ try:   # the smudged library (worker/gap_tests.py::cal), so separated parts sear
             h_ = np.linalg.norm(Zs_, axis=1) > 0.5; L_["Zs"] = np.where(h_[:, None], Zs_, L_["Z"].astype(np.float32)).astype(np.float16)
 except FileNotFoundError:
     pass
+try:   # the smudge-robust measure (worker/gap_tests.py::robust): W re-weights a part, Zp is the library in that space
+    R_ = np.load("data/robust-measure.npz")
+    for f_, L_ in out.items():
+        if f_ + "_W" in R_ and R_[f_ + "_Zp"].shape[0] == L_["Z"].shape[0]: L_["W"], L_["Zp"] = R_[f_ + "_W"].astype(np.float32), R_[f_ + "_Zp"].astype(np.float16)
+except FileNotFoundError:
+    pass
 pickle.dump(out, open("worker/loop_index.pkl", "wb"))
 print("loop library:", {f: len(v["meta"]) for f, v in out.items()})

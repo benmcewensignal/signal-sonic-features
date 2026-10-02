@@ -667,3 +667,92 @@ def robust():
     np.savez_compressed("data/gap-tests/robust-measure.npz", **deploy)
     json.dump(res, open("data/gap-tests/robust.json", "w"), indent=1)
     print("ROBUST " + json.dumps(res))
+
+
+# ---------------------------------------------------------------- the flexible version: a small network over the measure
+# Starts from the straight re-weighting (the Fisher measure now live) and adds a small two-layer correction, trained so a
+# loop's smudged readings land nearest its own library entry among the training loops (a softmax over loops). Its one
+# choice, how long to train, is made on one fifth of the loops; it is scored on the other four fifths, none seen in
+# training, beside the straight measure on the same folds.
+@app.function(image=cpu_image, cpu=8.0, memory=16384, timeout=3600)
+def nonlin_family(f, Zc, Zl, Q, idx, fold, lt):
+    import numpy as np, torch
+    torch.manual_seed(0); np.random.seed(0); torch.set_num_threads(8)
+    Zc, Zl, Q = (np.asarray(a, np.float32) for a in (Zc, Zl, Q)); idx, fold = np.asarray(idx), np.asarray(fold); lt = np.asarray(lt, np.float32)
+    okm = {}
+    def ok_of(i):
+        if i not in okm:
+            T = float(lt[i]); m = np.zeros(len(lt), bool)
+            if T:
+                for k in (1, 2, 0.5): m |= (lt > 0) & (np.abs(lt * k - T) / T <= 0.08)
+            okm[i] = m
+        return okm[i]
+    def lda(obs, lab):
+        X = np.asarray(obs, np.float64); y = np.asarray(lab); mu = X.mean(0); d = X.shape[1]; Sw = np.zeros((d, d)); Sb = np.zeros((d, d))
+        for c in np.unique(y):
+            Xc = X[y == c]; mc = Xc.mean(0); Sw += (Xc - mc).T @ (Xc - mc); Sb += len(Xc) * np.outer(mc - mu, mc - mu)
+        Sw += 1e-7 * np.trace(Sw) / d * np.eye(d); e, U = np.linalg.eigh(Sw); Wh = U @ np.diag(1 / np.sqrt(np.maximum(e, 1e-12))) @ U.T
+        e2, V2 = np.linalg.eigh(Wh @ Sb @ Wh); return (Wh @ V2[:, np.argsort(-e2)]).astype(np.float32)
+    def train_on(excl):
+        tr_loops = np.where(~np.isin(fold, excl))[0]; qsel = np.where(~np.isin(fold[idx], excl))[0]
+        obs = [Zc[i] for i in tr_loops] + [Zl[i] for i in tr_loops] + [Q[j] for j in qsel]; lab = list(tr_loops) + list(tr_loops) + list(idx[qsel])
+        W0 = lda(obs, lab); return tr_loops, qsel, W0
+    class Net(torch.nn.Module):
+        def __init__(s, W0):
+            super().__init__(); s.A = torch.nn.Parameter(torch.tensor(W0)); s.l1 = torch.nn.Linear(51, 128); s.l2 = torch.nn.Linear(128, W0.shape[1])
+            torch.nn.init.zeros_(s.l2.weight); torch.nn.init.zeros_(s.l2.bias)
+        def forward(s, x): h = x @ s.A; return torch.nn.functional.normalize(h + s.l2(torch.nn.functional.gelu(s.l1(x))) * h.norm(dim=1, keepdim=True).mean(), dim=1)
+    def fit(excl, epochs):
+        tr_loops, qsel, W0 = train_on(excl); net = Net(W0); opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
+        pos = {int(i): k for k, i in enumerate(tr_loops)}; Xq = torch.tensor(Q[qsel]); y = torch.tensor([pos[int(i)] for i in idx[qsel]])
+        Xc_, Xl_ = torch.tensor(Zc[tr_loops]), torch.tensor(Zl[tr_loops]); tau = 0.05
+        for ep in range(epochs):
+            for b in torch.randperm(len(Xq)).split(512):
+                lib = torch.nn.functional.normalize(net(Xc_) + net(Xl_), dim=1); loss = torch.nn.functional.cross_entropy(net(Xq[b]) @ lib.T / tau, y[b])
+                opt.zero_grad(); loss.backward(); opt.step()
+        return net, W0
+    def score(net, W0, folds, use_net=True):
+        r = []
+        with torch.no_grad():
+            if use_net: lib = torch.nn.functional.normalize(net(torch.tensor(Zc)) + net(torch.tensor(Zl)), dim=1).numpy()
+            else:
+                A = Zc @ W0 + Zl @ W0; lib = A / (np.linalg.norm(A, axis=1, keepdims=True) + 1e-9)
+            for q in folds:
+                sel = np.where(fold[idx] == q)[0]
+                if use_net: P = net(torch.tensor(Q[sel])).numpy()
+                else: P = Q[sel] @ W0; P = P / (np.linalg.norm(P, axis=1, keepdims=True) + 1e-9)
+                S = P @ lib.T
+                for a, j in enumerate(sel):
+                    i = int(idx[j]); ok = ok_of(i)
+                    if ok[i]: r.append(1 + int((S[a][ok] > S[a, i]).sum()))
+        r = np.array(r); return {"n": int(len(r)), "top1": round(float((r == 1).mean()), 3), "top3": round(float((r <= 3).mean()), 3), "top10": round(float((r <= 10).mean()), 3)}
+    choice = {}
+    for ep in (0, 5, 15, 40):   # choose on fold 0
+        net, W0 = fit([0], ep) if ep else (None, train_on([0])[2])
+        choice[ep] = score(net, W0, [0], use_net=bool(ep))["top3"]
+    best_ep = max(choice, key=choice.get)
+    out = {"chosen_epochs": best_ep, "fold0_top3_by_epochs": choice, "straight": {}, "network": {}}
+    rs, rn = [], []
+    for q in (1, 2, 3, 4):
+        net, W0 = fit([q], best_ep) if best_ep else (None, train_on([q])[2])
+        rs.append(score(None, W0, [q], use_net=False)); rn.append(score(net, W0, [q], use_net=bool(best_ep)))
+    agg = lambda L: {k: round(float(np.average([x[k] for x in L], weights=[x["n"] for x in L])), 3) for k in ("top1", "top3", "top10")} | {"n": int(sum(x["n"] for x in L))}
+    out["straight"], out["network"] = agg(rs), agg(rn)
+    return f, out
+
+
+@app.local_entrypoint()
+def nonlin():
+    import zlib, numpy as np
+    LI = _index(); SM = np.load(os.environ.get("SMUDGES", "/tmp/smudges.npz")); SL = np.load(os.environ.get("SMUDGED", "/tmp/smudged-library.npz"))
+    calls = []
+    for f in FAMS:
+        L = LI[f]; Zc = np.array(L["Z"], np.float32); Zc /= np.linalg.norm(Zc, axis=1, keepdims=True) + 1e-9
+        Zs = SL[f + "_Zs"].astype(np.float32); has = np.linalg.norm(Zs, axis=1) > 0.5; Zl = np.where(has[:, None], Zs, Zc)
+        lt = np.array([m.get("tempo") or 0 for m in L["meta"]], np.float32)
+        Q = np.array([_z(v, L) for v in SM[f + "_v"]], np.float32); idx = SM[f + "_idx"]
+        fold = np.array([zlib.crc32(f"{f}:{i}".encode()) % 5 for i in range(len(Zc))])
+        calls.append((f, Zc.tolist(), Zl.tolist(), Q.tolist(), idx.tolist(), fold.tolist(), lt.tolist()))
+    res = {f: o for f, o in nonlin_family.starmap(calls)}
+    os.makedirs("data/gap-tests", exist_ok=True); json.dump(res, open("data/gap-tests/nonlin.json", "w"), indent=1)
+    print("NONLIN " + json.dumps(res))
