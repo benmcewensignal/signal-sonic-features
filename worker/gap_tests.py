@@ -1358,3 +1358,32 @@ def probe():
     summ = {"window_records": len(W), "window_times": {k: round(float(np.median([r["times"][k] for r in W])), 2) for k in ("download", "separate", "fingerprint", "total", "audio_seconds")} if W else {},
             "mixes": len(mixes), "mixes_done": len(R), "loops": {f: len(lib[f]) for f in lib}}
     json.dump(summ, open("data/gap-tests/probe.json", "w"), indent=1); print("PROBE " + json.dumps(summ))
+
+
+# ---------------------------------------------------------------- the probe on real records
+# The 300 pilot records' whole mixes, fingerprinted with the same four windows as their separated parts, plus their live
+# measure, tempo and key, so the probe route can be compared with separated MERT on real records.
+@app.function(image=embed_image, gpu="A10G", cpu=4.0, memory=16384, timeout=1800, volumes={"/cache": HF})
+def mixfp_gpu(rec):
+    import tempfile, subprocess, urllib.request, numpy as np, soundfile as sf, librosa
+    w = tempfile.mkdtemp()
+    try:
+        src = os.path.join(w, "p.mp3"); urllib.request.urlretrieve(rec["url"], src)
+        wav = os.path.join(w, "p.wav"); subprocess.run(["ffmpeg", "-y", "-loglevel", "quiet", "-i", src, "-ac", "1", "-ar", "24000", wav], check=True, timeout=120)
+        y, _ = sf.read(wav); L = len(y); win = 10 * 24000
+        starts = [max(0, min(L - win, int(L * c) - win // 2)) for c in (0.2, 0.4, 0.6, 0.8)]
+        return {"id": rec["id"], "fp": _mert24(y.astype(np.float32), "cuda", starts)}
+    except Exception as ex:
+        return {"id": rec["id"], "error": type(ex).__name__ + ": " + str(ex)[:120]}
+
+
+@app.local_entrypoint()
+def realcheck():
+    import urllib.request, numpy as np
+    PF = np.load(os.environ.get("PILOT", "/tmp/pilot-fingerprints.npz")); pids = PF["ids"].tolist()
+    P = json.loads(urllib.request.urlopen(urllib.request.Request("https://www.earlysignal.live/data/previews.json", headers={"User-Agent": "sonic-tests"}), timeout=120).read())["previews"]
+    M = [r for r in mixfp_gpu.map([{"id": t, "url": P[t]} for t in pids if t in P], return_exceptions=True) if isinstance(r, dict) and r.get("fp")]
+    rows = record_rows.remote([r["id"] for r in M])
+    out = [{"id": r["id"], "mix": r["fp"], "V": rows[r["id"]]["V"], "tempo": rows[r["id"]]["tempo"], "key": rows[r["id"]]["key"]} for r in M if r["id"] in rows]
+    os.makedirs("data/gap-tests", exist_ok=True); json.dump(out, open("data/gap-tests/realcheck.json", "w"))
+    print(f"REALCHECK {len(out)} records")
