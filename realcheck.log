@@ -1,0 +1,33 @@
+✓ Initialized. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-LNm1aIcdKWtcRKhXSYhld2
+✓ Created objects.
+├── ✓ Uploaded 
+│   /home/runner/work/signal-sonic-features/signal-sonic-features/worker/gap_tes
+│   ts.py
+├── ✓ Uploaded PythonPackage:features, PythonPackage:worker
+├── ✓ Created Function gen_batch.
+├── ✓ Created Function sep_case.
+├── ✓ Created Function gen_measure.
+├── ✓ Created Function record_vectors.
+├── ✓ Created Function mix_case.
+├── ✓ Created Function cal_gaps.
+├── ✓ Created Function fit_records.
+├── ✓ Created Function nonlin_family.
+├── ✓ Created Function mix_plays.
+├── ✓ Created Function record_rows.
+├── ✓ Created Function clip_loop.
+├── ✓ Created Function prep_models.
+├── ✓ Created Function fingerprint_loops.
+├── ✓ Created Function mix_fingerprint.
+├── ✓ Created Function pilot_gpu.
+├── ✓ Created Function pilot_cpu.
+├── ✓ Created Function mert_loops_gpu.
+├── ✓ Created Function mix_mert_gpu.
+├── ✓ Created Function clip_record.
+├── ✓ Created Function mix_probe_gpu.
+├── ✓ Created Function window_sep_gpu.
+└── ✓ Created Function mixfp_gpu.
+REALCHECK 295 records
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-LNm1aIcdKWtcRKhXSYhld2
