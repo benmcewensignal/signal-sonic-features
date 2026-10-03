@@ -1,0 +1,20 @@
+name: oneshots
+# Public-domain drum one-shots for the scene groovebox (tools/oneshots.py); the pool goes to gap-tests-results as oneshots.json.
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  collect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: sudo apt-get install -y -q ffmpeg >/dev/null && pip install -q "numpy<2" librosa==0.10.2 soundfile requests
+      - env: { FREESOUND_KEY: "${{ secrets.FREESOUND_KEY }}" }
+        run: python tools/oneshots.py oneshots.json
+      - if: always()
+        run: |
+          cd "$RUNNER_TEMP" && git clone -q --depth 1 -b gap-tests-results "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" res && cd res
+          cp "$GITHUB_WORKSPACE/oneshots.json" . 2>/dev/null || true
+          git config user.name sonic-bot; git config user.email sonic@earlysignal.live; git add -A && git commit -qm "oneshots $(date -u +%FT%TZ)" && git push -q
