@@ -1,0 +1,24 @@
+{
+ "mixes": 3122,
+ "unmixed": 3122,
+ "drums": {
+  "loops": 2968,
+  "of": 2968,
+  "unmixed_readings": 3122
+ },
+ "bass": {
+  "loops": 938,
+  "of": 938,
+  "unmixed_readings": 3122
+ },
+ "melody": {
+  "loops": 1193,
+  "of": 1193,
+  "unmixed_readings": 3122
+ },
+ "vocals": {
+  "loops": 354,
+  "of": 354,
+  "unmixed_readings": 3122
+ }
+}
