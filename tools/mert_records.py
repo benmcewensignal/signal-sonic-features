@@ -21,6 +21,15 @@ ids = sorted(t["track_id"] for t in index["tracks"] if t["track_id"] in previews
 done = set()
 for line in open("done-ids.txt") if os.path.exists("done-ids.txt") else []:
     done.add(line.strip())
+# the order: records in published DJ sets first (so the "played next" check can run early), then charting records, then the rest
+try:
+    D = get("https://www.earlysignal.live/data/dj-sets.json"); dj = set(D.get("next", {}).keys())
+    for k_, v_ in D.get("next", {}).items(): dj |= {x[0] for x in v_}
+    for st_ in D.get("sets", []): dj |= set(st_[2])
+except Exception:
+    dj = set()
+charted = {t["track_id"] for t in index["tracks"] if t.get("chart_best") is not None}
+ids = sorted(ids, key=lambda t: (0 if t in dj else 1 if t in charted else 2, t))
 todo = [t for t in ids if t not in done][shard::shards]
 print(f"matching index with previews: {len(ids)} | done before this wave: {len(done)} | this shard: {len(todo)}", flush=True)
 
