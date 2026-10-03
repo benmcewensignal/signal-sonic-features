@@ -58,4 +58,8 @@ jobs:
           added=$(cat ids/mert-ids-*-${{ github.run_id }}.txt 2>/dev/null | wc -l)
           echo "fingerprinted: $done of $total (this wave: $added)" | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "$added" -eq 0 ]; then echo "this wave added nothing: the chain stops" | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          # once the DJ-set records are fingerprinted, run the played-next check (tools/dj_mert_check.py)
+          cov=$(python3 -c "import json,glob,urllib.request as u; D=json.loads(u.urlopen(u.Request('https://www.earlysignal.live/data/dj-sets.json',headers={'User-Agent':'sonic-mert'}),timeout=180).read()); dj=set(D['next']); [dj.update(x[0] for x in v) for v in D['next'].values()]; [dj.update(s_[2]) for s_ in D['sets']]; done=set(l.strip() for f in glob.glob('ids/*.txt') for l in open(f)); print(round(len(dj&done)/max(1,len(dj)),3))")
+          echo "DJ-set records fingerprinted: $cov" | tee -a "$GITHUB_STEP_SUMMARY"
+          if python3 -c "import sys; sys.exit(0 if float('$cov') >= 0.95 else 1)"; then gh workflow run dj-mert-check.yml --repo "${{ github.repository }}"; echo "played-next check started" | tee -a "$GITHUB_STEP_SUMMARY"; fi
           if [ "${{ inputs.chain || 'yes' }}" = "yes" ] && [ "$done" -lt "$((total - 50))" ]; then gh workflow run mert-records.yml --repo "${{ github.repository }}" -f shards="${{ inputs.shards || '18' }}"; echo "next wave started" | tee -a "$GITHUB_STEP_SUMMARY"; fi
