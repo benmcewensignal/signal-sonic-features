@@ -60,14 +60,25 @@ def one(t):
     subprocess.run(["rm", "-rf", w])
     return fps
 
-os.makedirs("mert-out", exist_ok=True); tag = f"{shard:02d}-{os.environ.get('GITHUB_RUN_ID', 'local')}"
-outp = f"mert-out/mert-{tag}.jsonl.gz"; idsp = f"mert-out/mert-ids-{tag}.txt"; n_ok = n_err = 0; t0 = time.time()
-with gzip.open(outp, "wt") as out, open(idsp, "w") as idf:
-    for t in todo:
-        if time.time() - t_start > budget: break
-        try:
-            fp = one(t); out.write(json.dumps({"track_id": t, "v": 1, **fp}) + "\n"); idf.write(t + "\n"); n_ok += 1
-        except Exception as ex:
-            n_err += 1; print(f"  {t}: {type(ex).__name__}: {str(ex)[:120]}", flush=True)
-        if (n_ok + n_err) % 25 == 0: print(f"  {n_ok} done, {n_err} failed, {(time.time() - t0) / max(1, n_ok + n_err):.1f} s a record", flush=True)
+# filed as it goes: every 100 records the part so far is closed and uploaded, so a runner stopped part-way loses minutes,
+# not hours. Names end in the run id, as the chain's count expects: mert-<shard>-p<k>-<run>.jsonl.gz and mert-ids-...
+os.makedirs("mert-out", exist_ok=True); run = os.environ.get("GITHUB_RUN_ID", "local"); n_ok = n_err = 0; t0 = time.time(); part = 0
+def open_part(k):
+    o = f"mert-out/mert-{shard:02d}-p{k:03d}-{run}.jsonl.gz"; i = f"mert-out/mert-ids-{shard:02d}-p{k:03d}-{run}.txt"
+    return o, i, gzip.open(o, "wt"), open(i, "w")
+def file_part(o, i):
+    if run != "local" and os.path.getsize(i) > 0:
+        r = subprocess.run(["gh", "release", "upload", "mert-records", o, i, "--clobber"], capture_output=True, text=True)
+        if r.returncode: print("  upload failed:", (r.stderr or "")[-160:], flush=True)
+outp, idsp, out, idf = open_part(part); in_part = 0
+for t in todo:
+    if time.time() - t_start > budget: break
+    try:
+        fp = one(t); out.write(json.dumps({"track_id": t, "v": 1, **fp}) + "\n"); idf.write(t + "\n"); n_ok += 1; in_part += 1
+    except Exception as ex:
+        n_err += 1; print(f"  {t}: {type(ex).__name__}: {str(ex)[:120]}", flush=True)
+    if in_part >= 100:
+        out.close(); idf.close(); file_part(outp, idsp); part += 1; outp, idsp, out, idf = open_part(part); in_part = 0
+    if (n_ok + n_err) % 25 == 0: print(f"  {n_ok} done, {n_err} failed, {(time.time() - t0) / max(1, n_ok + n_err):.1f} s a record", flush=True)
+out.close(); idf.close(); file_part(outp, idsp)
 print(f"shard {shard}: {n_ok} fingerprinted, {n_err} failed, {(time.time() - t0) / max(1, n_ok + n_err):.1f} s a record", flush=True)
