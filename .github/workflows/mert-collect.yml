@@ -1,0 +1,28 @@
+name: mert-collect
+# Gathers the records' MERT fingerprints from the mert-records release onto the worker's embed volume
+# (/embed/mert-records.npz). The worker uses them only when /embed/MERT_ACTIVE exists; "switch" sets or clears it.
+on:
+  workflow_dispatch:
+    inputs:
+      switch: { description: "leave, on or off", default: "leave" }
+jobs:
+  collect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env: { GH_TOKEN: "${{ github.token }}", MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q numpy modal
+      - run: |
+          mkdir -p mert && gh release download mert-records --pattern 'mert-*.jsonl.gz' --dir mert --clobber
+          python tools/mert_collect.py mert mert-records.npz
+          modal volume put sonic-embed mert-records.npz /mert-records.npz --force
+      - name: the switch
+        run: |
+          case "${{ inputs.switch }}" in
+            on) touch MERT_ACTIVE && modal volume put sonic-embed MERT_ACTIVE /MERT_ACTIVE --force && echo "MERT ranking on" ;;
+            off) modal volume rm sonic-embed /MERT_ACTIVE 2>/dev/null; echo "MERT ranking off" ;;
+            *) echo "switch left as it was" ;;
+          esac

@@ -240,7 +240,23 @@ def _mixes(a, b):   # keys that mix harmonically: the same Camelot code, one ste
     return na == nb or (la == lb and (na - nb) % 12 in (1, 11))
 
 
-def licensed_parts(stems, tempo=None, key=None, k=3):
+_ML = None   # the MERT loop library (worker/mert_library.npz), loaded on first use
+
+
+def _mert_library():
+    global _ML
+    if _ML is None:
+        fp = os.path.join(os.path.dirname(__file__), "mert_library.npz")
+        _ML = dict(np.load(fp)) if os.path.exists(fp) else {}
+    return _ML
+
+
+def mert_active():
+    """MERT ranking is off until the switch file is on the embed volume: /embed/MERT_ACTIVE."""
+    return os.path.exists("/embed/MERT_ACTIVE")
+
+
+def licensed_parts(stems, tempo=None, key=None, k=3, mert=None):
     """For each separated part, the openly licensed loops of the same family whose sound is closest, among loops
     at a workable tempo (within 8%, or double or half) and, for bass and melody, in a key that mixes with the record's."""
     global _LI
@@ -259,6 +275,10 @@ def licensed_parts(stems, tempo=None, key=None, k=3):
         rank_by = sim
         if "W" in L and "Zp" in L:   # the order: the smudge-robust measure (tools/add_robust_measure.py)
             pz = z.astype(np.float32) @ L["W"].astype(np.float32); pz /= np.linalg.norm(pz) + 1e-9; rank_by = L["Zp"].astype(np.float32) @ pz
+        mv = (mert or {}).get(p); ML = _mert_library() if mv is not None else {}
+        if mv is not None and fam + "_lib" in ML:   # with MERT on: its corrected closeness added to the live order (tested best together)
+            q = ((np.asarray(mv, np.float32) - ML[fam + "_mu"]) @ ML[fam + "_P"]) @ ML[fam + "_W"]; q /= np.linalg.norm(q) + 1e-9
+            ms = ML[fam + "_lib"].astype(np.float32) @ q; ms[~ML[fam + "_have"]] = -9.0; rank_by = rank_by + ms
         order, users = [], set()
         for i in np.argsort(-rank_by):
             m_ = L["meta"][i]; lt = m_.get("tempo")
@@ -288,6 +308,19 @@ def _why(a, b):
 
 
 _RP = None
+_MR = None   # the records' MERT fingerprints (/embed/mert-records.npz, from tools/mert_collect.py)
+
+
+def record_mert(tid, path="/embed/mert-records.npz"):
+    """A record's MERT fingerprints by part, when the switch is on and the record has them; otherwise None."""
+    global _MR
+    if not mert_active(): return None
+    if _MR is None:
+        if not os.path.exists(path): return None
+        d = np.load(path, allow_pickle=False); _MR = {"at": {t: i for i, t in enumerate(d["ids"].tolist())}, "F": d["F"]}
+    i = _MR["at"].get(tid)
+    if i is None: return None
+    return {p: _MR["F"][i, j] for j, p in enumerate(("drums", "bass", "other", "vocals"))}
 
 
 def record_loops(tid, scene=None, path="/embed/record-parts.npz"):
@@ -306,7 +339,7 @@ def record_loops(tid, scene=None, path="/embed/record-parts.npz"):
         v = _RP["V"][i, j].astype(float)
         stems[p] = dict({"embedding": [float(x) for x in v[:45]]}, **{c: float(v[45 + k]) for k, c in enumerate(SC)})
     tempo = float(_RP["tempo"][i]) or None; key = str(_RP["key"][i]) or None
-    out = {"id": tid, "tempo": tempo, "key": key, "licensed_parts": licensed_parts(stems, tempo, key)}
+    out = {"id": tid, "tempo": tempo, "key": key, "licensed_parts": licensed_parts(stems, tempo, key, mert=record_mert(tid))}
     if scene: out["part_residuals"] = part_residuals(stems, scene)
     return out
 
