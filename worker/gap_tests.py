@@ -1387,3 +1387,45 @@ def realcheck():
     out = [{"id": r["id"], "mix": r["fp"], "V": rows[r["id"]]["V"], "tempo": rows[r["id"]]["tempo"], "key": rows[r["id"]]["key"]} for r in M if r["id"] in rows]
     os.makedirs("data/gap-tests", exist_ok=True); json.dump(out, open("data/gap-tests/realcheck.json", "w"))
     print(f"REALCHECK {len(out)} records")
+
+
+# ---------------------------------------------------------------- the MERT loop library, ready for the worker
+# Clean MERT fingerprints for every loop in all four families, unmixed readings from practice mixes that always carry all
+# four parts, and per family the correction (PCA on the clean library, then the Fisher re-weighting) with the library in
+# that space. Saved as data/gap-tests/mert-loop-library.npz for worker/mert_library.npz.
+@app.local_entrypoint()
+def mertlib():
+    import random, zlib, numpy as np
+    LI = _index(); rng = random.Random(107); ALPHA = {"bass": 0.5, "melody": 0.01, "drums": 0.01, "vocals": 0.01}
+    meta = {f: [(i, m) for i, m in enumerate(LI[f]["meta"]) if m.get("tempo") and m.get("preview")] for f in FAMS}
+    jobs = [(f, i, m["preview"]) for f in FAMS for i, m in meta[f]]
+    lib = {f: {} for f in FAMS}
+    for B in mert_loops_gpu.map([jobs[k:k + 60] for k in range(0, len(jobs), 60)], return_exceptions=True):
+        if isinstance(B, list):
+            for fam, i, v in B:
+                if v: lib[fam][i] = v
+    mixes = []
+    anchors = [("bass", x) for x in meta["bass"]] + [("vocals", x) for x in meta["vocals"]] * 2 + [("drums", x) for x in rng.sample(meta["drums"], 900)] + [("melody", x) for x in rng.sample(meta["melody"], 600)]
+    rng.shuffle(anchors)
+    for fam, (i, m) in anchors:
+        T = float(m["tempo"]); parts = {fam: (i, m["preview"])}
+        for f in FAMS:
+            if f in parts: continue
+            c = [x for x in meta[f] if abs(float(x[1]["tempo"]) - T) / T <= 0.03]
+            if c: j, x = rng.choice(c); parts[f] = (j, x["preview"])
+        if len(parts) == 4: mixes.append(parts)
+    R = [r for r in mix_mert_gpu.map(mixes, return_exceptions=True) if isinstance(r, dict) and not r.get("error")]
+    out, summ = {}, {"mixes": len(mixes), "unmixed": len(R)}
+    for f in FAMS:
+        n = len(LI[f]["meta"]); have = np.zeros(n, bool); Ec = np.zeros((n, 768), np.float32)
+        for i, v in lib[f].items(): Ec[i] = v; have[i] = True
+        mu = Ec[have].mean(0); U, Sv, Vt = np.linalg.svd(Ec[have] - mu, full_matrices=False); Pm = Vt[:128].T.astype(np.float32); pc = (Ec - mu) @ Pm
+        obs, lab = list(pc[have]), list(np.where(have)[0])
+        k_ = 0
+        for r in R:
+            if r.get(f) and r[f][2] and have[r[f][0]]: obs.append((np.array(r[f][2], np.float32) - mu) @ Pm); lab.append(r[f][0]); k_ += 1
+        W = _lda(obs, lab, ALPHA[f], 128); libm = (pc @ W); libm /= np.linalg.norm(libm, axis=1, keepdims=True) + 1e-9
+        out.update({f + "_have": have, f + "_mu": mu.astype(np.float32), f + "_P": Pm, f + "_W": W.astype(np.float32), f + "_lib": libm.astype(np.float16)})
+        summ[f] = {"loops": int(have.sum()), "of": n, "unmixed_readings": k_}
+    os.makedirs("data/gap-tests", exist_ok=True); np.savez_compressed("data/gap-tests/mert-loop-library.npz", **out)
+    json.dump(summ, open("data/gap-tests/mertlib.json", "w"), indent=1); print("MERTLIB " + json.dumps(summ))
