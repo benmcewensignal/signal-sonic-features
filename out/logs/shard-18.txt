@@ -1,2 +1,0 @@
-shard 18 of 30: 0 records
-stems: 123365 done, 0 this run, 0 left after

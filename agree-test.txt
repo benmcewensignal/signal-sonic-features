@@ -1,0 +1,35 @@
+✓ Initialized. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-hmMn9hxRPRHBEDAMCz8Ab3
+✓ Created objects.
+SUMMARY {"records": 26, "agree": 2, "share": 0.08, "verdict": "disagree", "median_jaccard": 0.5, "median_late_diff": 0.072, "median_tempo_diff": 0.1, "kick_same": 0, "halves_median_jaccard": 0.47, "halves_median_late_diff": 0.043, "halves_kick_same": 9}
+REC house | Get Together | J 0.8 late diff 0.212 tempo diff 0.5 kick same False agree False
+REC house | You Can Do It | J 0.5 late diff 0.087 tempo diff 0.1 kick same False agree False
+REC tech-house | Pull My Mind | J 0.67 late diff 0.033 tempo diff 0.0 kick same False agree True
+REC tech-house | Don't Want None | J 0.07 late diff 0.021 tempo diff 0.2 kick same False agree False
+REC deep-house | Bounce | J 0.44 late diff 0.255 tempo diff 0.6 kick same False agree False
+REC deep-house | Wooohoo | J 0.5 late diff 0.245 tempo diff 0.0 kick same False agree False
+REC techno-peak-time | Silver Bullet | J 0.44 late diff 0.266 tempo diff 0.3 kick same False agree False
+REC techno-peak-time | Too Loud Too Bright | J 0.06 late diff 0.021 tempo diff 1.1 kick same False agree False
+REC techno-raw-deep-hypnotic | Burden | J 0.62 late diff 0.059 tempo diff 0.1 kick same False agree False
+REC techno-raw-deep-hypnotic | Process 11 | J 0.75 late diff 0.026 tempo diff 0.1 kick same False agree True
+REC melodic-house-techno | Funky Town | J 0.53 late diff 0.056 tempo diff 0.2 kick same False agree False
+REC melodic-house-techno | 2019 Quantum | J 0.5 late diff 0.023 tempo diff 0.0 kick same False agree False
+REC uk-garage-speed-garage | Good Weekend | J 0.4 late diff 0.361 tempo diff 0.1 kick same False agree False
+REC uk-garage-speed-garage | Late Night Tip | J 0.44 late diff 0.386 tempo diff 0.0 kick same False agree False
+REC drum-and-bass | Drunk & Confused | J 0.0 late diff None tempo diff 31.0 kick same False agree False
+REC drum-and-bass | Machete | J 0.88 late diff 0.27 tempo diff 28.2 kick same False agree False
+REC amapiano | San'bonani | J 0.33 late diff 0.035 tempo diff 0.1 kick same False agree False
+REC amapiano | Umlilo  | J 0.58 late diff 0.058 tempo diff 0.0 kick same False agree False
+REC afro-house | Feel Again | J 0.31 late diff 0.03 tempo diff 0.0 kick same False agree False
+REC afro-house | Ecoon | J 0.69 late diff 0.169 tempo diff 0.4 kick same False agree False
+REC progressive-house | Jeweled Moon | J 0.56 late diff 0.092 tempo diff 0.6 kick same False agree False
+REC progressive-house | Bas Khalar | J 0.62 late diff 0.442 tempo diff 0.2 kick same False agree False
+REC breaks-breakbeat-uk-bass | Paris Sunset  | J 0.14 late diff 0.128 tempo diff 38.6 kick same False agree False
+REC breaks-breakbeat-uk-bass | Jiggle That | J 0.38 late diff 0.04 tempo diff 0.1 kick same False agree False
+REC trance-main-floor | Babylon Rising | J 0.33 late diff 0.072 tempo diff 0.0 kick same False agree False
+REC trance-main-floor | Constellation | J 0.69 late diff 0.071 tempo diff 0.1 kick same False agree False
+REF loop-first | A tempo 124.0 kick K...K...K...K... hats [0, 2, 6, 8, 10, 14] late [0.1, 0.1, 0.1, 0.1] | B tempo 124.0 kick K..KK..KK..KK..K hats [2, 4, 6, 10, 12, 14]
+REF loop-kit | A tempo 124.0 kick K...K...K...K... hats [2, 6, 10, 14] late [0.1, 0.11, 0.1, 0.11] | B tempo 124.0 kick KK..KK..KK..KK.. hats [1, 3, 5, 6, 7, 9, 11, 13, 14, 15]
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-hmMn9hxRPRHBEDAMCz8Ab3
