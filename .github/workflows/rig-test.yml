@@ -1,6 +1,8 @@
 name: rig test
 # The groovebox as a test rig: rendered tracks with known answers through the deployed reader (tools/rig_test.py); results on the rig-test-results branch
-on: { workflow_dispatch: {} }
+on:
+  workflow_dispatch: {}
+  workflow_run: { workflows: ["worker-deploy"], types: [completed] }   # after every reader deploy
 permissions: { contents: write }
 jobs:
   run:
@@ -13,7 +15,7 @@ jobs:
       - run: pip install -q modal numpy librosa soundfile
       - name: run on Modal
         env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
-        run: modal run tools/rig_test.py 2>&1 | tee rig-test.txt | tail -60 >> "$GITHUB_STEP_SUMMARY"
+        run: set -o pipefail; modal run tools/rig_test.py 2>&1 | tee rig-test.txt | tail -60 >> "$GITHUB_STEP_SUMMARY"
       - name: keep the result
         if: always()
         run: |

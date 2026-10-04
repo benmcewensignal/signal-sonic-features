@@ -42,7 +42,7 @@ def render(scene, bpm, swing, kpat, hats, bsteps, key, var=None, seed=1):
             if s in (4, 12): add(D, t, kit["snare"], 0.6)
             if s in hat_steps: add(D, t + late[s] * six, kit["hat"], 0.35 if s % 4 == 2 else 0.22)
             if s in bsteps:
-                f = 55 * 2 ** (((root + (7 if s % 8 == 7 else 0)) % 12 - 9) / 12); tone = saw(f, min(0.9, 3.5 * six)); env = np.minimum(1, np.arange(len(tone)) / (0.004 * SR)) * np.exp(-np.arange(len(tone)) / SR * 5)
+                f = 55 * 2 ** (((root + (7 if s % 8 == 7 else 0)) % 12 - 9) / 12); tone = saw(f, min(0.9, 3.5 * six)); L_ = len(tone); env = np.minimum(1, np.arange(L_) / (0.004 * SR)) * np.exp(-np.arange(L_) / SR * 5) * np.minimum(1, (L_ - np.arange(L_)) / (0.03 * SR))   # a smooth release: an abrupt end clicks and reads as a bass note
                 add(B, t + late[s] * six * 0.5, tone * env, 0.35)
         cr = (root + prog[(b // 2) % 4]) % 12; iv = [0, 3, 7] if (minor and prog[(b // 2) % 4] == 0) else [0, 4, 7]
         pad = sum(saw(220 * 2 ** (((cr + x) % 12 - 9) / 12), 16 * six, 4) for x in iv); penv = np.minimum(1, np.arange(len(pad)) / (0.2 * SR)) * np.minimum(1, (len(pad) - np.arange(len(pad))) / (0.2 * SR))
@@ -96,6 +96,19 @@ def main():
                 except Exception as e: sep[k + "_error"] = type(e).__name__
         row["separation"] = sep; row["keys_returned"] = sorted(o.keys())[:20]; rows.append(row)
     json.dump(rows, open("rig-test.json", "w"), indent=1)
+    # the guard: the scores the reader reached on 4 Oct 2026; a change that drops below any of them fails this run
+    canon = lambda p: min(p[k:] + p[:k] for k in range(16)) if p else None
+    base = [r for r in rows if not r["truth"]["var"] and "read" in r]; got = {"tempo": 0, "kick": 0, "hats": 0, "late": 0, "key": 0}
+    for r in base:
+        t = r["truth"]; sk = (r["read"] or {}).get("skeleton") or {}; k = (r["read"] or {}).get("key")
+        got["tempo"] += abs((sk.get("tempo") or 0) - t["tempo"]) <= 0.5; got["kick"] += canon(sk.get("kick")) == canon(t["kick"])
+        h = {s for s in range(16) if (sk.get("occ") or [0] * 16)[s] >= 0.34} - {4, 12}; th = set(t["hats"]); got["hats"] += len(h & th) / max(1, len(h | th)) >= 0.8
+        lt = [abs((sk.get("rel") or [0] * 16)[int(s)] - v) for s, v in t["late"].items()]; got["late"] += bool(lt) and float(np.median(lt)) <= 0.06
+        got["key"] += ((k.get("key") if isinstance(k, dict) else k) or "").replace(" ", "").lower() == t["key"].lower()
+    need = {"tempo": 12, "kick": 11, "hats": 11, "late": 9, "key": 11}
+    print("GUARD", json.dumps({"got": got, "need": need, "of": len(base)}))
+    short = {k: (got[k], v) for k, v in need.items() if got[k] < v}
+    if short or len(base) < 12: raise SystemExit("the reader slipped below the rig's standard: " + json.dumps(short) + f" ({len(base)} tracks read)")
     print("RIG", len(rows), "renders")
     for r in rows:
         t = r["truth"]; rd = r.get("read") or {}; sk = rd.get("skeleton") or {}; d = rd.get("drums") or {}
