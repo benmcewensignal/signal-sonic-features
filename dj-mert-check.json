@@ -1,0 +1,55 @@
+{
+ "records_with_ear_and_mert": 23760,
+ "test_pairs": 4202,
+ "top10": {
+  "ear": 46.3,
+  "mert": 22.4,
+  "ear_plus_mert": 43.1,
+  "ranker": 56.9,
+  "ranker_plus_mert": 57.6
+ },
+ "first": {
+  "ear": 10.3,
+  "mert": 4.7,
+  "ear_plus_mert": 9.9,
+  "ranker": 19.1,
+  "ranker_plus_mert": 19.7
+ },
+ "top10_by_split": {
+  "ear": [
+   45.9,
+   51.6,
+   45.9,
+   47.7,
+   40.4
+  ],
+  "mert": [
+   18.8,
+   28.9,
+   22.7,
+   23.2,
+   18.5
+  ],
+  "ear_plus_mert": [
+   39.8,
+   51.4,
+   43.7,
+   43.7,
+   36.9
+  ],
+  "ranker": [
+   56.4,
+   60.8,
+   57.6,
+   56.4,
+   53.3
+  ],
+  "ranker_plus_mert": [
+   57.1,
+   61.3,
+   57.8,
+   57.4,
+   54.2
+  ]
+ }
+}
