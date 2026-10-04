@@ -867,8 +867,12 @@ def skeleton_from(cap, kick_pattern=None):
         return cnt, offs
     kk, _ = grid(kicks); nk, nko = grid(O[~kick]); bars = (len(B) - 1) / 4.0
     P = kick_pattern if isinstance(kick_pattern, str) and len(kick_pattern) == 16 and "K" in kick_pattern else None
-    rot = max((0, 4, 8, 12), key=lambda q: sum(kk[(s + q) % 16] for s in range(16) if P[s] == "K")) if P else max((0, 4, 8, 12), key=lambda q: nk[(4 + q) % 16] + nk[(12 + q) % 16])
+    # where the bar starts: on a kick, and with the hits other than the kick on beats two and four where that applies
+    # (the kick pattern's own start, on its strongest kick, was arbitrary: drum and bass split across rotations)
+    rot = max((0, 4, 8, 12), key=lambda q: 2.0 * kk[q % 16] + nk[(4 + q) % 16] + nk[(12 + q) % 16])
     idx = [(s + rot) % 16 for s in range(16)]
+    if kp3 is not None and P:
+        krot = int((kp3 or {}).get("_rotation", 0) or 0); P = "".join(P[((s + rot) - krot) % 16] for s in range(16))
     kk_, kko = grid(kicks)
     kick_off = [o for k_ in range(16) for o in kko[k_]]
     def lateness(offs):
@@ -938,6 +942,8 @@ def refit_beats(beats, onsets, kicks=None, prefer_tempo=None):
     # which sixteenth is the beat: the kicks, else the tracker's beats
     K = np.asarray(kicks, float) if kicks is not None and len(kicks) >= 8 else None
     cands = [ph + k * T / 4 for k in range(4)]
+    # known limit (test rig, 4 Oct): with two or three kicks a bar (half time, two-step) the kicks can leave two
+    # candidates level and the beat can land a sixteenth off; the drifting tracker is no reliable tie-break
     if K is not None:
         sc = [float(np.cos(2 * np.pi * (((K - c) / T) - np.round((K - c) / T))).sum()) for c in cands]
     else:
