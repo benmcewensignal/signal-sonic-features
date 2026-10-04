@@ -1,0 +1,23 @@
+name: rig test
+# The groovebox as a test rig: rendered tracks with known answers through the deployed reader (tools/rig_test.py); results on the rig-test-results branch
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q modal numpy librosa soundfile
+      - name: run on Modal
+        env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: modal run tools/rig_test.py 2>&1 | tee rig-test.txt | tail -60 >> "$GITHUB_STEP_SUMMARY"
+      - name: keep the result
+        if: always()
+        run: |
+          git config user.name sonic-bot; git config user.email sonic-bot@users.noreply.github.com
+          mkdir -p /tmp/r; cp rig-test.txt /tmp/r/ 2>/dev/null || true; cp rig-test.json /tmp/r/ 2>/dev/null || true
+          git checkout -q -B rig-test-results; git rm -rq --cached . >/dev/null 2>&1 || true
+          cp /tmp/r/* . 2>/dev/null || true; git add -f rig-test.txt rig-test.json 2>/dev/null || true; git commit -qm "rig test $(date -u +%FT%TZ)" || true; git push -q -f origin rig-test-results
