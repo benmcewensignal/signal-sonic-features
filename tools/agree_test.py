@@ -98,7 +98,10 @@ def main():
     for kind in ("first", "kit"):
         clips.append(loop(kind)); meta.append({"scene": "reference", "id": "loop-" + kind, "name": "known-timing loop (" + kind + ")", "truth": {"tempo": 124, "kick": "K...K...K...K...", "hats": [2, 6, 10, 14], "late": 0.1}})
     read = modal.Function.from_name("sonic-parts", "read_parts")
-    A = list(read.map([wav_bytes(c, 32000) for c in clips], return_exceptions=True))
+    halves = []
+    for c, m in zip(clips, meta):
+        if m["scene"] != "reference": h = len(c) // 2; halves += [c[:h], c[h:]]
+    allA = list(read.map([wav_bytes(c, 32000) for c in clips + halves], return_exceptions=True)); A = allA[:len(clips)]; H = allA[len(clips):]
     rows = []
     for c, m, a in zip(clips, meta, A):
         sk = a.get("skeleton") if isinstance(a, dict) else None
@@ -110,14 +113,27 @@ def main():
             ta, tb_ = sk.get("tempo") or 0, B["tempo"]; tr = min(abs(ta - tb_), abs(ta * 2 - tb_), abs(ta - tb_ * 2))
             row.update(jaccard=round(J, 2), late_diff=round(dl, 3) if dl is not None else None, tempo_diff=round(tr, 1), kick_same=(sk.get("kick") == B["kick"]), agree=bool(J >= 0.6 and dl is not None and dl < 0.05))
         rows.append(row)
+    # consistency: the record method on the first and the second half of the same minute
+    hi = 0
+    for r in rows:
+        if r["scene"] == "reference": continue
+        a1 = H[hi] if hi < len(H) else None; a2 = H[hi + 1] if hi + 1 < len(H) else None; hi += 2
+        s1 = a1.get("skeleton") if isinstance(a1, dict) else None; s2 = a2.get("skeleton") if isinstance(a2, dict) else None
+        if s1 and s2 and s1.get("occ") and s2.get("occ"):
+            h1 = {s for s in range(16) if s1["occ"][s] >= 0.34}; h2 = {s for s in range(16) if s2["occ"][s] >= 0.34}; both = sorted(h1 & h2)
+            r["halves_jaccard"] = round(len(h1 & h2) / max(1, len(h1 | h2)), 2); r["halves_late_diff"] = round(float(np.median([abs(s1["rel"][s] - s2["rel"][s]) for s in both])), 3) if both else None
+            r["halves_kick_same"] = s1.get("kick") == s2.get("kick")
     real = [r for r in rows if r["scene"] != "reference" and "agree" in r]; n_ag = sum(r["agree"] for r in real)
     summary = {"records": len(real), "agree": n_ag, "share": round(n_ag / max(1, len(real)), 2), "verdict": "agree" if real and n_ag / len(real) >= 0.7 else "disagree",
                "median_jaccard": round(float(np.median([r["jaccard"] for r in real])), 2) if real else None, "median_late_diff": round(float(np.median([r["late_diff"] for r in real if r["late_diff"] is not None])), 3) if real else None,
-               "median_tempo_diff": round(float(np.median([r["tempo_diff"] for r in real])), 1) if real else None, "kick_same": sum(r["kick_same"] for r in real)}
+               "median_tempo_diff": round(float(np.median([r["tempo_diff"] for r in real])), 1) if real else None, "kick_same": sum(r["kick_same"] for r in real),
+               "halves_median_jaccard": round(float(np.median([r["halves_jaccard"] for r in real if "halves_jaccard" in r])), 2) if any("halves_jaccard" in r for r in real) else None,
+               "halves_median_late_diff": round(float(np.median([r["halves_late_diff"] for r in real if r.get("halves_late_diff") is not None])), 3) if any(r.get("halves_late_diff") is not None for r in real) else None,
+               "halves_kick_same": sum(1 for r in real if r.get("halves_kick_same"))}
     json.dump({"summary": summary, "rows": rows}, open("agree-test.json", "w"), indent=1)
     print("SUMMARY", json.dumps(summary))
     for r in rows:
         if r["scene"] == "reference":
-            a = r["A"] or {}; print("REF", r["id"], "| A tempo", a.get("tempo"), "kick", a.get("kick"), "hats", [s for s in range(16) if (a.get("occ") or [0] * 16)[s] >= 0.34], "| B tempo", r["B"]["tempo"], "kick", r["B"]["kick"], "hats", [s for s in range(16) if r["B"]["strength"][s] >= 0.3])
+            a = r["A"] or {}; print("REF", r["id"], "| A tempo", a.get("tempo"), "kick", a.get("kick"), "hats", [s for s in range(16) if (a.get("occ") or [0] * 16)[s] >= 0.34], "late", [round((a.get("rel") or [0]*16)[s], 2) for s in (2, 6, 10, 14)], "| B tempo", r["B"]["tempo"], "kick", r["B"]["kick"], "hats", [s for s in range(16) if r["B"]["strength"][s] >= 0.3])
         else:
             print("REC", r["scene"], "|", r.get("name", "")[:30], "| J", r.get("jaccard"), "late diff", r.get("late_diff"), "tempo diff", r.get("tempo_diff"), "kick same", r.get("kick_same"), "agree", r.get("agree"))

@@ -822,6 +822,11 @@ def skeleton_from(cap, kick_pattern=None):
     low = arr(cap.get("drums_low")); hop = cap.get("drums_low_hop") or 512; sr_ = cap.get("drums_low_sr") or 22050
     lowv = np.array([float(low[max(0, int(o * sr_ / hop) - 2): int(o * sr_ / hop) + 3].max()) if low is not None and int(o * sr_ / hop) < len(low) else 0.0 for o in O])
     thr = np.percentile(lowv, 60) if len(lowv) else 0; kick = (lowv >= thr) & (lowv > 0); kicks = O[kick]
+    B, rinfo = refit_beats(B, O, kicks)
+    if low is not None and rinfo.get("refit"):
+        try:
+            kp3 = kick_pattern_v3(low, sr_, hop, list(B)); kick_pattern = (kp3 or {}).get("kick_pattern") or kick_pattern
+        except Exception: pass
     def grid(times):
         cnt = np.zeros(16); offs = [[] for _ in range(16)]
         for o in times:
@@ -833,11 +838,15 @@ def skeleton_from(cap, kick_pattern=None):
     P = kick_pattern if isinstance(kick_pattern, str) and len(kick_pattern) == 16 and "K" in kick_pattern else None
     rot = max((0, 4, 8, 12), key=lambda q: sum(kk[(s + q) % 16] for s in range(16) if P[s] == "K")) if P else max((0, 4, 8, 12), key=lambda q: nk[(4 + q) % 16] + nk[(12 + q) % 16])
     idx = [(s + rot) % 16 for s in range(16)]
+    kk_, kko = grid(kicks)
+    kick_off = [o for k_ in range(16) for o in kko[k_]]
     def lateness(offs):
+        # how far after the kick each step lands: the kick is the steadiest reference (a clap or hat on the beat
+        # registers its onset late, which made everything else read early); else the hits on the beat
         med = [float(np.median(offs[j])) if len(offs[j]) >= 3 else np.nan for j in idx]; on = [med[s] for s in (0, 4, 8, 12) if not np.isnan(med[s])]
-        base = float(np.median(on)) if on else 0.0
+        base = float(np.median(kick_off)) if len(kick_off) >= 8 else (float(np.median(on)) if on else 0.0)
         return [round(float(x), 3) if not np.isnan(x) else 0.0 for x in (np.array(med) - base)]
-    out = {"bars": round(bars, 1), "tempo": round(60.0 / float(np.median(np.diff(B))), 1), "kick": P, "occ": [round(float(min(1, nk[j] / bars)), 3) for j in idx], "rel": lateness(nko)}
+    out = {"grid": rinfo, "bars": round(bars, 1), "tempo": round(60.0 / float(np.median(np.diff(B))), 1), "kick": P, "occ": [round(float(min(1, nk[j] / bars)), 3) for j in idx], "rel": lateness(nko)}
     BO = np.asarray(cap.get("bass_onsets") or [], float)
     if len(BO) >= 4:
         keep = np.array([not (len(kicks) and np.min(np.abs(kicks - b)) < 0.035) for b in BO]); bc, bo = grid(BO[keep])
@@ -852,3 +861,44 @@ def skeleton_from(cap, kick_pattern=None):
         except Exception:
             pass
     return out
+
+
+def refit_beats(beats, onsets, kicks=None):
+    """A steady beat grid fitted to the drum part's own hits.
+
+    The learned tracker places beats a whole number of frames apart (512 samples at 44.1 kHz), so its grid
+    runs at a quantised tempo and drifts from the hits: on 40 stored records the median beat spacing was
+    exactly a whole number of frames, the tempo was off a median 0.94 BPM from the best steady grid, and
+    the beats wandered a median 3.9 sixteenths from it across a preview, so hits landed on the wrong steps.
+    Dance records hold a steady tempo, so the tempo and phase that best line up every drum hit on the
+    sixteenth grid are searched around the tracker's (coarse, then fine); the kicks, where known, decide
+    which sixteenth is the beat, else the tracker does. If under half the hits sit within 0.15 of a
+    sixteenth of the fitted grid the tracker's beats are kept. Returns (beats, info)."""
+    import numpy as np
+    B = np.asarray(beats, float); O = np.asarray(onsets, float)
+    if len(B) < 9 or len(O) < 16: return B, {"refit": False, "why": "too few"}
+    per = float(np.median(np.diff(B)))
+    def score(T, phs):
+        r = (O[None, :] - phs[:, None]) / (T / 4); return np.cos(2 * np.pi * (r - np.round(r))).sum(1)
+    best = (-1e9, per, 0.0)
+    for T in np.arange(per * 0.985, per * 1.015, per * 0.001):
+        phs = np.arange(0, T / 4, 0.003); s = score(T, phs); k = int(np.argmax(s))
+        if s[k] > best[0]: best = (float(s[k]), float(T), float(phs[k]))
+    _, T0, p0 = best
+    for T in np.arange(T0 - per * 0.0015, T0 + per * 0.0015, per * 0.0001):
+        phs = np.arange(p0 - 0.006, p0 + 0.006, 0.0005); s = score(T, phs); k = int(np.argmax(s))
+        if s[k] > best[0]: best = (float(s[k]), float(T), float(phs[k]))
+    _, T, ph = best
+    r = (O - ph) / (T / 4); fit = float(np.mean(np.abs(r - np.round(r)) < 0.15))
+    if fit < 0.5: return B, {"refit": False, "why": "not steady", "fit": round(fit, 3)}
+    # which sixteenth is the beat: the kicks, else the tracker's beats
+    K = np.asarray(kicks, float) if kicks is not None and len(kicks) >= 8 else None
+    cands = [ph + k * T / 4 for k in range(4)]
+    if K is not None:
+        sc = [float(np.cos(2 * np.pi * (((K - c) / T) - np.round((K - c) / T))).sum()) for c in cands]
+    else:
+        sc = [-float(np.median(np.abs(((B - c) / T) - np.round((B - c) / T)))) for c in cands]
+    c = cands[int(np.argmax(sc))]
+    n0 = int(np.floor((B[0] - c) / T)); n1 = int(np.ceil((B[-1] - c) / T))
+    G = c + T * np.arange(n0, n1 + 1); G = G[(G >= B[0] - T / 2) & (G <= B[-1] + T / 2)]
+    return G, {"refit": True, "tempo": round(60.0 / T, 2), "tracker_tempo": round(60.0 / per, 2), "fit": round(fit, 3)}
