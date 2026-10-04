@@ -1,6 +1,7 @@
 name: skeleton test
-# The reader's skeleton on a loop with a known answer (tools/skeleton_test.py)
+# The reader's skeleton on a loop with a known answer (tools/skeleton_test.py); the result lands on the skeleton-test-results branch
 on: { workflow_dispatch: {} }
+permissions: { contents: write }
 jobs:
   run:
     runs-on: ubuntu-24.04
@@ -12,4 +13,10 @@ jobs:
       - run: pip install -q modal numpy
       - name: run on Modal
         env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
-        run: modal run tools/skeleton_test.py | tee -a "$GITHUB_STEP_SUMMARY"
+        run: modal run tools/skeleton_test.py 2>&1 | tee skeleton-test.txt | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: keep the result
+        run: |
+          git config user.name sonic-bot; git config user.email sonic-bot@users.noreply.github.com
+          cp skeleton-test.txt /tmp/r.txt; git fetch -q origin skeleton-test-results || true
+          git checkout -q -B skeleton-test-results; git rm -rq --cached . >/dev/null 2>&1 || true
+          cp /tmp/r.txt skeleton-test.txt; git add -f skeleton-test.txt; git commit -qm "skeleton test $(date -u +%FT%TZ)"; git push -q -f origin skeleton-test-results
