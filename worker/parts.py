@@ -200,6 +200,7 @@ def read(wav_path, with_audio=False, donor=None, only_leverage=False, ab=None):
             except Exception as e_: out["leverage"] = {"error": type(e_).__name__ + ": " + str(e_)[:120]}
             return out
         part_audio = _part_audio(st) if with_audio else None
+        S._CAPTURE = {}   # keep the drum and bass workings, so the skeleton below is measured as the records' were
         rec = {k: S.measure_stem(v) for k, v in st.items()}
         for k, v in sorted(st.items(), key=lambda kv: 0 if kv[0] == "drums" else 1):
             emb = S.analyse_stem(v)
@@ -212,11 +213,19 @@ def read(wav_path, with_audio=False, donor=None, only_leverage=False, ab=None):
                 kp = S.kick_pattern_of_stem(v, (rh or {}).get("_beats"))
                 if kp: kp.pop("_rotation", None); rec[k].update(kp)
                 rec[k].pop("_beats", None)
+        skel = None
+        try:
+            if "bass" in st and S._CAPTURE.get("drums_beats"): S.bassline_of_stem(st["bass"], S._CAPTURE.get("drums_beats"))
+            skel = S.skeleton_from(S._CAPTURE, (rec.get("drums") or {}).get("kick_pattern"))
+        except Exception as e_:
+            skel = {"error": type(e_).__name__ + ": " + str(e_)[:120]}
+        finally:
+            S._CAPTURE = None
         tot = sum((s or {}).get("level", 0) for s in rec.values()) or 1
         for s in rec.values():
             if s: s["share_of_energy"] = round(s.get("level", 0) / tot, 4)
         v = rec.get("vocals") or {}
-        out = {"model": S.MODEL, "parts": rec, "voice_type": voice_type(v) if v else None}
+        out = {"model": S.MODEL, "parts": rec, "voice_type": voice_type(v) if v else None, "skeleton": skel}
         # the scene call: the corpus analyser's measures of the whole mix, through the trained model
         try:
             from worker.scene import call, call_parts, features_of

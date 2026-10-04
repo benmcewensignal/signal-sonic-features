@@ -803,3 +803,52 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def skeleton_from(cap, kick_pattern=None):
+    """An uploaded track's skeleton, measured exactly as the records' were (tools/skeleton.py, tools/bassplace.py):
+    where the drum part's hits other than the kick fall on the 16 steps and how late (kicks told apart by their
+    30-120 Hz energy, the loudest 40%), and where the bass part's notes start once every start within 35 ms of a kick
+    is dropped as the kick's bleed; the bar lined up to the track's own kick pattern; plus its steady bass notes."""
+    import numpy as np
+    def arr(x):
+        if x is None: return None
+        if isinstance(x, str):
+            try: return _unpack(x)
+            except Exception: return None
+        return np.asarray(x, np.float32)
+    B = np.asarray(cap.get("drums_beats") or [], float); O = np.asarray(cap.get("drums_onsets") or [], float)
+    if len(B) < 9 or len(O) < 8: return None
+    low = arr(cap.get("drums_low")); hop = cap.get("drums_low_hop") or 512; sr_ = cap.get("drums_low_sr") or 22050
+    lowv = np.array([float(low[max(0, int(o * sr_ / hop) - 2): int(o * sr_ / hop) + 3].max()) if low is not None and int(o * sr_ / hop) < len(low) else 0.0 for o in O])
+    thr = np.percentile(lowv, 60) if len(lowv) else 0; kick = (lowv >= thr) & (lowv > 0); kicks = O[kick]
+    def grid(times):
+        cnt = np.zeros(16); offs = [[] for _ in range(16)]
+        for o in times:
+            j = np.searchsorted(B, o) - 1
+            if j < 0 or j >= len(B) - 1: continue
+            f = (o - B[j]) / (B[j + 1] - B[j]) * 4; k = int(round(f)); st = ((j % 4) * 4 + k) % 16; cnt[st] += 1; offs[st].append(f - k)
+        return cnt, offs
+    kk, _ = grid(kicks); nk, nko = grid(O[~kick]); bars = (len(B) - 1) / 4.0
+    P = kick_pattern if isinstance(kick_pattern, str) and len(kick_pattern) == 16 and "K" in kick_pattern else None
+    rot = max((0, 4, 8, 12), key=lambda q: sum(kk[(s + q) % 16] for s in range(16) if P[s] == "K")) if P else max((0, 4, 8, 12), key=lambda q: nk[(4 + q) % 16] + nk[(12 + q) % 16])
+    idx = [(s + rot) % 16 for s in range(16)]
+    def lateness(offs):
+        med = [float(np.median(offs[j])) if len(offs[j]) >= 3 else np.nan for j in idx]; on = [med[s] for s in (0, 4, 8, 12) if not np.isnan(med[s])]
+        base = float(np.median(on)) if on else 0.0
+        return [round(float(x), 3) if not np.isnan(x) else 0.0 for x in (np.array(med) - base)]
+    out = {"bars": round(bars, 1), "tempo": round(60.0 / float(np.median(np.diff(B))), 1), "kick": P, "occ": [round(float(min(1, nk[j] / bars)), 3) for j in idx], "rel": lateness(nko)}
+    BO = np.asarray(cap.get("bass_onsets") or [], float)
+    if len(BO) >= 4:
+        keep = np.array([not (len(kicks) and np.min(np.abs(kicks - b)) < 0.035) for b in BO]); bc, bo = grid(BO[keep])
+        out.update(bass_occ=[round(float(min(1, bc[j] / bars)), 3) for j in idx], bass_rel=lateness(bo), bass_per_bar=round(float(bc.sum() / bars), 2), bleed_share=round(float(1 - keep.mean()), 3))
+    if cap.get("bass_f0") is not None:
+        try:
+            bl = bassline_from(arr(cap["bass_f0"]), cap.get("bass_onsets") or [], arr(cap.get("bass_env")), cap.get("bass_sr") or 22050, cap.get("bass_hop") or 256, B.tolist())
+            toks = (bl or {}).get("bass_pattern", "").split() if bl and bl.get("bass_voiced") else []
+            if len(toks) == 16:
+                import librosa
+                out["bass_notes"] = [int(librosa.note_to_midi(toks[j])) if toks[j] != "." else None for j in idx]
+        except Exception:
+            pass
+    return out
