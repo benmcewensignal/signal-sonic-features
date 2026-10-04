@@ -134,7 +134,10 @@ def rhythm_of_stem(path):
             _yl = librosa.resample(y, orig_sr=44100, target_sr=22050); _X = np.abs(librosa.stft(_yl, n_fft=1024, hop_length=128)); _f = librosa.fft_frequencies(sr=22050, n_fft=1024)
             _lf = np.maximum(0, np.diff(_X[(_f >= 30) & (_f < 120)].sum(0), prepend=0)); _kicks = librosa.onset.onset_detect(onset_envelope=_lf, sr=22050, hop_length=128, units="time")
         except Exception: pass
-        _bf, _ri = refit_beats(beats, on, _kicks)
+        _w = None
+        try: _w = np.array([float(_lf[max(0, int(o * 22050 / 128) - 2): int(o * 22050 / 128) + 3].max()) for o in on])
+        except Exception: pass
+        _bf, _ri = refit_beats(beats, on, _kicks, None, _w)
         if _ri.get("refit"): beats = np.asarray(_bf)
         # Swing is where the offbeat falls, so look for the onset nearest the half-beat, inside
         # the window a swung eighth can occupy. The first version took the first onset after
@@ -840,7 +843,13 @@ def skeleton_from(cap, kick_pattern=None):
     low = arr(cap.get("drums_low")); hop = cap.get("drums_low_hop") or 512; sr_ = cap.get("drums_low_sr") or 22050
     lowv = np.array([float(low[max(0, int(o * sr_ / hop) - 2): int(o * sr_ / hop) + 3].max()) if low is not None and int(o * sr_ / hop) < len(low) else 0.0 for o in O])
     thr = np.percentile(lowv, 60) if len(lowv) else 0; kick = (lowv >= thr) & (lowv > 0); kicks = O[kick]
-    B, rinfo = refit_beats(B, O, kicks, cap.get("catalogue_tempo"))
+    # beat weights: how sharply the low end rises at each hit (a kick's low end jumps; a room-miked hat carries low
+    # rumble but barely rises), not how much low end is there
+    lowr = None
+    if low is not None:
+        lr_ = np.maximum(0.0, np.diff(np.asarray(low, float), prepend=float(low[0])))
+        lowr = np.array([float(lr_[max(0, int(o * sr_ / hop) - 2): int(o * sr_ / hop) + 3].max()) if int(o * sr_ / hop) < len(lr_) else 0.0 for o in O])
+    B, rinfo = refit_beats(B, O, kicks, cap.get("catalogue_tempo"), lowr)
     kp3 = None
     if low is not None and rinfo.get("refit"):
         try:
@@ -901,7 +910,7 @@ def skeleton_from(cap, kick_pattern=None):
     return out
 
 
-def refit_beats(beats, onsets, kicks=None, prefer_tempo=None):
+def refit_beats(beats, onsets, kicks=None, prefer_tempo=None, weights=None):
     """A steady beat grid fitted to the drum part's own hits.
 
     The learned tracker places beats a whole number of frames apart (512 samples at 44.1 kHz), so its grid
@@ -944,7 +953,13 @@ def refit_beats(beats, onsets, kicks=None, prefer_tempo=None):
     cands = [ph + k * T / 4 for k in range(4)]
     # known limit (test rig, 4 Oct): with two or three kicks a bar (half time, two-step) the kicks can leave two
     # candidates level and the beat can land a sixteenth off; the drifting tracker is no reliable tie-break
-    if K is not None:
+    W = np.asarray(weights, float) if weights is not None and len(weights) == len(O) else None
+    if W is not None and W.sum() > 0:
+        # the beat is the sixteenth where the hits with the most low end land: kicks dominate, snares and claps add,
+        # hats barely count (a kick vote from the loudest 40% of low end let offbeat hits carrying the bass decide:
+        # a third of house read its kick a sixteenth or two off the beat)
+        sc = [float(W[np.abs(((O - c) / T) - np.round((O - c) / T)) < 0.1].sum()) for c in cands]
+    elif K is not None:
         sc = [float(np.cos(2 * np.pi * (((K - c) / T) - np.round((K - c) / T))).sum()) for c in cands]
     else:
         sc = [-float(np.median(np.abs(((B - c) / T) - np.round((B - c) / T)))) for c in cands]
