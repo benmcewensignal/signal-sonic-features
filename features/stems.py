@@ -119,6 +119,10 @@ def rhythm_of_stem(path):
         on = librosa.onset.onset_detect(y=y, sr=44100, units="time")
         _cap(drums_beats=[round(float(b), 4) for b in beats], drums_beat_conf=float(conf),
              drums_onsets=[round(float(o), 4) for o in on])
+        # the tracker's beats sit a whole number of frames apart and drift from the hits; every timing measure
+        # below (swing, hits per beat, the kick pattern via _beats) runs on a steady grid fitted to the hits
+        _bf, _ri = refit_beats(beats, on, None)
+        if _ri.get("refit"): beats = np.asarray(_bf)
         # Swing is where the offbeat falls, so look for the onset nearest the half-beat, inside
         # the window a swung eighth can occupy. The first version took the first onset after
         # each beat, which on real drums with sixteenth hats is the sixteenth at a quarter:
