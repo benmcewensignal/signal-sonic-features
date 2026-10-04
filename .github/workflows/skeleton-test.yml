@@ -1,0 +1,15 @@
+name: skeleton test
+# The reader's skeleton on a loop with a known answer (tools/skeleton_test.py)
+on: { workflow_dispatch: {} }
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q modal numpy
+      - name: run on Modal
+        env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: modal run tools/skeleton_test.py | tee -a "$GITHUB_STEP_SUMMARY"
