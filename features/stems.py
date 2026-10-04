@@ -138,7 +138,7 @@ def rhythm_of_stem(path):
             near = [p for p in inbeat if 0.42 <= p <= 0.71]
             if near:
                 fr.append(float(np.median(near)))
-        out = {"_beats": [float(x) for x in beats], "beat_confidence": round(float(conf), 3),
+        out = {"_beats": [float(x) for x in beats], "beat_confidence": round(float(conf), 3), "grid_refit": bool(_ri.get("refit")),
                "beats_per_minute": round(60.0 / float(np.median(np.diff(beats))), 2),
                "hits_per_beat": round(float(np.median(sub)), 2) if sub else None}
         if len(fr) >= 4:
@@ -772,6 +772,7 @@ def main():
                             kp = kick_pattern_of_stem(v, _beats)
                             _rot = (kp or {}).pop("_rotation", 0)
                             if kp:
+                                if (rh or {}).get("grid_refit"): kp["kick_version"] = 4   # measured on the steady grid fitted to the hits
                                 rec["stems"][k].update(kp)
                             rec["stems"][k].pop("_beats", None)
                         if k == "bass" and isinstance(rec["stems"].get(k), dict):

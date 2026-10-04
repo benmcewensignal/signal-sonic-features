@@ -131,7 +131,7 @@ def main():
             t = dd.get("track_id")
             if t not in want: continue
             dr = (dd.get("stems") or {}).get("drums") or {}
-            if (dr.get("kick_version") or 0) >= 3: RH[t] = (dr.get("kick_pattern"), dr.get("swing16"), dr.get("kicks_per_bar"))
+            if (dr.get("kick_version") or 0) >= 4: RH[t] = (dr.get("kick_pattern"), dr.get("swing16"), dr.get("kicks_per_bar"))
     out = []; report = {}; CEN = []; GEN = []; GCEN = []
     # stable ids: a style keeps yesterday's id when its centre matches yesterday's closely (cosine 0.9 or more), so a
     # stored target (a bounce's history, a demo) means the same records tomorrow; unmatched styles get a fresh number

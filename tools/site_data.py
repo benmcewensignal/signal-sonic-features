@@ -132,7 +132,7 @@ def main():
             s_ = scene.get(t)
             if not s_: continue
             A = agg[s_]; A["n"] += 1
-            if dr.get("kick_pattern") and (dr.get("kick_version") or 0) >= 3: A["kp"][dr["kick_pattern"]] += 1
+            if dr.get("kick_pattern") and (dr.get("kick_version") or 0) >= 4: A["kp"][dr["kick_pattern"]] += 1
             for k, dst in (("kicks_per_bar", "kpb"), ("kick_steadiness", "steady"), ("swing16", "swing")):
                 if isinstance(dr.get(k), (int, float)): A[dst].append(float(dr[k]))
             if isinstance(dr.get("breakdowns"), (int, float)) and dr["breakdowns"] > 0: A["brk_any"] += 1
