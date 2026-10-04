@@ -1,0 +1,11 @@
+✓ Initialized. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-ouuW5C2c0O5rvHuMj3fFsx
+✓ Created objects.
+SKELETON {"bars": 20.0, "tempo": 123.1, "kick": "KK..KK..KK..KK..", "occ": [0.95, 0.05, 0.05, 0.0, 0.95, 0.0, 0.05, 0.95, 1.0, 0.05, 0.0, 0.0, 0.95, 0.05, 0.0, 0.95], "rel": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.048, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.048], "bass_occ": [0.95, 1.0, 0.15, 0.05, 0.95, 0.4, 0.25, 1.0, 1.0, 0.95, 0.35, 0.0, 1.0, 0.25, 0.6, 0.9], "bass_rel": [-0.003, 0.621, -0.148, 0.0, 0.003, 0.639, -0.188, 0.145, -0.047, 0.621, -0.188, 0.0, 0.003, 0.622, -0.188, 0.217], "bass_per_bar": 10.0, "bleed_share": 0.07}
+tempo 123.1 (true 124) | kick KK..KK..KK..KK.. (true K...K...K...K...) | bars 20.0
+hats where (share of bars): [0.95, 0.05, 0.05, 0.0, 0.95, 0.0, 0.05, 0.95, 1.0, 0.05, 0.0, 0.0, 0.95, 0.05, 0.0, 0.95] (true 1 on steps 2, 6, 10, 14)
+hats late: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.05] (true +0.10 on steps 2, 6, 10, 14)
+bass starts: [0.95, 1.0, 0.15, 0.05, 0.95, 0.4, 0.25, 1.0, 1.0, 0.95, 0.35, 0.0, 1.0, 0.25, 0.6, 0.9] | 10.0 a bar | bleed 0.07 (true: one note a beat on steps 1, 5, 9, 13)
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-ouuW5C2c0O5rvHuMj3fFsx
