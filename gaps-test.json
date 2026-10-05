@@ -1,0 +1,298 @@
+{
+ "A": {
+  "summary": {
+   "records": 25,
+   "kick_same": 22,
+   "median_jaccard": 0.92,
+   "median_late": 0.016,
+   "pass": true
+  },
+  "rows": [
+   {
+    "i": 13056,
+    "scene": "house",
+    "kick_same": true,
+    "jaccard": 0.56,
+    "late": 0.051,
+    "kick_clip": ".K..............",
+    "kick_stored": "K..............."
+   },
+   {
+    "i": 15719,
+    "scene": "house",
+    "kick_same": true,
+    "jaccard": 1.0,
+    "late": 0.015,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 7297,
+    "scene": "tech-house",
+    "kick_same": true,
+    "jaccard": 0.8,
+    "late": 0.014,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 13280,
+    "scene": "tech-house",
+    "kick_same": true,
+    "jaccard": 0.67,
+    "late": 0.013,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 26596,
+    "scene": "deep-house",
+    "kick_same": true,
+    "jaccard": 0.8,
+    "late": 0.014,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 31774,
+    "scene": "deep-house",
+    "kick_same": true,
+    "jaccard": 0.58,
+    "late": 0.018,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 7475,
+    "scene": "techno-peak-time",
+    "kick_same": true,
+    "jaccard": 0.0,
+    "late": null,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 9050,
+    "scene": "techno-peak-time",
+    "kick_same": true,
+    "jaccard": 1.0,
+    "late": 0.06,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 8420,
+    "scene": "techno-raw-deep-hypnotic",
+    "kick_same": true,
+    "jaccard": 1.0,
+    "late": 0.016,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 33873,
+    "scene": "techno-raw-deep-hypnotic",
+    "kick_same": false,
+    "jaccard": 1.0,
+    "late": 0.011,
+    "kick_clip": "K.K.K.......K.K.",
+    "kick_stored": "K.K.K...K...K.K."
+   },
+   {
+    "i": 18820,
+    "scene": "melodic-house-techno",
+    "kick_same": true,
+    "jaccard": 0.7,
+    "late": 0.016,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 10352,
+    "scene": "melodic-house-techno",
+    "kick_same": true,
+    "jaccard": 0.92,
+    "late": 0.039,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 14412,
+    "scene": "uk-garage-speed-garage",
+    "kick_same": true,
+    "jaccard": 1.0,
+    "late": 0.029,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 37469,
+    "scene": "uk-garage-speed-garage",
+    "kick_same": true,
+    "jaccard": 1.0,
+    "late": 0.007,
+    "kick_clip": "K.....K.........",
+    "kick_stored": "K.....K........."
+   },
+   {
+    "i": 14879,
+    "scene": "drum-and-bass",
+    "kick_same": false,
+    "jaccard": 0.73,
+    "late": 0.174,
+    "kick_clip": "K...............",
+    "kick_stored": "K.........K....."
+   },
+   {
+    "i": 10844,
+    "scene": "amapiano",
+    "kick_same": true,
+    "jaccard": 0.9,
+    "late": 0.016,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 5803,
+    "scene": "amapiano",
+    "kick_same": false,
+    "jaccard": 0.64,
+    "late": 0.009,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..K"
+   },
+   {
+    "i": 18147,
+    "scene": "afro-house",
+    "kick_same": true,
+    "jaccard": 1.0,
+    "late": 0.009,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 7605,
+    "scene": "afro-house",
+    "kick_same": true,
+    "jaccard": 0.81,
+    "late": 0.016,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 30371,
+    "scene": "progressive-house",
+    "kick_same": true,
+    "jaccard": 1.0,
+    "late": 0.013,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 1398,
+    "scene": "progressive-house",
+    "kick_same": true,
+    "jaccard": 1.0,
+    "late": 0.007,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 2401,
+    "scene": "breaks-breakbeat-uk-bass",
+    "kick_same": true,
+    "jaccard": 0.93,
+    "late": 0.019,
+    "kick_clip": "K..K.....K...K..",
+    "kick_stored": "K..K.....K...K.."
+   },
+   {
+    "i": 28782,
+    "scene": "breaks-breakbeat-uk-bass",
+    "kick_same": true,
+    "jaccard": 0.92,
+    "late": 0.02,
+    "kick_clip": "K...K.K.......K.",
+    "kick_stored": "K...K.K.......K."
+   },
+   {
+    "i": 31209,
+    "scene": "trance-main-floor",
+    "kick_same": true,
+    "jaccard": 0.67,
+    "late": 0.017,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   },
+   {
+    "i": 15953,
+    "scene": "trance-main-floor",
+    "kick_same": true,
+    "jaccard": 1.0,
+    "late": 0.005,
+    "kick_clip": "K...K...K...K...",
+    "kick_stored": "K...K...K...K..."
+   }
+  ]
+ },
+ "B": [
+  {
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "bleed_share": 0.326,
+   "bass_occ": [
+    0.12,
+    0.06,
+    0.92,
+    0.18,
+    0.18,
+    0.0,
+    0.98,
+    0.25,
+    0.06,
+    0.0,
+    0.98,
+    0.06,
+    0.31,
+    0.06,
+    0.92,
+    0.18
+   ],
+   "sep_bass_at_kicks": 0.0,
+   "true_bass_at_kicks": 0.0
+  },
+  {
+   "bass_steps": [
+    0,
+    4,
+    8,
+    12
+   ],
+   "bleed_share": 0.014,
+   "bass_occ": [
+    0.37,
+    0.06,
+    0.0,
+    0.55,
+    0.43,
+    0.06,
+    0.0,
+    0.37,
+    0.61,
+    0.0,
+    0.0,
+    0.37,
+    0.61,
+    0.06,
+    0.0,
+    0.61
+   ],
+   "sep_bass_at_kicks": 0.0,
+   "true_bass_at_kicks": 0.0
+  }
+ ]
+}
