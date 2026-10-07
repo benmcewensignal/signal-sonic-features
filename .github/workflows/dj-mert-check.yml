@@ -14,16 +14,22 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install -q numpy scikit-learn
       - name: the inputs
+        # each fetch is retried, so one GitHub or network error doesn't end the check (run #2 stopped here)
         run: |
-          git clone -q --depth 1 --filter=blob:none --sparse https://github.com/benmcewensignal/signal-sonic.git ../ss && (cd ../ss && git sparse-checkout set data/tracklists data/djcharts)
-          for f in dj-index dj-names; do curl -s -A sonic-tests -o $f.json https://www.earlysignal.live/data/$f.json; done
-          mkdir -p mert && gh release download mert-records --pattern 'mert-*.jsonl.gz' --dir mert --clobber
-          ls mert | wc -l
+          for i in 1 2 3; do rm -rf ../ss; git clone -q --depth 1 --filter=blob:none --sparse https://github.com/benmcewensignal/signal-sonic.git ../ss && (cd ../ss && git sparse-checkout set data/tracklists data/djcharts) && break; echo "clone failed (try $i)"; [ "$i" = 3 ] && exit 1; sleep $((i*30)); done
+          for f in dj-index dj-names; do curl -fsS --retry 4 --retry-all-errors --retry-delay 20 -A sonic-tests -o $f.json https://www.earlysignal.live/data/$f.json; done
+          mkdir -p mert
+          for i in 1 2 3; do gh release download mert-records --pattern 'mert-*.jsonl.gz' --dir mert --clobber && break; echo "download failed (try $i)"; [ "$i" = 3 ] && exit 1; sleep $((i*30)); done
+          echo "tracklists: $(ls ../ss/data/tracklists | wc -l) | fingerprint files: $(ls mert | wc -l)"
       - name: the check
         run: python tools/dj_mert_check.py --tracklists ../ss/data/tracklists --djindex dj-index.json --djnames dj-names.json --mert mert --charts ../ss/data/djcharts/charts.jsonl --out dj-mert-check.json
       - name: keep the result
         if: always()
         run: |
           cd "$RUNNER_TEMP" && git clone -q --depth 1 -b gap-tests-results "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" res && cd res
-          cp "$GITHUB_WORKSPACE/dj-mert-check.json" . 2>/dev/null || true
-          git config user.name sonic-bot; git config user.email sonic@earlysignal.live; git add -A && git commit -qm "dj mert check $(date -u +%FT%TZ)" && git push -q
+          [ -s "$GITHUB_WORKSPACE/dj-mert-check.json" ] || { echo "no result to keep"; exit 0; }
+          cp "$GITHUB_WORKSPACE/dj-mert-check.json" .
+          git config user.name sonic-bot; git config user.email sonic@earlysignal.live; git add -A
+          git diff --cached --quiet && { echo "result unchanged"; exit 0; }
+          git commit -qm "dj mert check $(date -u +%FT%TZ)"
+          for i in 1 2 3 4; do git push -q && exit 0; sleep $((i*15)); git pull -q --rebase origin gap-tests-results || true; done; exit 1

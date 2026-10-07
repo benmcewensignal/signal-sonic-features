@@ -5,9 +5,19 @@ learned ear (today's sound measure), MERT alone (mean over parts of the centred 
 ranker as it stands, and the ranker with MERT closeness added as one more feature.
   python tools/dj_mert_check.py --tracklists ../signal-sonic/data/tracklists --djindex dj-index.json --djnames dj-names.json \
       --mert mert-dir [--charts charts.jsonl] --out result.json"""
-import argparse, base64, glob, gzip, json, os, re, unicodedata, collections, numpy as np
+import argparse, base64, glob, gzip, json, os, re, unicodedata, zlib, collections, numpy as np
 from sklearn.linear_model import LogisticRegression
 MS = ("bright", "busy", "punch", "vocal", "bass", "drums")
+
+def read_part(f):
+    """The whole records of one fingerprint file, and whether it was cut off. A cancelled wave can file a part mid-write
+    (no end-of-stream marker): the lines before the cut are whole, and the records in it were redone by later waves."""
+    out = []
+    try:
+        with gzip.open(f, "rt") as g:
+            for line in g: out.append(json.loads(line))
+        return out, False
+    except (EOFError, OSError, zlib.error, ValueError): return out, True
 
 def main():
     ap = argparse.ArgumentParser()
@@ -21,12 +31,15 @@ def main():
     N = json.load(open(a.djnames)); LB = N.get("l") or [""] * n; AR = [set(x.split("|")) - {""} if x else set() for x in N["a"]]
     # MERT: four parts per record, each centred on the mean over records and normalised; closeness is the mean over parts
     parts = ("drums", "bass", "other", "vocals"); F = {p: np.zeros((n, 768), np.float32) for p in parts}; hm = np.zeros(n, bool)
-    for f in glob.glob(os.path.join(a.mert, "*.jsonl.gz")):
-        for line in gzip.open(f, "rt"):
-            r = json.loads(line); i = at.get(r["track_id"])
+    files = sorted(glob.glob(os.path.join(a.mert, "*.jsonl.gz"))); cut = 0
+    for f in files:
+        recs, c = read_part(f); cut += c
+        for r in recs:
+            i = at.get(r["track_id"])
             if i is None or not all(r.get(p) for p in parts): continue
             for p in parts: F[p][i] = np.frombuffer(base64.b64decode(r[p]), np.float16).astype(np.float32)
             hm[i] = True
+    print(f"fingerprint files: {len(files)}, cut off mid-write: {cut} (their whole records kept)", flush=True)
     if os.environ.get("FAKE_MERT"):   # a check of the check: random fingerprints for every record should leave MERT at chance
         g = np.random.default_rng(1)
         for p in parts: F[p] = g.normal(size=(n, 768)).astype(np.float32)
@@ -87,25 +100,39 @@ def main():
         Z = np.vstack(Xs); mu, sd = Z.mean(0), Z.std(0) + 1e-9
         return LogisticRegression(max_iter=3000).fit((Z - mu) / sd, np.array(ys)), mu, sd
     if len(pairs(seqs)) < 200:
-        out = {"records_with_ear_and_mert": int(ok.sum()), "pairs_available": len(pairs(seqs)), "note": "too few played-next pairs with both records fingerprinted yet"}
+        out = {"records_with_ear_and_mert": int(ok.sum()), "fingerprint_files_cut_off": cut, "pairs_available": len(pairs(seqs)), "note": "too few played-next pairs with both records fingerprinted yet"}
         json.dump(out, open(a.out, "w"), indent=1); print(json.dumps(out)); return
-    DJS = sorted(set(owner)); R = collections.defaultdict(list); FST = collections.defaultdict(list); NT = 0
+    DJS = sorted(set(owner)); R = collections.defaultdict(list); FST = collections.defaultdict(list); NT = 0; PR = []
     for split in range(5):
         rr = np.random.default_rng(100 + split); held = {DJS[i] for i in rr.permutation(len(DJS))[:len(DJS) // 5]}
-        tr = [q for q, o in zip(seqs, owner) if o not in held]; te = [q for q, o in zip(seqs, owner) if o in held]
+        tr = [q for q, o in zip(seqs, owner) if o not in held]; te = [(q, o) for q, o in zip(seqs, owner) if o in held]
         CP[0] = chart_table(frozenset(nmz(json.load(open(o)).get("dj")) for o in held))
         m0, mu0, sd0 = train(pairs(tr), False); m1, mu1, sd1 = train(pairs(tr), True); rk = collections.defaultdict(list)
-        for x, y in pairs(te):
-            c = cands(x); c = c[c != y]
-            if len(c) < 200: continue
-            B = [y] + list(rng.choice(c, 200, replace=False)); F1 = feats(x, B, True); ear = F1[:, 0]; mt = F1[:, -1]
-            z = lambda v: (v - v.mean()) / (v.std() + 1e-9)
-            scores = {"ear": ear, "mert": mt, "ear_plus_mert": z(ear) + z(mt), "ranker": m0.decision_function((F1[:, :-1] - mu0) / sd0), "ranker_plus_mert": m1.decision_function((F1 - mu1) / sd1)}
-            for k, s in scores.items(): rk[k].append(int((s > s[0]).sum()) + 1)
+        for q, o in te:
+            for x, y in pairs([q]):
+                c = cands(x); c = c[c != y]
+                if len(c) < 200: continue
+                B = [y] + list(rng.choice(c, 200, replace=False)); F1 = feats(x, B, True); ear = F1[:, 0]; mt = F1[:, -1]
+                z = lambda v: (v - v.mean()) / (v.std() + 1e-9)
+                scores = {"ear": ear, "mert": mt, "ear_plus_mert": z(ear) + z(mt), "ranker": m0.decision_function((F1[:, :-1] - mu0) / sd0), "ranker_plus_mert": m1.decision_function((F1 - mu1) / sd1)}
+                for k, s in scores.items(): rk[k].append(int((s > s[0]).sum()) + 1)
+                PR.append((o, rk["ranker"][-1], rk["ranker_plus_mert"][-1]))
         for k, v in rk.items(): R[k].append(float(np.mean(np.array(v) <= 10))); FST[k].append(float(np.mean(np.array(v) == 1)))
         NT += len(rk["ear"])
-    out = {"records_with_ear_and_mert": int(ok.sum()), "test_pairs": NT, "top10": {k: round(float(np.mean(v)) * 100, 1) for k, v in R.items()},
-           "first": {k: round(float(np.mean(v)) * 100, 1) for k, v in FST.items()}, "top10_by_split": {k: [round(x * 100, 1) for x in v] for k, v in R.items()}}
+    # MERT's gain inside the ranker, paired (the same pairs and the same draws), with an interval from resampling DJs: a
+    # DJ's pairs move together, since one DJ's habits make their pairs alike
+    G = collections.defaultdict(list)
+    for j, (o, _, _) in enumerate(PR): G[o].append(j)
+    G = [np.array(v) for v in G.values()]; r0 = np.array([p[1] for p in PR]); r1 = np.array([p[2] for p in PR]); bs = np.random.default_rng(11)
+    gain = {}
+    for name, hit in (("top10", lambda r: r <= 10), ("first", lambda r: r == 1)):
+        d = hit(r1).astype(float) - hit(r0).astype(float)
+        boot = [d[np.concatenate([G[i] for i in bs.integers(0, len(G), len(G))])].mean() for _ in range(2000)]
+        gain[name] = {"points": round(float(d.mean()) * 100, 2), "ci95": [round(float(np.percentile(boot, 2.5)) * 100, 2), round(float(np.percentile(boot, 97.5)) * 100, 2)],
+                      "pairs_gained": int((d > 0).sum()), "pairs_lost": int((d < 0).sum())}
+    out = {"records_with_ear_and_mert": int(ok.sum()), "fingerprint_files_cut_off": cut, "test_pairs": NT, "djs_tested": len(G),
+           "top10": {k: round(float(np.mean(v)) * 100, 1) for k, v in R.items()}, "first": {k: round(float(np.mean(v)) * 100, 1) for k, v in FST.items()},
+           "top10_by_split": {k: [round(x * 100, 1) for x in v] for k, v in R.items()}, "mert_gain_in_ranker": gain}
     json.dump(out, open(a.out, "w"), indent=1); print(json.dumps(out))
 
 if __name__ == "__main__":

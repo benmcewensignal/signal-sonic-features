@@ -16,7 +16,8 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install -q numpy modal
       - run: |
-          mkdir -p mert && gh release download mert-records --pattern 'mert-*.jsonl.gz' --dir mert --clobber
+          mkdir -p mert
+          for i in 1 2 3; do gh release download mert-records --pattern 'mert-*.jsonl.gz' --dir mert --clobber && break; echo "download failed (try $i)"; [ "$i" = 3 ] && exit 1; sleep $((i*30)); done
           python tools/mert_collect.py mert mert-records.npz
           modal volume put sonic-embed mert-records.npz /mert-records.npz --force
       - name: the switch
