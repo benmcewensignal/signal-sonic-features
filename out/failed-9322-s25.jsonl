@@ -1,0 +1,2 @@
+{"track_id": "bp:12837497", "error": "HTTPError: HTTP Error 403: Forbidden", "at": "2026-10-07T03:55:48Z"}
+{"track_id": "bp:11509435", "error": "URLError: <urlopen error [Errno 104] Connection reset by peer>", "at": "2026-10-07T03:58:34Z"}
