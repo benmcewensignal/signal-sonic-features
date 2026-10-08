@@ -160,7 +160,10 @@ jobs:
           done
           exit 0
       - name: chain the next eighteen while records remain
-        if: needs.stems-shard.result == 'success' && (inputs.limit == '' || inputs.limit == '45')
+        # a shard that fails no longer stops the chain: on 8 Oct one of thirty lost its runner at 18:13, the other 29
+        # were collected, and nothing ran until the watchdog's 90 minutes. The count below still stands the chain down
+        # when a pass separated nothing, so a fault that fails every shard cannot loop. A cancelled run does not chain.
+        if: success() && (needs.stems-shard.result == 'success' || needs.stems-shard.result == 'failure') && (inputs.limit == '' || inputs.limit == '45')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
