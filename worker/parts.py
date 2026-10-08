@@ -9,6 +9,22 @@ import numpy as np
 from features import stems as S
 
 
+MIX_KEYS = ("tempo", "key", "loudness", "bass_weight", "drum_density", "drum_swing", "vocal_presence", "energy_curve",
+            "drum_palette", "bass_character", "vocal_treatment", "mood", "embedding", "edm", "groove")
+
+
+def _jsonable(v):
+    """The analyser's values as plain JSON: numpy numbers and arrays become floats and lists, rounded."""
+    import numpy as _np
+    if isinstance(v, dict): return {str(k): _jsonable(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple, _np.ndarray)): return [_jsonable(x) for x in list(v)]
+    if isinstance(v, (bool, _np.bool_)): return bool(v)
+    if isinstance(v, (int, _np.integer)): return int(v)
+    if isinstance(v, (float, _np.floating)): return round(float(v), 5) if _np.isfinite(v) else None
+    if v is None or isinstance(v, str): return v
+    return str(v)[:80]
+
+
 def voice_type(v):
     fl = v.get("flatness") or 0; sh = v.get("share_of_energy") or 0; on = v.get("onsets_per_s") or 0
     return "air" if fl > 0.015 else "chops" if on > 5 and sh < 0.07 else "singing" if sh > 0.084 and on < 3.8 else "voice"
@@ -226,11 +242,21 @@ def read(wav_path, with_audio=False, donor=None, only_leverage=False, ab=None):
             if s: s["share_of_energy"] = round(s.get("level", 0) / tot, 4)
         v = rec.get("vocals") or {}
         out = {"model": S.MODEL, "parts": rec, "voice_type": voice_type(v) if v else None, "skeleton": skel}
+        # the whole mix on the corpus analyser, as every record was measured, kept apart from the scene calls so a failure
+        # there cannot take it with it: Track everything draws its map, its typical-or-not and its neighbours from these
+        fx = None
+        try:
+            from worker.scene import features_of
+            fx = features_of(wav_path)
+            out["mix_x"] = [round(float(v), 6) for v in fx[0]]
+            out["mix"] = _jsonable({k: fx[1].get(k) for k in MIX_KEYS if k in fx[1]})
+        except Exception as e_:
+            out["mix_error"] = type(e_).__name__ + ": " + str(e_)[:160]
         # the scene call: the corpus analyser's measures of the whole mix, through the trained model
         try:
             from worker.scene import call, call_parts, features_of
-            out["scene"] = call(wav_path)
-            mix_x, _ = features_of(wav_path)
+            out["scene"] = call(wav_path, fx)
+            mix_x = fx[0] if fx else features_of(wav_path)[0]
             tri = call_parts(mix_x, rec)
             if tri: out["scene_parts"] = tri
             try:

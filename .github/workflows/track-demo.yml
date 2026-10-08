@@ -1,0 +1,21 @@
+name: track demo
+# The demo for Track everything: a released electro record read exactly as an upload is (worker/track_demo.py).
+# Committed as data/track-demo.json; the site copies it to its own data folder.
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  read:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q modal numpy
+      - name: read on Modal
+        env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: modal run worker/track_demo.py
+      - name: keep it
+        run: |
+          git config user.name "sonic-bot"; git config user.email "sonic@earlysignal.live"
+          git add data/track-demo.json && git commit -qm "track demo reading" && for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 10; done || echo "nothing to keep"

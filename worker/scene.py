@@ -69,8 +69,8 @@ def call_from_numbers(x, condition=None):
             "model": {"trained_on": M["trained_on"], "built": M["built"], "held_out_accuracy": 0.472}}
 
 
-def call(path):
-    M = _model(); x, d = features_of(path)
+def call(path, fx=None):
+    M = _model(); x, d = fx if fx else features_of(path)   # fx: the analyser's reading already made, so it runs once
     z = (x - np.array(M["mu"])) / np.array(M["sd"])
     p = M["model"].predict_proba(z[None, :])[0]
     order = np.argsort(-p)
