@@ -1,0 +1,3360 @@
+[
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {}
+  },
+  "read": {
+   "key": {
+    "key": "Am",
+    "camelot": "8A",
+    "margin": 0.223,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 126.01,
+    "swing16": null,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 5209.7,
+    "crest": 12.455,
+    "onsets_per_s": 4.225,
+    "share_of_energy": 0.3877,
+    "level": 0.06313,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.3447,
+    "level": 0.05613,
+    "centroid_hz": 612.3
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 125.96,
+     "tracker_tempo": 126.05,
+     "fit": 1.0
+    },
+    "tempo": 126.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.125,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.188,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     -0.008,
+     0.0,
+     0.0,
+     0.0,
+     0.006,
+     0.0,
+     0.0,
+     0.0,
+     -0.013,
+     0.0,
+     0.407,
+     0.0,
+     0.006,
+     0.0
+    ],
+    "bass_occ": [
+     0.0,
+     0.062,
+     0.938,
+     0.0,
+     0.0,
+     0.062,
+     0.938,
+     0.0,
+     0.0,
+     0.062,
+     0.938,
+     0.062,
+     0.0,
+     0.125,
+     0.875,
+     0.0
+    ],
+    "bass_per_bar": 4.06,
+    "bleed_share": 0.337,
+    "bass_notes": [
+     21,
+     null,
+     21,
+     null,
+     null,
+     null,
+     21,
+     null,
+     null,
+     null,
+     null,
+     null,
+     21,
+     null,
+     21,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 18.02,
+   "drums_low_at_bass_notes": 0.001,
+   "bass": 15.07,
+   "bass_at_kicks_vs_notes": 0.079,
+   "true_bass_at_kicks_vs_notes": 0.096,
+   "other": 13.11
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 128,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Dm",
+   "var": {}
+  },
+  "read": {
+   "key": {
+    "key": "Dm",
+    "camelot": "7A",
+    "margin": 0.2,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 128.0,
+    "swing16": null,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 5063.0,
+    "crest": 12.189,
+    "onsets_per_s": 4.387,
+    "share_of_energy": 0.387,
+    "level": 0.05831,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.3525,
+    "level": 0.05311,
+    "centroid_hz": 287.3
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 128.0,
+     "tracker_tempo": 129.2,
+     "fit": 1.0
+    },
+    "tempo": 128.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.5,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     0.001,
+     0.0,
+     0.0,
+     0.0,
+     0.014,
+     0.0,
+     0.0,
+     0.0,
+     -0.023,
+     0.0,
+     0.428,
+     0.0,
+     0.012,
+     0.0
+    ],
+    "bass_occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.062,
+     0.0,
+     0.0,
+     1.0,
+     0.062,
+     0.0,
+     0.062,
+     0.938,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "bass_per_bar": 4.12,
+    "bleed_share": 0.295,
+    "bass_notes": [
+     null,
+     null,
+     14,
+     null,
+     14,
+     null,
+     14,
+     null,
+     null,
+     null,
+     14,
+     null,
+     14,
+     null,
+     14,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 18.5,
+   "drums_low_at_bass_notes": 0.001,
+   "bass": 15.64,
+   "bass_at_kicks_vs_notes": 0.08,
+   "true_bass_at_kicks_vs_notes": 0.1,
+   "other": 13.01
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "tech-house",
+   "tempo": 127,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    3,
+    6,
+    7,
+    10,
+    11,
+    14,
+    15
+   ],
+   "late": {
+    "2": 0.0,
+    "3": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "10": 0.0,
+    "11": 0.0,
+    "14": 0.0,
+    "15": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Fm",
+   "var": {}
+  },
+  "read": {
+   "key": {
+    "key": "Fm",
+    "camelot": "4A",
+    "margin": 0.203,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 126.99,
+    "swing16": 0.5511,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 5013.1,
+    "crest": 6.69,
+    "onsets_per_s": 6.147,
+    "share_of_energy": 0.5609,
+    "level": 0.11712,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.2437,
+    "level": 0.05089,
+    "centroid_hz": 584.1
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 127.02,
+     "tracker_tempo": 126.05,
+     "fit": 1.0
+    },
+    "tempo": 127.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     0.985,
+     0.985,
+     0.0,
+     0.0,
+     0.985,
+     0.985,
+     0.0,
+     0.0,
+     0.985,
+     0.985,
+     0.0,
+     0.0,
+     0.985,
+     0.985
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     0.003,
+     0.109,
+     0.0,
+     0.0,
+     0.008,
+     0.103,
+     0.0,
+     0.0,
+     -0.009,
+     0.096,
+     0.0,
+     0.0,
+     -0.003,
+     0.102
+    ],
+    "bass_occ": [
+     0.0,
+     0.0,
+     0.985,
+     0.062,
+     0.0,
+     0.062,
+     0.923,
+     0.0,
+     0.0,
+     0.0,
+     0.985,
+     0.0,
+     0.0,
+     0.062,
+     0.923,
+     0.0
+    ],
+    "bass_per_bar": 4.0,
+    "bleed_share": 0.411,
+    "bass_notes": [
+     17,
+     null,
+     18,
+     null,
+     null,
+     null,
+     18,
+     null,
+     17,
+     null,
+     18,
+     null,
+     17,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 19.44,
+   "drums_low_at_bass_notes": 0.002,
+   "bass": 13.44,
+   "bass_at_kicks_vs_notes": 0.054,
+   "true_bass_at_kicks_vs_notes": 0.097,
+   "other": 10.26
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "tech-house",
+   "tempo": 129,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    3,
+    6,
+    7,
+    10,
+    11,
+    14,
+    15
+   ],
+   "late": {
+    "2": 0.0,
+    "3": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "10": 0.0,
+    "11": 0.0,
+    "14": 0.0,
+    "15": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "A#m",
+   "var": {}
+  },
+  "read": {
+   "key": {
+    "key": "A#m",
+    "camelot": "3A",
+    "margin": 0.263,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 128.99,
+    "swing16": 0.5523,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 5054.2,
+    "crest": 6.844,
+    "onsets_per_s": 5.98,
+    "share_of_energy": 0.5565,
+    "level": 0.11879,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.2532,
+    "level": 0.05404,
+    "centroid_hz": 542.7
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 128.99,
+     "tracker_tempo": 129.2,
+     "fit": 1.0
+    },
+    "tempo": 129.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     0.875,
+     0.0,
+     0.0,
+     1.0,
+     0.75,
+     0.0,
+     0.0,
+     1.0,
+     0.875
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     0.01,
+     0.108,
+     0.0,
+     0.0,
+     0.003,
+     0.11,
+     0.0,
+     0.0,
+     -0.003,
+     0.107,
+     0.0,
+     0.0,
+     -0.01,
+     0.1
+    ],
+    "bass_occ": [
+     0.188,
+     0.0,
+     1.0,
+     0.0,
+     0.062,
+     0.062,
+     0.938,
+     0.0,
+     0.0,
+     0.062,
+     0.938,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "bass_per_bar": 4.25,
+    "bleed_share": 0.266,
+    "bass_notes": [
+     null,
+     null,
+     22,
+     null,
+     22,
+     null,
+     22,
+     null,
+     null,
+     null,
+     22,
+     null,
+     null,
+     null,
+     22,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 19.98,
+   "drums_low_at_bass_notes": 0.002,
+   "bass": 15.02,
+   "bass_at_kicks_vs_notes": 0.118,
+   "true_bass_at_kicks_vs_notes": 0.111,
+   "other": 10.52
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "techno-peak-time",
+   "tempo": 132,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    3,
+    7,
+    11,
+    15
+   ],
+   "key": "Gm",
+   "var": {}
+  },
+  "read": {
+   "key": {
+    "key": "Gm",
+    "camelot": "6A",
+    "margin": 0.168,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 132.0,
+    "swing16": null,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 2910.1,
+    "crest": 8.211,
+    "onsets_per_s": 4.254,
+    "share_of_energy": 0.4842,
+    "level": 0.0804,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.3074,
+    "level": 0.05103,
+    "centroid_hz": 303.7
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 131.99,
+     "tracker_tempo": 132.51,
+     "fit": 1.0
+    },
+    "tempo": 132.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.125,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     0.003,
+     0.0,
+     0.0,
+     0.0,
+     -0.003,
+     0.0,
+     0.0,
+     0.0,
+     0.005,
+     0.0,
+     0.0,
+     0.0,
+     -0.005,
+     0.0
+    ],
+    "bass_occ": [
+     0.688,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.062,
+     0.125,
+     1.0,
+     0.812,
+     0.0,
+     0.062,
+     1.0,
+     0.062,
+     0.0,
+     0.125,
+     1.0
+    ],
+    "bass_per_bar": 6.19,
+    "bleed_share": 0.308,
+    "bass_notes": [
+     19,
+     null,
+     null,
+     14,
+     14,
+     null,
+     null,
+     19,
+     19,
+     null,
+     null,
+     14,
+     14,
+     null,
+     null,
+     19
+    ]
+   }
+  },
+  "separation": {
+   "drums": 20.22,
+   "drums_low_at_bass_notes": 0.464,
+   "bass": 17.24,
+   "bass_at_kicks_vs_notes": 0.389,
+   "true_bass_at_kicks_vs_notes": 0.344,
+   "other": 12.02
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "techno-peak-time",
+   "tempo": 134,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    3,
+    7,
+    11,
+    15
+   ],
+   "key": "Cm",
+   "var": {}
+  },
+  "read": {
+   "key": {
+    "key": "Cm",
+    "camelot": "5A",
+    "margin": 0.263,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 134.06,
+    "swing16": null,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 2948.9,
+    "crest": 8.291,
+    "onsets_per_s": 4.316,
+    "share_of_energy": 0.4939,
+    "level": 0.09044,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.2958,
+    "level": 0.05417,
+    "centroid_hz": 440.9
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 134.05,
+     "tracker_tempo": 135.99,
+     "fit": 1.0
+    },
+    "tempo": 134.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.062,
+     0.0,
+     1.0,
+     0.0,
+     0.188,
+     0.0,
+     1.0,
+     0.0,
+     0.125,
+     0.0,
+     1.0,
+     0.0,
+     0.125,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     -0.003,
+     0.0,
+     -0.051,
+     0.0,
+     0.005,
+     0.0,
+     0.0,
+     0.0,
+     -0.002,
+     0.0,
+     0.0,
+     0.0,
+     -0.0,
+     0.0
+    ],
+    "bass_occ": [
+     0.125,
+     0.375,
+     0.188,
+     1.0,
+     0.188,
+     0.0,
+     0.0,
+     1.0,
+     0.188,
+     0.125,
+     0.375,
+     1.0,
+     0.125,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "bass_per_bar": 5.94,
+    "bleed_share": 0.294,
+    "bass_notes": [
+     null,
+     null,
+     null,
+     13,
+     13,
+     null,
+     null,
+     19,
+     null,
+     null,
+     null,
+     13,
+     13,
+     null,
+     null,
+     19
+    ]
+   }
+  },
+  "separation": {
+   "drums": 19.81,
+   "drums_low_at_bass_notes": 0.469,
+   "bass": 16.41,
+   "bass_at_kicks_vs_notes": 0.379,
+   "true_bass_at_kicks_vs_notes": 0.382,
+   "other": 12.55
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "uk-garage-speed-garage",
+   "tempo": 134,
+   "swing": 0.58,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    3,
+    6,
+    7,
+    10,
+    11,
+    14,
+    15
+   ],
+   "late": {
+    "2": 0.0,
+    "3": 0.16,
+    "6": 0.0,
+    "7": 0.16,
+    "10": 0.0,
+    "11": 0.16,
+    "14": 0.0,
+    "15": 0.16
+   },
+   "bass_steps": [
+    3,
+    6,
+    11,
+    14
+   ],
+   "key": "Cm",
+   "var": {}
+  },
+  "read": {
+   "key": {
+    "key": "Cm",
+    "camelot": "5A",
+    "margin": 0.218,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 134.0,
+    "swing16": 0.5976,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 4783.3,
+    "crest": 12.136,
+    "onsets_per_s": 6.474,
+    "share_of_energy": 0.3987,
+    "level": 0.06808,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.3324,
+    "level": 0.05676,
+    "centroid_hz": 779.4
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 133.99,
+     "tracker_tempo": 132.54,
+     "fit": 0.987
+    },
+    "tempo": 134.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     1.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     0.007,
+     0.2,
+     0.0,
+     0.0,
+     -0.001,
+     0.2,
+     0.0,
+     0.0,
+     0.0,
+     0.193,
+     0.0,
+     0.0,
+     -0.0,
+     0.193
+    ],
+    "bass_occ": [
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "bass_per_bar": 4.19,
+    "bleed_share": 0.477,
+    "bass_notes": [
+     13,
+     null,
+     null,
+     null,
+     13,
+     null,
+     13,
+     null,
+     13,
+     null,
+     null,
+     null,
+     13,
+     null,
+     13,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 17.47,
+   "drums_low_at_bass_notes": 0.196,
+   "bass": 14.1,
+   "bass_at_kicks_vs_notes": 0.211,
+   "true_bass_at_kicks_vs_notes": 0.3,
+   "other": 13.65
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "uk-garage-speed-garage",
+   "tempo": 136,
+   "swing": 0.58,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    3,
+    6,
+    7,
+    10,
+    11,
+    14,
+    15
+   ],
+   "late": {
+    "2": 0.0,
+    "3": 0.16,
+    "6": 0.0,
+    "7": 0.16,
+    "10": 0.0,
+    "11": 0.16,
+    "14": 0.0,
+    "15": 0.16
+   },
+   "bass_steps": [
+    3,
+    6,
+    11,
+    14
+   ],
+   "key": "Fm",
+   "var": {}
+  },
+  "read": {
+   "key": {
+    "key": "Fm",
+    "camelot": "4A",
+    "margin": 0.219,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 136.0,
+    "swing16": 0.6316,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 4848.0,
+    "crest": 11.88,
+    "onsets_per_s": 6.567,
+    "share_of_energy": 0.3907,
+    "level": 0.06242,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.3588,
+    "level": 0.05732,
+    "centroid_hz": 338.7
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 136.01,
+     "tracker_tempo": 135.99,
+     "fit": 1.0
+    },
+    "tempo": 136.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     1.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     -0.0,
+     0.263,
+     0.0,
+     0.0,
+     -0.0,
+     0.263,
+     0.0,
+     0.0,
+     0.0,
+     0.263,
+     0.0,
+     0.0,
+     -0.0,
+     0.263
+    ],
+    "bass_occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.062,
+     0.0,
+     0.188,
+     0.062,
+     0.938,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "bass_per_bar": 4.25,
+    "bleed_share": 0.352,
+    "bass_notes": [
+     17,
+     null,
+     17,
+     null,
+     null,
+     null,
+     null,
+     18,
+     17,
+     null,
+     17,
+     null,
+     null,
+     null,
+     null,
+     18
+    ]
+   }
+  },
+  "separation": {
+   "drums": 19.15,
+   "drums_low_at_bass_notes": 0.198,
+   "bass": 15.32,
+   "bass_at_kicks_vs_notes": 0.229,
+   "true_bass_at_kicks_vs_notes": 0.243,
+   "other": 11.61
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "drum-and-bass",
+   "tempo": 172,
+   "swing": 0.5,
+   "kick": "K....K..K....K..",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    3,
+    7,
+    11
+   ],
+   "key": "Dm",
+   "var": {}
+  },
+  "read": {
+   "key": {
+    "key": "Dm",
+    "camelot": "7A",
+    "margin": 0.21,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 171.99,
+    "swing16": 0.5357,
+    "kick_pattern": "K....K..K....K..",
+    "centroid_hz": 4945.3,
+    "crest": 6.384,
+    "onsets_per_s": 5.831,
+    "share_of_energy": 0.4868,
+    "level": 0.10436,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.2941,
+    "level": 0.06306,
+    "centroid_hz": 379.1
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 171.97,
+     "tracker_tempo": 172.27,
+     "fit": 1.0
+    },
+    "tempo": 172.0,
+    "kick": "K....K..K....K..",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.968,
+     0.0,
+     0.968,
+     0.0,
+     0.0,
+     0.0,
+     0.968,
+     0.0,
+     1.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     -0.03,
+     0.0,
+     0.206,
+     0.0,
+     0.043,
+     0.0,
+     0.0,
+     0.0,
+     -0.037,
+     0.0,
+     0.194,
+     0.0,
+     0.034,
+     0.0
+    ],
+    "bass_occ": [
+     0.0,
+     0.0,
+     0.065,
+     1.0,
+     0.0,
+     0.129,
+     0.0,
+     0.065,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.065,
+     0.968
+    ],
+    "bass_per_bar": 3.35,
+    "bleed_share": 0.239,
+    "bass_notes": [
+     null,
+     null,
+     null,
+     14,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     15,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 16.96,
+   "drums_low_at_bass_notes": 0.274,
+   "bass": 13.16,
+   "bass_at_kicks_vs_notes": 0.192,
+   "true_bass_at_kicks_vs_notes": 0.209,
+   "other": 11.21
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "drum-and-bass",
+   "tempo": 174,
+   "swing": 0.5,
+   "kick": "K....K..K....K..",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    3,
+    7,
+    11
+   ],
+   "key": "Gm",
+   "var": {}
+  },
+  "read": {
+   "key": {
+    "key": "Gm",
+    "camelot": "6A",
+    "margin": 0.172,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 174.0,
+    "swing16": 0.5469,
+    "kick_pattern": "K....K..K....K..",
+    "centroid_hz": 4978.1,
+    "crest": 6.543,
+    "onsets_per_s": 5.722,
+    "share_of_energy": 0.4883,
+    "level": 0.09802,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.2955,
+    "level": 0.05931,
+    "centroid_hz": 415.4
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 173.98,
+     "tracker_tempo": 175.18,
+     "fit": 1.0
+    },
+    "tempo": 174.0,
+    "kick": "K....K..K....K..",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     1.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.938,
+     0.0,
+     1.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     -0.034,
+     0.0,
+     0.206,
+     0.0,
+     0.03,
+     0.0,
+     0.0,
+     0.0,
+     -0.034,
+     0.0,
+     0.2,
+     0.0,
+     0.036,
+     0.0
+    ],
+    "bass_occ": [
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.125,
+     0.0,
+     0.0,
+     0.062,
+     0.0,
+     0.0,
+     0.938,
+     0.0,
+     0.062,
+     0.0,
+     1.0
+    ],
+    "bass_per_bar": 3.19,
+    "bleed_share": 0.209,
+    "bass_notes": [
+     null,
+     null,
+     null,
+     19,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     15
+    ]
+   }
+  },
+  "separation": {
+   "drums": 17.2,
+   "drums_low_at_bass_notes": 0.282,
+   "bass": 13.7,
+   "bass_at_kicks_vs_notes": 0.185,
+   "true_bass_at_kicks_vs_notes": 0.212,
+   "other": 10.28
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "amapiano",
+   "tempo": 113,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    3,
+    6,
+    7,
+    10,
+    11,
+    14,
+    15
+   ],
+   "late": {
+    "2": 0.0,
+    "3": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "10": 0.0,
+    "11": 0.0,
+    "14": 0.0,
+    "15": 0.0
+   },
+   "bass_steps": [
+    3,
+    6,
+    10,
+    15
+   ],
+   "key": "A#m",
+   "var": {}
+  },
+  "read": {
+   "key": {
+    "key": "A#m",
+    "camelot": "3A",
+    "margin": 0.232,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 113.0,
+    "swing16": 0.5042,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 3522.5,
+    "crest": 22.509,
+    "onsets_per_s": 5.488,
+    "share_of_energy": 0.2122,
+    "level": 0.03084,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.4276,
+    "level": 0.06214,
+    "centroid_hz": 314.7
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 113.0,
+     "tracker_tempo": 112.36,
+     "fit": 1.0
+    },
+    "tempo": 113.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     1.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     0.002,
+     0.005,
+     0.0,
+     0.0,
+     0.001,
+     0.011,
+     0.0,
+     0.0,
+     -0.001,
+     0.011,
+     0.0,
+     0.0,
+     0.003,
+     0.004
+    ],
+    "bass_occ": [
+     0.062,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.062,
+     0.938,
+     0.0,
+     0.0,
+     0.062,
+     1.0
+    ],
+    "bass_per_bar": 4.12,
+    "bleed_share": 0.25,
+    "bass_notes": [
+     null,
+     null,
+     22,
+     null,
+     null,
+     null,
+     22,
+     null,
+     null,
+     null,
+     null,
+     18,
+     17,
+     null,
+     null,
+     22
+    ]
+   }
+  },
+  "separation": {
+   "drums": 17.53,
+   "drums_low_at_bass_notes": 0.159,
+   "bass": 16.43,
+   "bass_at_kicks_vs_notes": 0.217,
+   "true_bass_at_kicks_vs_notes": 0.201,
+   "other": 12.87
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "amapiano",
+   "tempo": 115,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    3,
+    6,
+    7,
+    10,
+    11,
+    14,
+    15
+   ],
+   "late": {
+    "2": 0.0,
+    "3": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "10": 0.0,
+    "11": 0.0,
+    "14": 0.0,
+    "15": 0.0
+   },
+   "bass_steps": [
+    3,
+    6,
+    10,
+    15
+   ],
+   "key": "D#m",
+   "var": {}
+  },
+  "read": {
+   "key": {
+    "key": "D#m",
+    "camelot": "2A",
+    "margin": 0.199,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 114.99,
+    "swing16": 0.5047,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 3406.1,
+    "crest": 20.906,
+    "onsets_per_s": 5.583,
+    "share_of_energy": 0.2146,
+    "level": 0.03186,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.422,
+    "level": 0.06264,
+    "centroid_hz": 400.5
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 114.99,
+     "tracker_tempo": 114.85,
+     "fit": 1.0
+    },
+    "tempo": 115.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     1.0,
+     0.0,
+     0.0,
+     1.0,
+     1.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     0.002,
+     0.001,
+     0.0,
+     0.0,
+     0.007,
+     0.007,
+     0.0,
+     0.0,
+     -0.005,
+     0.012,
+     0.0,
+     0.0,
+     -0.003,
+     0.013
+    ],
+    "bass_occ": [
+     0.188,
+     0.0,
+     1.0,
+     0.0,
+     0.062,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     0.125,
+     0.875,
+     0.0,
+     0.062,
+     0.0,
+     1.0
+    ],
+    "bass_per_bar": 4.31,
+    "bleed_share": 0.373,
+    "bass_notes": [
+     15,
+     null,
+     15,
+     null,
+     null,
+     null,
+     15,
+     null,
+     15,
+     null,
+     null,
+     22,
+     22,
+     null,
+     null,
+     15
+    ]
+   }
+  },
+  "separation": {
+   "drums": 16.92,
+   "drums_low_at_bass_notes": 0.162,
+   "bass": 18.23,
+   "bass_at_kicks_vs_notes": 0.197,
+   "true_bass_at_kicks_vs_notes": 0.182,
+   "other": 13.39
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "bright": -1
+   }
+  },
+  "read": {
+   "key": {
+    "key": "Am",
+    "camelot": "8A",
+    "margin": 0.212,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 126.0,
+    "swing16": null,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 2997.7,
+    "crest": 11.829,
+    "onsets_per_s": 4.448,
+    "share_of_energy": 0.3601,
+    "level": 0.06539,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.3604,
+    "level": 0.06544,
+    "centroid_hz": 510.7
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 125.97,
+     "tracker_tempo": 126.05,
+     "fit": 1.0
+    },
+    "tempo": 126.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.375,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.375,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     -0.001,
+     0.0,
+     0.392,
+     0.0,
+     0.006,
+     0.0,
+     0.0,
+     0.0,
+     -0.006,
+     0.0,
+     0.387,
+     0.0,
+     0.001,
+     0.0
+    ],
+    "bass_occ": [
+     0.062,
+     0.062,
+     0.938,
+     0.0,
+     0.0,
+     0.188,
+     0.812,
+     0.062,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.125,
+     0.875,
+     0.0
+    ],
+    "bass_per_bar": 4.12,
+    "bleed_share": 0.34,
+    "bass_notes": [
+     21,
+     null,
+     21,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     21,
+     null,
+     21,
+     null,
+     21,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 20.59,
+   "drums_low_at_bass_notes": 0.0,
+   "bass": 15.19,
+   "bass_at_kicks_vs_notes": 0.078,
+   "true_bass_at_kicks_vs_notes": 0.096,
+   "other": 13.31
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "bright": 1
+   }
+  },
+  "read": {
+   "key": {
+    "key": "Am",
+    "camelot": "8A",
+    "margin": 0.209,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 126.01,
+    "swing16": null,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 6522.4,
+    "crest": 13.114,
+    "onsets_per_s": 4.067,
+    "share_of_energy": 0.4483,
+    "level": 0.06387,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.3106,
+    "level": 0.04426,
+    "centroid_hz": 755.2
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 125.96,
+     "tracker_tempo": 126.05,
+     "fit": 1.0
+    },
+    "tempo": 126.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     -0.015,
+     0.0,
+     0.0,
+     0.0,
+     0.015,
+     0.0,
+     0.0,
+     0.0,
+     -0.014,
+     0.0,
+     0.0,
+     0.0,
+     0.009,
+     0.0
+    ],
+    "bass_occ": [
+     0.0,
+     0.125,
+     0.875,
+     0.0,
+     0.0,
+     0.062,
+     0.938,
+     0.125,
+     0.0,
+     0.062,
+     0.938,
+     0.0,
+     0.062,
+     0.125,
+     0.938,
+     0.0
+    ],
+    "bass_per_bar": 4.25,
+    "bleed_share": 0.333,
+    "bass_notes": [
+     21,
+     null,
+     21,
+     null,
+     null,
+     null,
+     21,
+     null,
+     null,
+     null,
+     21,
+     null,
+     21,
+     null,
+     21,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 12.01,
+   "drums_low_at_bass_notes": 0.008,
+   "bass": 15.02,
+   "bass_at_kicks_vs_notes": 0.081,
+   "true_bass_at_kicks_vs_notes": 0.096,
+   "other": 13.08
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "punch": -1
+   }
+  },
+  "read": {
+   "key": {
+    "key": "Am",
+    "camelot": "8A",
+    "margin": 0.272,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 126.05,
+    "swing16": null,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 5219.9,
+    "crest": 7.406,
+    "onsets_per_s": 4.067,
+    "share_of_energy": 0.7103,
+    "level": 0.10691,
+    "grid_refit": false
+   },
+   "bass": {
+    "share_of_energy": 0.1474,
+    "level": 0.02219,
+    "centroid_hz": 1066.7
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 126.01,
+     "tracker_tempo": 126.05,
+     "fit": 1.0
+    },
+    "tempo": 126.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     0.033,
+     0.0,
+     0.0,
+     0.0,
+     -0.056,
+     0.0,
+     0.0,
+     0.0,
+     0.031,
+     0.0,
+     0.0,
+     0.0,
+     -0.059,
+     0.0
+    ],
+    "bass_occ": [
+     0.25,
+     0.188,
+     0.812,
+     0.0,
+     0.0,
+     0.125,
+     0.938,
+     0.0,
+     0.062,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.062,
+     1.0,
+     0.0
+    ],
+    "bass_per_bar": 4.44,
+    "bleed_share": 0.123,
+    "bass_notes": [
+     null,
+     null,
+     21,
+     null,
+     null,
+     null,
+     21,
+     null,
+     null,
+     null,
+     21,
+     null,
+     null,
+     null,
+     21,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 15.65,
+   "drums_low_at_bass_notes": 0.006,
+   "bass": 6.76,
+   "bass_at_kicks_vs_notes": 0.108,
+   "true_bass_at_kicks_vs_notes": 0.096,
+   "other": 10.07
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "punch": 1
+   }
+  },
+  "read": {
+   "key": {
+    "key": "Am",
+    "camelot": "8A",
+    "margin": 0.221,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 126.01,
+    "swing16": null,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 5205.0,
+    "crest": 12.441,
+    "onsets_per_s": 4.067,
+    "share_of_energy": 0.3878,
+    "level": 0.06316,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.3446,
+    "level": 0.05613,
+    "centroid_hz": 602.2
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 125.96,
+     "tracker_tempo": 126.05,
+     "fit": 1.0
+    },
+    "tempo": 126.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     -0.008,
+     0.0,
+     0.0,
+     0.0,
+     0.006,
+     0.0,
+     0.0,
+     0.0,
+     -0.013,
+     0.0,
+     0.0,
+     0.0,
+     0.006,
+     0.0
+    ],
+    "bass_occ": [
+     0.0,
+     0.062,
+     0.938,
+     0.0,
+     0.0,
+     0.125,
+     0.875,
+     0.0,
+     0.0,
+     0.188,
+     0.875,
+     0.0,
+     0.0,
+     0.125,
+     0.875,
+     0.0
+    ],
+    "bass_per_bar": 4.06,
+    "bleed_share": 0.253,
+    "bass_notes": [
+     21,
+     null,
+     21,
+     null,
+     null,
+     null,
+     21,
+     null,
+     null,
+     null,
+     21,
+     null,
+     null,
+     null,
+     21,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 17.96,
+   "drums_low_at_bass_notes": 0.001,
+   "bass": 15.01,
+   "bass_at_kicks_vs_notes": 0.08,
+   "true_bass_at_kicks_vs_notes": 0.096,
+   "other": 13.11
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "busy": -1
+   }
+  },
+  "read": {
+   "key": {
+    "key": "Am",
+    "camelot": "8A",
+    "margin": 0.222,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 126.0,
+    "swing16": null,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 5202.4,
+    "crest": 12.432,
+    "onsets_per_s": 4.194,
+    "share_of_energy": 0.3878,
+    "level": 0.06315,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.3447,
+    "level": 0.05612,
+    "centroid_hz": 605.9
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 125.96,
+     "tracker_tempo": 126.05,
+     "fit": 1.0
+    },
+    "tempo": 126.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.125,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.125,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     -0.008,
+     0.0,
+     0.0,
+     0.0,
+     0.006,
+     0.0,
+     0.0,
+     0.0,
+     -0.013,
+     0.0,
+     0.0,
+     0.0,
+     0.006,
+     0.0
+    ],
+    "bass_occ": [
+     0.0,
+     0.062,
+     0.938,
+     0.062,
+     0.0,
+     0.062,
+     0.938,
+     0.125,
+     0.0,
+     0.188,
+     0.875,
+     0.0,
+     0.0,
+     0.125,
+     0.875,
+     0.0
+    ],
+    "bass_per_bar": 4.25,
+    "bleed_share": 0.299,
+    "bass_notes": [
+     21,
+     null,
+     21,
+     null,
+     null,
+     null,
+     21,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     21,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 17.9,
+   "drums_low_at_bass_notes": 0.001,
+   "bass": 15.04,
+   "bass_at_kicks_vs_notes": 0.08,
+   "true_bass_at_kicks_vs_notes": 0.096,
+   "other": 13.15
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    1,
+    2,
+    3,
+    5,
+    6,
+    7,
+    9,
+    10,
+    11,
+    13,
+    14,
+    15
+   ],
+   "late": {
+    "1": 0.0,
+    "2": 0.0,
+    "3": 0.0,
+    "5": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "9": 0.0,
+    "10": 0.0,
+    "11": 0.0,
+    "13": 0.0,
+    "14": 0.0,
+    "15": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "busy": 1
+   }
+  },
+  "read": {
+   "key": {
+    "key": "Am",
+    "camelot": "8A",
+    "margin": 0.209,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 126.0,
+    "swing16": 0.5056,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 6784.9,
+    "crest": 11.769,
+    "onsets_per_s": 7.911,
+    "share_of_energy": 0.4046,
+    "level": 0.06722,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.3349,
+    "level": 0.05565,
+    "centroid_hz": 624.0
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 125.96,
+     "tracker_tempo": 126.05,
+     "fit": 0.87
+    },
+    "tempo": 126.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     1.0,
+     1.0,
+     1.0,
+     0.438,
+     0.375,
+     1.0,
+     1.0,
+     0.0,
+     1.0,
+     1.0,
+     1.0,
+     0.375,
+     0.375,
+     1.0,
+     1.0
+    ],
+    "rel": [
+     0.0,
+     -0.042,
+     0.003,
+     0.042,
+     0.375,
+     0.031,
+     0.0,
+     0.045,
+     0.0,
+     -0.042,
+     -0.003,
+     0.031,
+     0.375,
+     0.025,
+     -0.0,
+     0.034
+    ],
+    "bass_occ": [
+     0.0,
+     0.188,
+     0.812,
+     0.0,
+     0.062,
+     0.25,
+     0.75,
+     0.062,
+     0.0,
+     0.25,
+     0.812,
+     0.0,
+     0.125,
+     0.25,
+     0.75,
+     0.0
+    ],
+    "bass_per_bar": 4.31,
+    "bleed_share": 0.281,
+    "bass_notes": [
+     21,
+     null,
+     21,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     21,
+     null,
+     null,
+     null,
+     21,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 17.25,
+   "drums_low_at_bass_notes": 0.002,
+   "bass": 14.84,
+   "bass_at_kicks_vs_notes": 0.076,
+   "true_bass_at_kicks_vs_notes": 0.096,
+   "other": 12.91
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "bass": -1
+   }
+  },
+  "read": {
+   "key": {
+    "key": "Am",
+    "camelot": "8A",
+    "margin": 0.245,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 126.01,
+    "swing16": null,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 5348.7,
+    "crest": 12.52,
+    "onsets_per_s": 4.194,
+    "share_of_energy": 0.4737,
+    "level": 0.06023,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.2022,
+    "level": 0.02571,
+    "centroid_hz": 1001.6
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 125.96,
+     "tracker_tempo": 126.05,
+     "fit": 1.0
+    },
+    "tempo": 126.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.125,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.125,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     -0.01,
+     0.0,
+     0.0,
+     0.0,
+     0.009,
+     0.0,
+     0.0,
+     0.0,
+     -0.015,
+     0.0,
+     0.0,
+     0.0,
+     0.004,
+     0.0
+    ],
+    "bass_occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.062,
+     0.125,
+     0.938,
+     0.0,
+     0.0,
+     0.125,
+     0.875,
+     0.062,
+     0.0,
+     0.062,
+     0.938,
+     0.0
+    ],
+    "bass_per_bar": 4.19,
+    "bleed_share": 0.327,
+    "bass_notes": [
+     21,
+     null,
+     null,
+     null,
+     21,
+     null,
+     21,
+     null,
+     null,
+     null,
+     21,
+     null,
+     21,
+     null,
+     21,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 18.59,
+   "drums_low_at_bass_notes": 0.001,
+   "bass": 12.43,
+   "bass_at_kicks_vs_notes": 0.065,
+   "true_bass_at_kicks_vs_notes": 0.096,
+   "other": 15.74
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "bass": 1
+   }
+  },
+  "read": {
+   "key": {
+    "key": "Am",
+    "camelot": "8A",
+    "margin": 0.206,
+    "matches_beatport": 0.77
+   },
+   "drums": {
+    "beats_per_minute": 126.01,
+    "swing16": null,
+    "kick_pattern": "K...K...K...K...",
+    "centroid_hz": 5120.0,
+    "crest": 12.614,
+    "onsets_per_s": 4.225,
+    "share_of_energy": 0.2764,
+    "level": 0.06728,
+    "grid_refit": true
+   },
+   "bass": {
+    "share_of_energy": 0.5292,
+    "level": 0.12882,
+    "centroid_hz": 409.9
+   },
+   "skeleton": {
+    "grid": {
+     "refit": true,
+     "tempo": 125.96,
+     "tracker_tempo": 126.05,
+     "fit": 1.0
+    },
+    "tempo": 126.0,
+    "kick": "K...K...K...K...",
+    "occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.125,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.188,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "rel": [
+     0.0,
+     0.0,
+     -0.01,
+     0.0,
+     0.0,
+     0.0,
+     0.009,
+     0.0,
+     0.0,
+     0.0,
+     -0.015,
+     0.0,
+     0.417,
+     0.0,
+     0.004,
+     0.0
+    ],
+    "bass_occ": [
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.062,
+     0.188,
+     1.0,
+     0.062,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.062,
+     0.0,
+     1.0,
+     0.0
+    ],
+    "bass_per_bar": 4.38,
+    "bleed_share": 0.426,
+    "bass_notes": [
+     21,
+     null,
+     21,
+     null,
+     21,
+     null,
+     21,
+     null,
+     21,
+     null,
+     21,
+     null,
+     21,
+     null,
+     21,
+     null
+    ]
+   }
+  },
+  "separation": {
+   "drums": 18.49,
+   "drums_low_at_bass_notes": 0.001,
+   "bass": 19.45,
+   "bass_at_kicks_vs_notes": 0.095,
+   "true_bass_at_kicks_vs_notes": 0.096,
+   "other": 11.3
+  },
+  "keys_returned": [
+   "key",
+   "licensed_parts",
+   "mix",
+   "mix_x",
+   "model",
+   "part_audio",
+   "part_calls",
+   "part_like",
+   "part_residuals",
+   "part_vectors",
+   "parts",
+   "scene",
+   "scene_learned",
+   "scene_parts",
+   "skeleton",
+   "sounds_like",
+   "tempo_read",
+   "voice_type"
+  ]
+ }
+]
