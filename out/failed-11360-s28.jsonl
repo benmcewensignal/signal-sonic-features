@@ -1,0 +1,4 @@
+{"track_id": "bp:18705154", "error": "HTTPError: HTTP Error 403: Forbidden", "at": "2026-10-10T19:57:23Z"}
+{"track_id": "bp:15308335", "error": "HTTPError: HTTP Error 403: Forbidden", "at": "2026-10-10T20:21:41Z"}
+{"track_id": "bp:21580318", "error": "HTTPError: HTTP Error 502: Bad Gateway", "at": "2026-10-10T20:25:00Z"}
+{"track_id": "bp:4716178", "error": "HTTPError: HTTP Error 403: Forbidden", "at": "2026-10-10T20:25:01Z"}
