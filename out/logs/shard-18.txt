@@ -1,16 +1,16 @@
 shard 18 of 30: 45 records
-stems: 170882 done, 45 this run, 11822 left after
-  bp:27247372: HTTPError: HTTP Error 403: Forbidden
-2026-10-09 22:29:49.891481: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
-2026-10-09 22:29:49.891545: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+stems: 172174 done, 45 this run, 11594 left after
+  bp:11784457: HTTPError: HTTP Error 403: Forbidden
+2026-10-10 00:08:12.402232: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-10 00:08:12.402255: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
-2026-10-09 22:29:50.236558: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 AVX512F FMA
+2026-10-10 00:08:12.753295: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 AVX512F FMA
 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2026-10-09 22:29:50.236955: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
-2026-10-09 22:29:50.236973: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
-2026-10-09 22:29:50.236991: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (runnervmmprz5): /proc/driver/nvidia/version does not exist
+2026-10-10 00:08:12.754018: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-10 00:08:12.754037: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-10 00:08:12.754212: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (runnervmmprz5): /proc/driver/nvidia/version does not exist
   10/45, 1 failed
   20/45, 1 failed
   30/45, 1 failed
   40/45, 1 failed
-stems: 44 separated, 1 failed, written to out/stems-10940-s18.jsonl
+stems: 44 separated, 1 failed, written to out/stems-10970-s18.jsonl
