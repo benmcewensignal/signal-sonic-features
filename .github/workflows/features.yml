@@ -8,9 +8,9 @@ on:
         options: [convert, stems-selftest, stems, stems-shard, stems-remeasure]
         default: convert
       limit:
-        description: records per shard; small for a quick check, the default for real work
+        description: most records per shard (each stops at 90 minutes, so this is a ceiling); small for a quick check, the default for real work
         required: false
-        default: '45'
+        default: '150'
       recover_run:
         description: a run id whose shard artifacts were never collected; fetch and commit them
         required: false
@@ -27,20 +27,63 @@ concurrency:
   group: sonic-features-${{ inputs.task || 'convert' }}
   cancel-in-progress: false
 jobs:
+  # How wide this pass is. Thirty shards were fixed while the account's forty job slots averaged 25 in use (10-11 Oct):
+  # a pass now takes what the other pipelines are not using, between thirty and thirty-six, keeping four spare for the
+  # crawl, its measuring, the watchdog and this run's collect. If the count fails, thirty, as before.
+  stems-plan:
+    if: (inputs.task == 'stems-shard' || inputs.task == 'stems-remeasure') && inputs.recover_run == ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      n: ${{ steps.w.outputs.n }}
+      shards: ${{ steps.w.outputs.shards }}
+    steps:
+      - id: w
+        env:
+          GH_TOKEN: ${{ secrets.PIPELINE_PAT || github.token }}
+        run: |
+          set +e
+          python3 - <<'EOF'
+          import json, os, subprocess
+          CAP, RESERVE, LO, HI = 40, 4, 30, 36
+          def api(p):
+              r = subprocess.run(["gh", "api", p], capture_output=True, text=True, timeout=60)
+              if r.returncode: raise RuntimeError(r.stderr.strip()[:160])
+              return json.loads(r.stdout)
+          busy, read = 0, 0
+          for repo in ("signal-sonic", "signal-sonic-features", "signal-sonic-audio", "signalgood"):
+              try:
+                  for st in ("in_progress", "queued"):
+                      for run in api(f"repos/benmcewensignal/{repo}/actions/runs?status={st}&per_page=100").get("workflow_runs", []):
+                          if str(run["id"]) == os.environ["GITHUB_RUN_ID"]: continue   # this pass itself
+                          js = api(f"repos/benmcewensignal/{repo}/actions/runs/{run['id']}/jobs?per_page=100").get("jobs", [])
+                          busy += sum(1 for j in js if j.get("status") != "completed")
+                  read += 1
+              except Exception as e:
+                  print(f"could not read {repo}: {e}")
+          # a count that could not see the pipelines is no count: thirty, as before
+          n = max(LO, min(HI, CAP - busy - RESERVE)) if read >= 3 else LO
+          msg = f"{busy} jobs running or queued in the other pipelines ({read} of 4 repositories read): {n} shards"
+          print(msg); print(f"::notice title=separation width::{msg}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"n={n}\nshards={json.dumps(list(range(n)))}\n")
+          EOF
+          grep -q '^n=' "$GITHUB_OUTPUT" || printf 'n=30\nshards=%s\n' "$(python3 -c 'import json; print(json.dumps(list(range(30))))')" >> "$GITHUB_OUTPUT"
+          exit 0
+
   # Demucs is the most parallelisable thing here: every record is independent and it is
   # pure CPU. One job separates about forty-five records an hour; six do the same work in
   # a sixth of the time. They split by record, write their own file, and a merge commits.
   stems-shard:
+    needs: stems-plan
     if: (inputs.task == 'stems-shard' || inputs.task == 'stems-remeasure') && inputs.recover_run == ''
     runs-on: ubuntu-24.04   # pinned: ubuntu-latest becomes Ubuntu 26 from 19 Oct 2026, under the audio decoding
-    timeout-minutes: 115
+    # setup (up to ten minutes), the 90-minute budget, the record under way when it runs out, and the upload
+    timeout-minutes: 130
     strategy:
       fail-fast: false
       matrix:
-        # eighteen, not six: the ceiling is twenty concurrent jobs per account, not per
-        # repository, so splitting across repos gains nothing and a wider matrix gains everything.
-        # Two spare for the chain and the watchdog.
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+        shard: ${{ fromJSON(needs.stems-plan.outputs.shards) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -71,7 +114,9 @@ jobs:
           # from here. The index build answered six failures the moment it wrote its output
           # into the repository.
           exec > >(tee -a /tmp/stemlog.txt) 2>&1
-          python -m features.stems --db sonic.db --shard ${{ matrix.shard }} --of 30 --limit ${{ inputs.limit || '45' }} --budget-minutes 100 --out-dir out
+          # a time budget, not a count: forty-five records took a shard 43 to 80 minutes (10-11 Oct), and the pass waited
+          # for the slowest while the rest of its slots stood idle; now every shard works the 90 minutes through
+          python -m features.stems --db sonic.db --shard ${{ matrix.shard }} --of ${{ needs.stems-plan.outputs.n }} --limit ${{ inputs.limit || '150' }} --budget-minutes 90 --out-dir out
       - name: keep the shard log where it can be read
         if: always()
         run: |
@@ -163,7 +208,7 @@ jobs:
         # a shard that fails no longer stops the chain: on 8 Oct one of thirty lost its runner at 18:13, the other 29
         # were collected, and nothing ran until the watchdog's 90 minutes. The count below still stands the chain down
         # when a pass separated nothing, so a fault that fails every shard cannot loop. A cancelled run does not chain.
-        if: success() && (needs.stems-shard.result == 'success' || needs.stems-shard.result == 'failure') && (inputs.limit == '' || inputs.limit == '45')
+        if: success() && (needs.stems-shard.result == 'success' || needs.stems-shard.result == 'failure') && (inputs.limit == '' || inputs.limit == '150')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
