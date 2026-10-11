@@ -589,7 +589,19 @@ def pick(db, have, limit):
     while len(todo) < limit and any(pool[k] for k in keys):
         for k in keys:
             if pool[k] and len(todo) < limit: todo.append(pool[k].pop())
-    return todo, sum(len(v) for v in pool.values()) + max(0, left_tl)
+    # everything else in the corpus comes last. 9,646 records came in from the weekly chart snapshots on 30 September
+    # with neither a scene-month nor a chart position, so none of the queues above ever reached them (found 11 Oct);
+    # any record that arrives the same way is reached here too. Newest first.
+    taken = set(todo); waiting = {t_ for k in keys for t_ in pool[k]}
+    # (the first queue's sources are left out: their records beyond this pass's limit are counted in left_tl already)
+    rest = [r[0] for r in c.execute("""select track_id from tracks where analyser_id='local' and track_id like 'bp:%'
+                                       and source not in ('classic','canon','tracklist') order by first_seen desc, track_id""")
+            if r[0] not in have and r[0] not in taken and r[0] not in seen_ and r[0] not in waiting]
+    n_rest = 0
+    for t_ in rest:
+        if len(todo) >= limit: break
+        todo.append(t_); n_rest += 1
+    return todo, sum(len(v) for v in pool.values()) + max(0, left_tl) + (len(rest) - n_rest)
 
 
 def already(out_dir):
