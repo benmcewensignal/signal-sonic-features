@@ -700,7 +700,7 @@ def remeasure_todo(out_dir, limit, db=None):
     except Exception:
         pass
     import glob as _g, collections as _c
-    finished, seen, order = set(), set(), []
+    finished, seen, order, grooved = set(), set(), [], set()
     for f in sorted(_g.glob(os.path.join(out_dir, "stems-*.jsonl"))):
         for line in open(f):
             try:
@@ -722,8 +722,10 @@ def remeasure_todo(out_dir, limit, db=None):
             # kick_version 2: the first version read empty on 44% of real records (see kick_pattern_of_stem)
             ba = st.get("bass") if isinstance(st.get("bass"), dict) else {}
             # bass_version 2 (the notes from every pitched note, not only a repeated one-bar pattern) is part of finished
-            if dr.get("embedding") and "breakdowns" in dr and "hits_per_beat" in dr and (dr.get("kick_version") == 3 or t in _v3) and ba.get("bass_version") == 2:
+            if dr.get("embedding") and "breakdowns" in dr and "hits_per_beat" in dr and ((dr.get("kick_version") or 0) >= 3 or t in _v3) and ba.get("bass_version") == 2:
                 finished.add(t)
+            if "hits_per_beat" in dr:
+                grooved.add(t)
             if t not in seen:
                 seen.add(t)
                 order.append(t)
@@ -747,6 +749,16 @@ def remeasure_todo(out_dir, limit, db=None):
                 if pools[k]:
                     rot.append(pools[k].pop(0))
         need = rot
+    if db:
+        # records with no groove measures at all first (the 103,444 lost from 4 to 12 October), then records whose
+        # measures are an older version; within each, records DJ sets play first; each part still scene by scene
+        try:
+            import sqlite3 as _s
+            played = {r[0] for r in _s.connect(db).execute("select distinct track_id from tracklist_plays where track_id is not null")}
+        except Exception:
+            played = set()
+        need = ([t for t in need if t not in grooved and t in played] + [t for t in need if t not in grooved and t not in played]
+                + [t for t in need if t in grooved and t in played] + [t for t in need if t in grooved and t not in played])
     return need[:limit], max(0, len(need) - limit)
 
 
@@ -780,6 +792,15 @@ def main():
         print(f"remeasure: {len(todo)} this pass, {remaining} still on the eight numbers alone", flush=True)
     else:
         todo, remaining = pick(a.db, have | refused(a.out_dir), a.limit * max(1, a.of))
+        # then records already separated whose parts lack measures added since (the groove measures were lost from 4 to
+        # 12 October): new records always come first, and a pass is never left short of work while these remain
+        want = a.limit * max(1, a.of)
+        if len(todo) < want:
+            more, more_left = remeasure_todo(a.out_dir, want - len(todo), a.db)
+            _no = refused(a.out_dir); _in = set(todo)
+            more = [t for t in more if t not in _no and t not in _in]
+            if more: print(f"remeasure: {len(more)} records added after {len(todo)} new ones, {more_left} more to do after", flush=True)
+            todo += more; remaining += more_left
     if a.of > 1:
         # split by record, not by scene: stem separation is per record and the scenes are
         # very uneven, so a scene split would leave shards idle while one grinds on.
@@ -868,8 +889,6 @@ def main():
     print(f"stems: {done} separated, {err_n} failed, written to {path}", flush=True)
 
 
-if __name__ == "__main__":
-    main()
 
 
 def skeleton_from(cap, kick_pattern=None):
@@ -1013,3 +1032,12 @@ def refit_beats(beats, onsets, kicks=None, prefer_tempo=None, weights=None):
     n0 = int(np.floor((B[0] - c) / T)); n1 = int(np.ceil((B[-1] - c) / T))
     G = c + T * np.arange(n0, n1 + 1); G = G[(G >= B[0] - T / 2) & (G <= B[-1] + T / 2)]
     return G, {"refit": True, "tempo": round(60.0 / T, 2), "tracker_tempo": round(60.0 / per, 2), "fit": round(fit, 3)}
+
+
+# Last in the file, and it must stay last: run as a script (python -m features.stems, as the shards run it), main()
+# starts here, and any function defined below this line does not exist yet. refit_beats and skeleton_from were added
+# below it on 4 October, so every shard's rhythm_of_stem raised NameError and returned nothing, and from then until
+# 12 October 103,444 records were saved without beats, kick pattern, swing, breakdowns or bassline. Importing the
+# module (the reader, the tests) defined everything first, which is why it worked everywhere but the shards.
+if __name__ == "__main__":
+    main()
