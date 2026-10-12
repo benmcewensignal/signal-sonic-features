@@ -1,5 +1,5 @@
 {
- "ran": "2026-09-10T09:51:53Z",
+ "ran": "2026-10-12T09:34:20Z",
  "install_ok": true,
  "stems": [
   "bass",
@@ -7,18 +7,25 @@
   "other",
   "vocals"
  ],
- "seconds_for_12s_of_audio": 12.7,
+ "seconds_for_12s_of_audio": 13.8,
  "measured": {
-  "drums": {
-   "level": 0.01993,
-   "crest": 32.971,
-   "dynamic_span": 0.00882,
-   "centroid_hz": 786.4,
-   "rolloff_hz": 495.7,
-   "flatness": 3e-05,
-   "onsets_per_s": 2.083,
+  "other": {
+   "level": 0.0078,
+   "crest": 15.934,
+   "dynamic_span": 0.00519,
+   "centroid_hz": 1949.4,
+   "rolloff_hz": 2184.8,
+   "flatness": 0.00037,
+   "onsets_per_s": 2.25,
    "share_of_energy": null
   }
+ },
+ "part_measures": {
+  "rhythm": "nothing",
+  "breakdowns": "nothing",
+  "kick_pattern": "nothing",
+  "embedding": "yes",
+  "bassline": "nothing"
  },
  "ok": true
 }
