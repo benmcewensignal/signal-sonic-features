@@ -291,7 +291,9 @@ jobs:
       - name: stem separation self-test
         if: inputs.task == 'stems-selftest'
         run: |
-          pip install -q soundfile librosa
+          # the shards' own install, so the self-test fails where they fail
+          pip install -q numpy soundfile librosa essentia-tensorflow
+          pip list 2>/dev/null | grep -i -E "^(numpy|librosa|soundfile|essentia|torch|demucs|scipy|numba) " | tr -s ' ' | sed 's/^/installed: /'
           python -m features.stems --self-test --out-dir out
 
       - name: stem separation

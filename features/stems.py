@@ -105,6 +105,23 @@ def swing16_from(beats, onsets):
     return round(float(np.median(mids)) - ref, 4)
 
 
+_WHY = {}
+
+
+def _why(name, e):
+    """Say why a part measure failed, the first three times per function in a process. These failures were silent:
+    from 4 October the groove measures (beats, kick pattern, swing, breakdowns, bassline) went missing from every new
+    record, 103,444 of them by 12 October, while the line was still written with the rest."""
+    import traceback
+    k = _WHY.get(name, 0)
+    if k < 3:
+        tb = traceback.extract_tb(e.__traceback__)
+        where = f"{tb[-1].filename.split('/')[-1]}:{tb[-1].lineno} {tb[-1].line}" if tb else ""
+        print(f"part measure failed: {name}: {type(e).__name__}: {str(e)[:200]} at {where}", flush=True)
+        if k == 0: print(f"::warning title=part measure {name}::{type(e).__name__}: {str(e)[:160]} at {where[:120]}", flush=True)
+    _WHY[name] = k + 1
+
+
 def rhythm_of_stem(path):
     """Swing and pulse from a learned beat tracker, on the drum part alone.
 
@@ -163,7 +180,8 @@ def rhythm_of_stem(path):
         if s16 is not None:
             out["swing16"] = s16; out["swing_version"] = 2
         return out
-    except Exception:
+    except Exception as _e:
+        _why("rhythm_of_stem", _e)
         return None
 
 
@@ -250,7 +268,8 @@ def bassline_of_stem(path, beats, rotation=0):
         if notes:
             out["bass_pattern"] = " ".join(librosa.midi_to_note(m, octave=False) if m is not None else "." for m in pat)
         return out
-    except Exception:
+    except Exception as _e:
+        _why("bassline_of_stem", _e)
         return None
 
 
@@ -351,7 +370,8 @@ def kick_pattern_of_stem(path, beats):
         low = S[(f >= 30) & (f < 120)].sum(0)
         _cap(drums_low=low, drums_low_hop=hop, drums_low_sr=sr)
         return kick_pattern_v3(low, sr, hop, beats)
-    except Exception:
+    except Exception as _e:
+        _why("kick_pattern_of_stem", _e)
         return None
 
 
@@ -489,7 +509,8 @@ def breakdowns_of_stem(path, bpm=None):
                 "breakdown_share": round(sum(r[1] - r[0] for r in offs) / total, 4),
                 "longest_breakdown_bars": round(float(longest), 1),
                 "first_breakdown_at": round(offs[0][0] / total, 4)}
-    except Exception:
+    except Exception as _e:
+        _why("breakdowns_of_stem", _e)
         return None
 
 
@@ -638,6 +659,19 @@ def self_test(out_dir):
         rep["stems"] = sorted(stems)
         rep["seconds_for_12s_of_audio"] = round(time.time() - t0, 1)
         rep["measured"] = {k: measure_stem(v) for k, v in list(stems.items())[:1]}
+        # the part measures every record carries, run on the test's own parts: from 4 October they failed silently
+        # on every record, so the self-test now runs them in the shards' own setup and says what each returned
+        dr, ba, rh, checks = stems.get("drums"), stems.get("bass"), None, {}
+        if dr:
+            rh = rhythm_of_stem(dr); checks["rhythm"] = sorted(k for k in (rh or {}) if not k.startswith("_")) or "nothing"
+            bd = breakdowns_of_stem(dr, (rh or {}).get("beats_per_minute")); checks["breakdowns"] = sorted((bd or {}).keys()) or "nothing"
+            kp = kick_pattern_of_stem(dr, (rh or {}).get("_beats")); checks["kick_pattern"] = sorted(k for k in (kp or {}) if not k.startswith("_")) or "nothing"
+            em = analyse_stem(dr); checks["embedding"] = "yes" if em and em.get("embedding") else "nothing"
+        if ba:
+            bl = bassline_of_stem(ba, (rh or {}).get("_beats")); checks["bassline"] = sorted((bl or {}).keys()) or "nothing"
+        rep["part_measures"] = checks
+        for k_, v_ in checks.items():
+            print(f"::notice title=selftest {k_}::{v_ if isinstance(v_, str) else ', '.join(v_)[:200]}", flush=True)
         rep["ok"] = True
     except Exception as e:
         rep["ok"] = False; rep["error"] = f"{type(e).__name__}: {str(e)[:220]}"
