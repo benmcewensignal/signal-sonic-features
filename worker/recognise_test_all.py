@@ -29,7 +29,13 @@ def run(activate: bool = False):
     cls = [m for m in classics if m[0] in PV]; pick.shuffle(cls)
     out_ = [t for t in CT if t not in inidx and t in PV]; pick.shuffle(out_)
     def room(y):
-        sr = FP.SR; n = int(0.6 * sr); ir = rng.normal(0, 1, n) * np.exp(-np.arange(n) / (0.12 * sr)); ir[0] = 1.0
+        # A reverb tail of RT60 0.8 s with its energy 6 dB above the direct sound, a 200 to 6,000 Hz band, and noise 15 dB
+        # under the music: the back half of a loud room. Until 17 Oct the tail was left unscaled and carried about 1,300
+        # times the direct sound's energy (-31 dB), harsher than any dance floor: the fingerprinter keeps 3% of its
+        # fingerprints at -6 dB and 2% at -31 (audio/room_test.py in signal-sonic-audio, the sweep), and this test
+        # recognised 8 of 60 catalogue clips where the whole path recognises most at realistic ratios
+        sr = FP.SR; n = int(0.8 * sr); tail = rng.normal(0, 1, n) * np.exp(-np.arange(n) / (0.116 * sr)); tail[0] = 0
+        tail *= 10 ** (6 / 20) / (np.sqrt(np.sum(tail ** 2)) + 1e-9); ir = tail; ir[0] = 1.0
         w = fftconvolve(y, ir)[: len(y)]; w = sosfilt(butter(4, [200, 6000], btype="band", fs=sr, output="sos"), w)
         w = w / (np.max(np.abs(w)) + 1e-9); return (w + rng.normal(0, 10 ** (-15 / 20) * np.sqrt(np.mean(w ** 2)), len(w))).astype(np.float32)
     def ask(tid):
