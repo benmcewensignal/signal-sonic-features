@@ -238,7 +238,8 @@ def rx_match(query, R):
             "runner_up": r1, "next_best": n1 if ok1 else n2, "path": "single" if ok1 else ("loops" if ok2 else None),
             "hashes_in_index": int(keep.sum()), "records": len(R["meta"]["tracks"])}
 
-@app.function(image=light, secrets=[secret], cpu=2.0, memory=8192, scaledown_window=300, volumes={"/rx": rvol})
+# 16 GB: the catalogue-wide index (all/) holds 1.3 billion sorted fingerprints, 5 GB read into memory on waking
+@app.function(image=light, secrets=[secret], cpu=2.0, memory=16384, scaledown_window=300, volumes={"/rx": rvol})
 @modal.fastapi_endpoint(method="POST")
 async def recognise(request: Request):
     if not _ok(request): return JSONResponse({"error": "unauthorised"}, 401)

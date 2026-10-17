@@ -13,7 +13,9 @@ image = modal.Image.debian_slim(python_version="3.12").apt_install("curl").pip_i
 vol = modal.Volume.from_name("sonic-recognise", create_if_missing=True)
 PER = 8000
 
-@app.function(image=image, cpu=4.0, memory=32768, timeout=7200, volumes={"/idx": vol})
+# 64 GB: the store held 163,000 records on 17 Oct, 1.3 billion postings at 8,000 a record, and sorting them needs about
+# three times their 13 GB
+@app.function(image=image, cpu=4.0, memory=65536, timeout=7200, volumes={"/idx": vol})
 def build():
     import base64, os, sqlite3, subprocess, time, urllib.request
     import numpy as np
@@ -37,7 +39,28 @@ def build():
             if cur is None or key > cur[0]: best[d["track_id"]] = (key, {k: d.get(k) for k in ("track_id", "name", "artists", "scene", "hashes", "frames", "query")})
     # names for the catalogue, from the recognition index
     IX = json.load(urllib.request.urlopen(urllib.request.Request("https://raw.githubusercontent.com/benmcewensignal/signal-sonic-audio/main/out/index.json", headers=UA), timeout=300))
+    SCN = IX.get("scenes") or []
     nm = {t.get("track_id"): t for t in IX.get("tracks", [])}
+    for t in nm.values():   # the lean index stores a scene as a number into one list of names
+        if isinstance(t.get("scene"), int) and t["scene"] < len(SCN): t["scene"] = SCN[t["scene"]]
+    # the site's index keeps 113,000 of the fingerprinted records; the rest are named from the pipeline database, so a
+    # record recognised here is never nameless
+    try:
+        rel2 = json.load(urllib.request.urlopen(urllib.request.Request("https://api.github.com/repos/benmcewensignal/signal-sonic/releases/tags/deepened", headers=UA)))
+        dbu = next(a_["browser_download_url"] for a_ in rel2["assets"] if a_["name"] == "sonic.db")
+        subprocess.run(f"curl -sL '{dbu}' -o /tmp/sonic.db", shell=True, check=True)
+        db = sqlite3.connect("/tmp/sonic.db")
+        for tid, name, arts in db.execute("select track_id, name, artists from track_meta where name is not null and name not like 'ERROR:%'"):
+            if tid not in nm:
+                try: arts = json.loads(arts) if arts else []
+                except Exception: arts = []
+                nm[tid] = {"name": name, "artists": arts}
+        for tid, sc in db.execute("select track_id, scene from track_scenes group by track_id"):
+            if tid in nm and not nm[tid].get("scene"): nm[tid]["scene"] = sc
+        db.close(); os.remove("/tmp/sonic.db")
+        print("names from the pipeline database too:", len(nm), flush=True)
+    except Exception as e:
+        print("names from the pipeline database skipped:", type(e).__name__, e, flush=True)
     meta, Hs, Ts, Fs = [], [], [], []
     def add(h, fr, m):
         n = min(len(h), len(fr))
