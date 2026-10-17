@@ -5,7 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       what: { description: "classics, all, or test", default: "classics" }
-  schedule: [ { cron: "30 7 * * *" } ]
+  schedule:
+    - cron: "30 7 * * *"   # daily: the classics
+    - cron: "0 6 * * 0"    # weekly: the catalogue-wide index, rebuilt from the whole store (about 12,000 records a day join it) and tested
 permissions: { contents: read }
 concurrency: { group: sonic-recognise-build, cancel-in-progress: false }
 jobs:
@@ -22,7 +24,21 @@ jobs:
         run: |
           set -o pipefail
           fail(){ tail -n 12 /tmp/out.txt | tr -d '\r' | sed -e 's/^/::error title=recognise::/' ; exit 1; }
-          case "${{ github.event.inputs.what || 'classics' }}" in
+          W="${{ github.event.inputs.what || (github.event.schedule == '0 6 * * 0' && 'weekly') || 'classics' }}"
+          case "$W" in
+            weekly)
+              # the endpoint reads a new all/ as soon as it is written, so the test runs straight after the build and, if
+              # a record outside the index or a wrong record was named, stands the index down (the classics stay)
+              modal run worker/recognise_build_all.py 2>&1 | tee /tmp/out.txt || fail
+              modal run worker/recognise_test_all.py --activate 2>&1 | tee /tmp/out.txt || fail
+              python3 - <<'PY' || { modal run worker/recognise_off.py 2>&1 | tail -3; exit 1; }
+          import json, re, sys
+          m = re.search(r"catalogue index test::(\{.*\})", open("/tmp/out.txt").read())
+          if not m: print("::warning title=recognise::no test summary found"); sys.exit(0)
+          s = json.loads(m.group(1))["summary"]; wrong = {k: v["wrong"] for k, v in s.items() if v.get("wrong")}
+          if wrong: print(f"::error title=recognise::the weekly catalogue index named records wrongly ({wrong}); standing it down"); sys.exit(1)
+          PY
+              ;;
             all) modal run worker/recognise_build_all.py 2>&1 | tee /tmp/out.txt || fail ;;
             test) modal run worker/recognise_test_all.py 2>&1 | tee /tmp/out.txt || fail ;;
             activate) modal run worker/recognise_test_all.py --activate 2>&1 | tee /tmp/out.txt || fail ;;
