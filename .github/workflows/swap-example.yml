@@ -1,0 +1,22 @@
+name: swap example
+# The Swap page's example (worker/swap_example.py): a tech house sketch made only from CC0 loops in the licensed library,
+# read by the deployed swap reader. The reading, the parts and the sketch go to the swap-example branch for the site.
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q modal numpy
+      - name: build and read
+        env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: modal run worker/swap_example.py --out "$RUNNER_TEMP/swap-example"
+      - name: keep it
+        run: |
+          cd "$RUNNER_TEMP/swap-example" && git init -q && git checkout -q -b swap-example
+          git config user.name sonic-bot; git config user.email sonic@earlysignal.live; git add -A && git commit -qm "swap example ${{ github.run_id }}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" swap-example:swap-example
