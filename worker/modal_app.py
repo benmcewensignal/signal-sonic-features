@@ -310,8 +310,8 @@ def swap_render(data: bytes, plan: dict) -> dict:
             return {"error": type(e).__name__ + ": " + str(e)[:200]}
 
 
-@app.function(image=swap_light, secrets=[secret], cpu=2.0, memory=4096, timeout=900, scaledown_window=600, volumes={"/embed": _embed})
-@modal.concurrent(max_inputs=24)
+@app.function(image=swap_light, secrets=[secret], cpu=4.0, memory=6144, timeout=900, scaledown_window=600, volumes={"/embed": _embed})
+@modal.concurrent(max_inputs=8)   # a loop costs downloads and stretches: past eight at once, another container takes the rest
 @modal.asgi_app()
 def swap():
     import asyncio, json as _json, re as _re
