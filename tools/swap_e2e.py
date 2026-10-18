@@ -72,17 +72,19 @@ def wait(id_, limit=900):
     return {"status": "timeout"}, time.time() - t0
 
 
-def grid_offset_ms(x, a, p):
-    """Where the kicks of x sit against the grid (first beat a, period p): the low band's attacks' Fourier phase at the
-    beat rate, as milliseconds after the grid's beats (between -p/2 and p/2)."""
+def grid_offset_ms(x, a, p, mult=1, band=150):
+    """Where the attacks of x sit against the grid (first beat a, period p): the attacks' Fourier phase at mult times the
+    beat rate (1: beats, from the low band under band Hz; 4: sixteenths, from the whole band), as milliseconds after the
+    grid's lines, and how strongly periodic they are there (0 to 1)."""
     from scipy.signal import butter, sosfiltfilt
-    lo = np.abs(sosfiltfilt(butter(4, 150, "low", fs=SR, output="sos"), x.mean(1)))
+    m = x.mean(1)
+    lo = np.abs(sosfiltfilt(butter(4, band, "low", fs=SR, output="sos"), m)) if mult == 1 else np.abs(m)
     hop = 64; e = lo[: len(lo) // hop * hop].reshape(-1, hop).max(1); r = np.maximum(0, np.diff(e, prepend=e[:1]))
-    t = np.arange(len(r)) * hop / SR
-    z = np.sum(r * np.exp(-2j * np.pi * t / p))
-    at = (-np.angle(z) / (2 * np.pi) * p) % p
-    d = (at - a) % p
-    return round(1000 * (d - p if d > p / 2 else d), 1), round(float(abs(z) / (r.sum() + 1e-9)), 3)
+    t = np.arange(len(r)) * hop / SR; q = p / mult
+    z = np.sum(r * np.exp(-2j * np.pi * t / q))
+    at = (-np.angle(z) / (2 * np.pi) * q) % q
+    d = (at - a) % q
+    return round(1000 * (d - q if d > q / 2 else d), 1), round(float(abs(z) / (r.sum() + 1e-9)), 3)
 
 
 def probe_offset(data):
@@ -102,7 +104,11 @@ def one(label, data, truth=None, keep_render=False):
     if res.get("status") != "done": out["error"] = str(res)[:300]; warn("swap read", f"{label}: {out['error']}"); return out
     R = res["result"]; g = R["grid"]
     out.update({"tempo": R["tempo"], "key": (R.get("key") or {}).get("key"), "grid": g, "window": R["window"], "timing": R.get("timing"),
-                "like": (R.get("like") or {}).get("all", [])[:3], "duration": R["duration"]})
+                "like": (R.get("like") or {}).get("all", [])[:3], "duration": R["duration"], "beat_levels": bool(R.get("beat_levels"))})
+    try:   # the original against its own grid: what an aligned render should match
+        x0 = decode(data); out["original_vs_grid_ms"] = {"beats": grid_offset_ms(x0, g["first_beat"], g["beat"]), "sixteenths": grid_offset_ms(x0, g["first_beat"], g["beat"], 4)}
+    except Exception as e:
+        out["original_vs_grid_ms"] = str(e)[:80]
     if truth:
         out["truth"] = {"bpm": truth["bpm"], "g0": round(truth["g0"], 4)}
         out["downbeat_error_beats"] = round(((g["g0"] - truth["g0"]) / (60 / truth["bpm"])) % 4, 3)
@@ -124,7 +130,7 @@ def one(label, data, truth=None, keep_render=False):
         if L.status_code != 200: picks[p] = {"error": L.text[:160]}; continue
         L = L.json(); loops[p] = L
         picks[p] = {"loop": f"{L['loop']['name']} by {L['loop']['user']} ({L['loop']['licence']})", "closeness": L["closeness"], "rank": L["rank"], "of": L["of"],
-                    "prep": L["prep"], "s": round(time.time() - t1, 1)}
+                    "prep": L["prep"], "skipped": L.get("skipped"), "s": round(time.time() - t1, 1)}
     out["yours"] = picks
     art = (out["like"] or [[None]])[0][0]
     if art:
@@ -150,7 +156,7 @@ def one(label, data, truth=None, keep_render=False):
             if f.status_code == 200:
                 x = decode(f.content)
                 out["render"]["seconds"] = round(len(x) / SR, 1)
-                out["render"]["kick_vs_grid_ms"] = grid_offset_ms(x, g["first_beat"], g["beat"])
+                out["render"]["vs_grid_ms"] = {"beats": grid_offset_ms(x, g["first_beat"], g["beat"]), "sixteenths": grid_offset_ms(x, g["first_beat"], g["beat"], 4)}
                 if keep_render:
                     open(os.path.join(OUT, f"{label}-swapped.mp3"), "wb").write(f.content)
     print(json.dumps(out, indent=1)[:4000], flush=True)
@@ -173,21 +179,25 @@ def main():
     st, truth = track(bpm=124.0, offset=0.37, pickup_beats=1, bars=180, seed=3)
     mix = sum(st.values()); wp = os.path.join(OUT, "synthetic.wav"); wav_file(mix, wp)
     runs.append(one("synthetic", open(wp, "rb").read(), truth, keep_render=True))
-    for rec in json.load(open(os.path.join(os.path.dirname(__file__), "swap-test-records.json"))):
+    from concurrent.futures import ThreadPoolExecutor
+    def rec_run(rec):
         try:
             data = requests.get(rec["preview"], timeout=60).content
         except Exception as e:
-            runs.append({"label": rec["name"], "error": f"preview {type(e).__name__}"}); continue
+            return {"label": rec["name"], "error": f"preview {type(e).__name__}"}
         o = one(f"{rec['scene']}: {rec['name']}", data)
         o["catalogue_tempo"] = [rec.get("tempo"), rec.get("tempo2")]
-        runs.append(o)
+        return o
+    with ThreadPoolExecutor(4) as ex:
+        runs += list(ex.map(rec_run, json.load(open(os.path.join(os.path.dirname(__file__), "swap-test-records.json")))))
     results["runs"] = runs
     json.dump(results, open(os.path.join(OUT, "swap-test.json"), "w"), indent=1)
     for o in runs:
         if o.get("error"): continue
         msg = {k: o.get(k) for k in ("tempo", "catalogue_tempo", "tempo_error_pct", "downbeat_error_beats", "read_s", "upload_s", "probe_ms")}
         msg["phase_margin"] = (o.get("grid") or {}).get("phase_margin")
-        msg["render"] = {k: (o.get("render") or {}).get(k) for k in ("s", "seconds", "kick_vs_grid_ms")}
+        msg["render"] = {k: (o.get("render") or {}).get(k) for k in ("s", "seconds", "vs_grid_ms")}
+        msg["original_vs_grid_ms"] = o.get("original_vs_grid_ms"); msg["rough_tempo"] = (o.get("grid") or {}).get("rough_tempo")
         msg["drums"] = (o.get("yours") or {}).get("drums", {}).get("loop")
         note(f"swap {o['label']}"[:60], json.dumps(msg)[:900])
 

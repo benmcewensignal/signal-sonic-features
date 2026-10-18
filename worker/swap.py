@@ -115,21 +115,51 @@ def _attack_times(y22, tp, sr=22050):
     return np.asarray(out)
 
 
-def beat_grid(drums, mix, dur):
+def _peaks(env, w=3, avg=12, delta=0.03, wait=8):
+    """Local maxima of an onset envelope that stand delta above their neighbourhood's mean, at least wait frames apart."""
+    from scipy.ndimage import maximum_filter1d, uniform_filter1d
+    mx = maximum_filter1d(env, size=2 * w + 1, mode="nearest"); av = uniform_filter1d(env, size=2 * avg + 1, mode="nearest")
+    out, last = [], -10 ** 9
+    for i in np.where((env >= mx) & (env >= av + delta))[0]:
+        if i - last > wait: out.append(int(i)); last = i
+    return np.asarray(out, int)
+
+
+def rough_tempo(drums):
+    """The tempo the corpus would give the drum part (features/stems.py, rhythm_of_stem: a learned beat tracker on the
+    drums, its grid refitted to the kicks), read on the middle minute; None when it cannot say."""
+    import soundfile as sf
+    from features import stems as S
+    n = len(drums); m = int(60 * SR)
+    seg = drums[max(0, n // 2 - m // 2): max(0, n // 2 - m // 2) + m]
+    w = tempfile.mkdtemp()
+    try:
+        fp = os.path.join(w, "mid_drums.wav"); sf.write(fp, seg, SR, subtype="PCM_16")
+        r = S.rhythm_of_stem(fp) or {}
+        T = float(r.get("beats_per_minute") or 0)
+        return T if 50 <= T <= 250 else None
+    except Exception:
+        return None
+    finally:
+        shutil.rmtree(w, ignore_errors=True)
+
+
+def beat_grid(drums, mix, dur, T0=None):
     """A steady beat grid for the whole track, from the kicks' attacks (rises in the drum part's 30-120 Hz band; the
-    whole band when there is no kick, the mix when the drums are near silent): the rough tempo from librosa's tracker,
-    folded into 90-185 bpm; the exact period and phase from the attacks' Fourier component at the beat rate, searched
-    within 4% in steps of 0.01%; then a straight line through the attacks nearest each beat.
-    Returns (first beat at or after 0 s, period in seconds)."""
+    whole band when there is no kick, the mix when the drums are near silent): the rough tempo as the corpus reads it
+    (T0; librosa's tracker when there is none), folded into 86-186 bpm; the exact period and phase from the attacks'
+    Fourier component at the beat rate, searched within 4% in steps of 0.01%; then a straight line through the attacks
+    nearest each beat, timed in the waveform. Returns (first beat at or after 0 s, period in seconds)."""
     import librosa
     y = drums.mean(1)
     if float(np.sqrt(np.mean(y ** 2))) < 2e-3: y = mix.mean(1)
     y22 = librosa.resample(y.astype(np.float32), orig_sr=SR, target_sr=22050)
-    oenv = librosa.onset.onset_strength(y=y22, sr=22050, hop_length=256)
-    tempo, _ = librosa.beat.beat_track(onset_envelope=oenv, sr=22050, hop_length=256, start_bpm=124)
-    T0 = float(np.atleast_1d(tempo)[0]) or 124.0
-    while T0 < 90: T0 *= 2
-    while T0 >= 185: T0 /= 2
+    if not T0:
+        oenv = librosa.onset.onset_strength(y=y22, sr=22050, hop_length=256)
+        tempo, _ = librosa.beat.beat_track(onset_envelope=oenv, sr=22050, hop_length=256, start_bpm=124)
+        T0 = float(np.atleast_1d(tempo)[0]) or 124.0
+    while T0 < 86: T0 *= 2
+    while T0 >= 186: T0 /= 2
     hop = 128; fr = 22050 / hop
     X = np.abs(librosa.stft(y22, n_fft=1024, hop_length=hop)); f = librosa.fft_frequencies(sr=22050, n_fft=1024)
     low = X[(f >= 30) & (f < 120)].sum(0); env = np.maximum(0, np.diff(low, prepend=low[:1]))
@@ -145,7 +175,7 @@ def beat_grid(drums, mix, dur):
         if abs(Z[i]) > best: best, ang, pb = float(abs(Z[i])), float(np.angle(Z[i])), float(P[i])
     p = pb; a = (-ang / (2 * np.pi) * p) % p
     # the attacks: peaks of the envelope, placed between frames by a parabola through the peak and its neighbours
-    pk = librosa.util.peak_pick(env, pre_max=3, post_max=3, pre_avg=12, post_avg=12, delta=0.03, wait=int(0.15 * p * fr))
+    pk = _peaks(env, wait=int(0.15 * p * fr))
     if len(pk) >= 16:
         strong = pk[env[pk] >= 0.25 * np.percentile(env[pk], 90)]
         strong = strong[(strong > 0) & (strong < len(env) - 1)]
@@ -154,8 +184,8 @@ def beat_grid(drums, mix, dur):
         tp = (strong + np.clip(off, -0.5, 0.5)) / fr
         tp = _attack_times(y22, tp)
         a, p = _fit_line(tp, a, p)
-    while 60 / p < 90: p /= 2
-    while 60 / p >= 185: p *= 2
+    while 60 / p < 86: p /= 2
+    while 60 / p >= 186: p *= 2
     a = a - math.floor(a / p) * p      # the first beat at or after zero
     return float(a), float(p)
 
@@ -216,6 +246,18 @@ def bar_levels(x, g0, bar, nb):
     return out
 
 
+def beat_levels(x, a, p, nbeats):
+    """A part's level on each beat of the grid, in dB (-120 when silent): the page sums four of them into a bar, for
+    wherever it puts the bar lines."""
+    m = x.mean(1); out = []
+    for k in range(nbeats):
+        s0, s1 = int((a + k * p) * SR), int((a + (k + 1) * p) * SR)
+        seg = m[s0:s1]
+        r = float(np.sqrt(np.mean(seg ** 2))) if len(seg) else 0.0
+        out.append(round(20 * math.log10(r), 1) if r > 1e-6 else -120.0)
+    return out
+
+
 def listening_window(levels, nb, bar):
     """About ninety seconds in whole multiples of eight bars, where the most parts play the loudest."""
     W = int(min(nb, max(16, 8 * round(90 / bar / 8)), 64))
@@ -246,13 +288,16 @@ def read_track(path, name="track"):
         if len(X) < 4: return {"error": "separation came back without all four parts"}
         n = min(len(v) for v in X.values()); X = {k: v[:n] for k, v in X.items()}; dur = n / SR
         mix = sum(X.values())
-        a, p = beat_grid(X["drums"], mix, dur); timing["grid"] = round(time.time() - t_start, 1)
+        T0 = rough_tempo(X["drums"]); timing["rough_tempo"] = round(time.time() - t_start, 1)
+        a, p = beat_grid(X["drums"], mix, dur, T0); timing["grid"] = round(time.time() - t_start, 1)
         ph, margin = bar_phase(X, a, p, dur); bar = 4 * p
         g0 = a + ph * p
         if g0 >= bar: g0 -= bar
         nb = int((dur - g0) / bar)
         if nb < 8: return {"error": "too short to swap whole bars"}
         levels = {k: bar_levels(X[k], g0, bar, nb) for k in PARTS}
+        nbeats = int((dur - a) / p)
+        blevels = {k: beat_levels(X[k], a, p, nbeats) for k in PARTS}
         b0, W = listening_window(levels, nb, bar)
         ws, we = int((g0 + b0 * bar) * SR), min(n, int((g0 + (b0 + W) * bar) * SR))
         timing["bars"] = round(time.time() - t_start, 1)
@@ -296,7 +341,9 @@ def read_track(path, name="track"):
         timing["total"] = round(time.time() - t_start, 1)
         plain = {k: {c: (rec.get(k) or {}).get(c) for c in ("crest", "centroid_hz", "flatness", "onsets_per_s", "share_of_energy")} for k in PARTS}
         return {"name": str(name)[:120], "duration": round(dur, 2), "tempo": tempo, "key": key,
-                "grid": {"first_beat": round(a, 5), "beat": round(p, 6), "bar": round(bar, 6), "g0": round(g0, 5), "nb": nb, "phase": ph, "phase_margin": round(margin, 3)},
+                "grid": {"first_beat": round(a, 5), "beat": round(p, 6), "bar": round(bar, 6), "g0": round(g0, 5), "nb": nb, "phase": ph, "phase_margin": round(margin, 3),
+                         "nbeats": nbeats, "rough_tempo": round(T0, 2) if T0 else None},
+                "beat_levels": blevels,
                 "window": {"b0": b0, "bars": W, "start_s": round(ws / SR, 5), "end_s": round(we / SR, 5)},
                 "levels": levels, "vectors": vec, "plain": plain, "nearest": nearest, "like": like,
                 "model": S.MODEL, "timing": timing, "audio": audio}
@@ -416,11 +463,9 @@ def choose(part, v, tempo, key=None, exclude=(), top=400):
         s = key_shift(m.get("key"), key) if (part in ("bass", "other", "vocals") and key) else 0
         score = float(sim[i]) - 0.6 * abs(r - 1) - 0.012 * abs(s)
         cands.append((score, int(i), f, s))
-    if not cands: return None
     cands.sort(reverse=True)
-    sc, i, f, s = cands[0]
-    return {"i": i, "meta": L["meta"][i], "sim": float(sim[i]), "q": q, "f": f, "shift": s, "of": len(L["meta"]),
-            "rank": int(np.sum(sim > sim[i])) + 1}
+    return [{"i": i, "meta": L["meta"][i], "sim": float(sim[i]), "q": q, "f": f, "shift": s, "of": len(L["meta"]),
+             "rank": int(np.sum(sim > sim[i])) + 1} for sc, i, f, s in cands]
 
 
 def _rubberband(x, ratio, shift, w):
@@ -455,15 +500,30 @@ def prepare(meta, f, shift, tempo):
     return prepare_audio(decode_bytes(raw), meta, f, shift, tempo)
 
 
+class NotALoop(ValueError):
+    pass
+
+
+def loop_bars(d, lt):
+    """How many bars a loop of d seconds holds at its stated tempo lt (or half or double it, for loops tagged at the
+    other octave), and the tempo its length says exactly: (bars, tempo), or None when no whole 1, 2, 4, 8 or 16 bars
+    fits within 4%. A loop that does not divide into whole bars at its tempo drifts off the beat, so it is not used."""
+    best = None
+    for q in (1.0, 2.0, 0.5):
+        bars_f = d * lt * q / 240
+        for N in (1, 2, 4, 8, 16):
+            e = abs(bars_f / N - 1)
+            if e <= 0.04 and (best is None or e < best[0]): best = (e, N, N * 240 / d)
+    return (best[1], best[2]) if best else None
+
+
 def prepare_audio(x, meta, f, shift, tempo):
-    lt = float(meta.get("tempo") or tempo); d = len(x) / SR
-    bars_f = d * lt / 240
-    N = min((1, 2, 4, 8, 16), key=lambda b: abs(math.log(max(bars_f, 1e-3) / b)))
-    if abs(bars_f / N - 1) <= 0.05:
-        lt_eff = N * 240 / d                      # a clean loop: its length says its exact tempo
-    else:
-        N = max(1, min(16, int(math.floor(bars_f + 0.02))))
-        x = x[:int(round(N * 240 / lt * SR))]; lt_eff = lt
+    d = len(x) / SR
+    lb = loop_bars(d, float(meta.get("tempo") or tempo))
+    if not lb: raise NotALoop("its length is not a whole number of bars at its tempo")
+    N, lt_eff = lb                                # a clean loop: its length says its exact tempo
+    f = min((1.0, 2.0, 0.5), key=lambda q: abs(lt_eff * q - tempo))   # half or double time where that is nearer
+    if abs(lt_eff * f / tempo - 1) > 0.15: raise NotALoop("too far from the track's tempo to stretch")
     cb = N * f                                    # the track's bars in one cycle
     C = int(round(cb * 240 / tempo * SR))         # the cycle in samples at the track's tempo
     ratio = C / len(x)                            # output length over input length
@@ -506,13 +566,21 @@ def loop_for(part, target, tempo, key=None, exclude=()):
     else:
         v = (target or {}).get("vector")
         if not (isinstance(v, list) and len(v) == 53): return {"error": "no part measures"}
-    c = choose(part, v, tempo, key, exclude)
-    if not c: return {"error": "no licensed loop at a tempo that stretches to this one"}
-    m = c["meta"]
-    y, prep = prepare(m, c["f"], c["shift"] if part != "drums" else 0, tempo)
+    cands = choose(part, v, tempo, key, exclude)
+    if not cands: return {"error": "no licensed loop at a tempo that stretches to this one"}
+    y = None; skipped = 0
+    for c in cands[:8]:   # the nearest that is a clean loop: a whole number of bars at its own tempo
+        m = c["meta"]
+        try:
+            y, prep = prepare(m, c["f"], c["shift"] if part != "drums" else 0, tempo); break
+        except NotALoop:
+            skipped += 1
+        except Exception:
+            skipped += 1
+    if y is None: return {"error": "none of the nearest licensed loops divides into whole bars"}
     out = {"part": part, "loop": {"id": m.get("id"), "name": m.get("name"), "user": m.get("user"), "licence": _licence(m.get("license")),
                                   "licence_url": m.get("license"), "page": f"https://freesound.org/s/{m.get('id')}/", "tempo": m.get("tempo"), "key": m.get("key")},
-           "prep": prep, "closeness": round(c["sim"], 3), "rank": c["rank"], "of": c["of"], "wav": base64.b64encode(wav_bytes(y)).decode()}
+           "prep": prep, "closeness": round(c["sim"], 3), "rank": c["rank"], "of": c["of"], "skipped": skipped, "wav": base64.b64encode(wav_bytes(y)).decode()}
     if info.get("artist"):
         own = info["own"]
         out["artist"] = {"name": info["artist"], "records": info["records"],
