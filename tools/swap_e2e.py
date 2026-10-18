@@ -207,6 +207,16 @@ def main():
     results["artists"] = len(a.json().get("artists", [])) if a.status_code == 200 else a.text[:200]
     note("swap door", json.dumps({k: results[k] for k in ("preflight", "no_token", "example_token_cannot_split", "artists")}))
     runs = []
+    only = os.environ.get("SWAP_ONLY", "").strip()
+    if only:   # a few records only, by part of their scene or name
+        from concurrent.futures import ThreadPoolExecutor
+        recs = [r for r in json.load(open(os.path.join(os.path.dirname(__file__), "swap-test-records.json"))) if only.lower() in (r["scene"] + " " + r["name"]).lower()]
+        def rec_run1(rec):
+            o = one(f"{rec['scene']}: {rec['name']}", requests.get(rec["preview"], timeout=60).content); o["catalogue_tempo"] = [rec.get("tempo"), rec.get("tempo2")]; return o
+        with ThreadPoolExecutor(2) as ex: runs = list(ex.map(rec_run1, recs))
+        results["runs"] = runs; json.dump(results, open(os.path.join(OUT, "swap-test.json"), "w"), indent=1)
+        for o in runs: note(f"swap {o['label']}"[:60], json.dumps({k: o.get(k) for k in ("tempo", "catalogue_tempo", "error")} | {"grid": {k: (o.get("grid") or {}).get(k) for k in ("strength", "tracker_offset_ms", "phase_margin")}})[:900])
+        return
     # a synthetic track, six minutes, 63 MB as WAV: known tempo and bars, and the size of a producer's bounce
     st, truth = track(bpm=124.0, offset=0.37, pickup_beats=1, bars=180, seed=3)
     mix = sum(st.values()); wp = os.path.join(OUT, "synthetic.wav"); wav_file(mix, wp)
