@@ -22,6 +22,35 @@ def tok(scope="t"):
     return f"{exp}.{nonce}.{scope}." + hmac.new(KEY.encode(), f"swap|{exp}|{nonce}|{scope}".encode(), hashlib.sha256).hexdigest()[:32]
 
 
+class CallFailed(Exception):
+    pass
+
+
+DROPS = []   # calls that failed and were tried again, as the page tries them again
+
+
+def again(fn, label):
+    """fn() once more after a failed call, as the page does: polling keeps polling, and a loop, a part, a render or
+    the file is asked for a second time. The first failure is kept for the summary."""
+    try:
+        return fn()
+    except CallFailed as e:
+        DROPS.append(f"{label}: {e}"); time.sleep(2)
+        return fn()
+
+
+def http(method, url, **kw):
+    """A request to the worker; a failure says which call it was, how long it had run and when (UTC), so the worker's
+    own log for that moment can be found."""
+    t0 = time.time()
+    try:
+        return getattr(requests, method)(url, **kw)
+    except requests.RequestException as e:
+        path = url.split("?")[0].replace(BASE, "") or url.split("?")[0]
+        raise CallFailed(f"{type(e).__name__} on {method.upper()} {path} after {time.time() - t0:.1f} s, at "
+                         f"{time.strftime('%H:%M:%S', time.gmtime(t0))} UTC: {str(e)[:160]}") from e
+
+
 def note(title, msg): print(f"::notice title={title}::{msg}", flush=True)
 def warn(title, msg): print(f"::warning title={title}::{msg}", flush=True)
 
@@ -66,7 +95,10 @@ def plan_for(res, loops):
 def wait(id_, limit=900):
     t0 = time.time()
     while time.time() - t0 < limit:
-        rr = requests.get(f"{BASE}/result", params={"id": id_, "t": tok()}, timeout=300)
+        try:
+            rr = http("get", f"{BASE}/result", params={"id": id_, "t": tok()}, timeout=300)
+        except CallFailed as e:   # the page polls on through a failed poll
+            DROPS.append(f"poll: {e}"); time.sleep(5); continue
         try: r = rr.json()
         except Exception: r = {"status": "running"} if rr.status_code >= 500 else {"status": "failed", "error": f"{rr.status_code} {rr.text[:120]}"}
         if r.get("status") != "running": return r, time.time() - t0
@@ -118,14 +150,14 @@ def one(label, data, truth=None, keep_render=False):
     except Exception as e:
         tb = traceback.format_exc().strip().splitlines()
         where = " | ".join(x.strip() for x in tb[-4:])[:600]
-        print(f"::error title=swap {label}"[:60] + f"::{type(e).__name__}: {where}", flush=True)
+        print(f"::error title=swap {label}"[:60] + f"::{type(e).__name__}: {str(e)[:500]} | {where[-300:]}", flush=True)
         return {"label": label, "error": f"{type(e).__name__}: {str(e)[:200]}", "where": where}
 
 
 def _one(label, data, truth=None, keep_render=False):
     out = {"label": label, "bytes": len(data)}
     t0 = time.time()
-    r = requests.post(f"{BASE}/start", params={"t": tok(), "name": label}, data=data, timeout=600)
+    r = http("post", f"{BASE}/start", params={"t": tok(), "name": label}, data=data, timeout=600)
     out["upload_s"] = round(time.time() - t0, 1)
     if r.status_code != 200: out["error"] = f"start {r.status_code}: {r.text[:200]}"; warn("swap start", f"{label}: {out['error']}"); return out
     jid = r.json()["id"]
@@ -146,7 +178,7 @@ def _one(label, data, truth=None, keep_render=False):
     # the parts over the window, and the click that says how the MP3 decoder shifts them
     sizes = {}
     for p in PARTS + ("probe",):
-        s = requests.get(f"{BASE}/stem", params={"id": jid, "part": p, "t": tok()}, timeout=120)
+        s = again(lambda: http("get", f"{BASE}/stem", params={"id": jid, "part": p, "t": tok()}, timeout=120), f"{label} part {p}")
         sizes[p] = len(s.content) if s.status_code == 200 else f"{s.status_code}"
         if p == "probe" and s.status_code == 200: out["probe_ms"] = probe_offset(s.content)
     out["stem_bytes"] = sizes
@@ -156,7 +188,7 @@ def _one(label, data, truth=None, keep_render=False):
         v = (R.get("vectors") or {}).get(p)
         if not v: continue
         t1 = time.time()
-        L = requests.post(f"{BASE}/loop", params={"t": tok()}, json={"part": p, "target": {"kind": "yours", "vector": v}, "tempo": R["tempo"], "key": out["key"]}, timeout=600)
+        L = again(lambda: http("post", f"{BASE}/loop", params={"t": tok()}, json={"part": p, "target": {"kind": "yours", "vector": v}, "tempo": R["tempo"], "key": out["key"]}, timeout=600), f"{label} loop {p}")
         if L.status_code != 200: picks[p] = {"error": L.text[:160]}; continue
         L = L.json(); loops[p] = L
         picks[p] = {"loop": f"{L['loop']['name']} by {L['loop']['user']} ({L['loop']['licence']})", "closeness": L["closeness"], "rank": L["rank"], "of": L["of"],
@@ -167,7 +199,7 @@ def _one(label, data, truth=None, keep_render=False):
         ap = {}
         for p in ("drums", "bass"):
             t1 = time.time()
-            L = requests.post(f"{BASE}/loop", params={"t": tok()}, json={"part": p, "target": {"kind": "artist", "name": art}, "tempo": R["tempo"], "key": out["key"]}, timeout=600)
+            L = again(lambda: http("post", f"{BASE}/loop", params={"t": tok()}, json={"part": p, "target": {"kind": "artist", "name": art}, "tempo": R["tempo"], "key": out["key"]}, timeout=600), f"{label} artist loop {p}")
             j = L.json() if L.headers.get("content-type", "").startswith("application/json") else {"error": L.text[:120]}
             ap[p] = {"error": j["error"]} if j.get("error") else {"loop": f"{j['loop']['name']} by {j['loop']['user']}", "artist": j.get("artist"), "s": round(time.time() - t1, 1)}
         out["artist"] = {"name": art, "parts": ap}
@@ -176,11 +208,11 @@ def _one(label, data, truth=None, keep_render=False):
     if sw:
         plan = plan_for(R, sw)
         t1 = time.time()
-        rr = requests.post(f"{BASE}/render", params={"t": tok()}, files={"file": ("track", data), "plan": (None, json.dumps(plan))}, timeout=600)
+        rr = again(lambda: http("post", f"{BASE}/render", params={"t": tok()}, files={"file": ("track", data), "plan": (None, json.dumps(plan))}, timeout=600), f"{label} render")
         if rr.status_code != 200: out["render_error"] = rr.text[:200]
         else:
             rid = rr.json()["id"]; st, took = wait(rid)
-            f = requests.get(f"{BASE}/file", params={"id": rid, "t": tok()}, timeout=300)
+            f = again(lambda: http("get", f"{BASE}/file", params={"id": rid, "t": tok()}, timeout=300), f"{label} file")
             out["render"] = {"s": round(time.time() - t1, 1), "status": st.get("status"), "credits": (st.get("result") or {}).get("credits"),
                              "file": f.status_code, "bytes": len(f.content), "disposition": f.headers.get("content-disposition")}
             if f.status_code == 200:
@@ -198,12 +230,12 @@ def _one(label, data, truth=None, keep_render=False):
 def main():
     results = {"base": BASE, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     # the door: a preflight from the site, and no token
-    pf = requests.options(f"{BASE}/loop", headers={"Origin": "https://www.earlysignal.live", "Access-Control-Request-Method": "POST",
+    pf = http("options", f"{BASE}/loop", headers={"Origin": "https://www.earlysignal.live", "Access-Control-Request-Method": "POST",
                                                     "Access-Control-Request-Headers": "content-type"}, timeout=60)
     results["preflight"] = {"status": pf.status_code, "allow_origin": pf.headers.get("access-control-allow-origin")}
-    results["no_token"] = requests.get(f"{BASE}/artists", timeout=60).status_code
-    results["example_token_cannot_split"] = requests.post(f"{BASE}/start", params={"t": tok("e")}, data=b"x" * 1000, timeout=60).status_code
-    a = requests.get(f"{BASE}/artists", params={"t": tok()}, timeout=300)
+    results["no_token"] = http("get", f"{BASE}/artists", timeout=60).status_code
+    results["example_token_cannot_split"] = http("post", f"{BASE}/start", params={"t": tok("e")}, data=b"x" * 1000, timeout=60).status_code
+    a = http("get", f"{BASE}/artists", params={"t": tok()}, timeout=300)
     results["artists"] = len(a.json().get("artists", [])) if a.status_code == 200 else a.text[:200]
     note("swap door", json.dumps({k: results[k] for k in ("preflight", "no_token", "example_token_cannot_split", "artists")}))
     runs = []
@@ -212,9 +244,10 @@ def main():
         from concurrent.futures import ThreadPoolExecutor
         recs = [r for r in json.load(open(os.path.join(os.path.dirname(__file__), "swap-test-records.json"))) if only.lower() in (r["scene"] + " " + r["name"]).lower()]
         def rec_run1(rec):
-            o = one(f"{rec['scene']}: {rec['name']}", requests.get(rec["preview"], timeout=60).content); o["catalogue_tempo"] = [rec.get("tempo"), rec.get("tempo2")]; return o
+            o = one(f"{rec['scene']}: {rec['name']}", http("get", rec["preview"], timeout=60).content); o["catalogue_tempo"] = [rec.get("tempo"), rec.get("tempo2")]; return o
         with ThreadPoolExecutor(2) as ex: runs = list(ex.map(rec_run1, recs))
-        results["runs"] = runs; json.dump(results, open(os.path.join(OUT, "swap-test.json"), "w"), indent=1)
+        results["runs"] = runs; results["dropped"] = DROPS; json.dump(results, open(os.path.join(OUT, "swap-test.json"), "w"), indent=1)
+        (warn if DROPS else note)("swap dropped calls", f"{len(DROPS)} failed and were tried again" + ((": " + " || ".join(DROPS))[:1500] if DROPS else ""))
         for o in runs: note(f"swap {o['label']}"[:60], json.dumps({k: o.get(k) for k in ("tempo", "catalogue_tempo", "error")} | {"grid": {k: (o.get("grid") or {}).get(k) for k in ("strength", "tracker_offset_ms", "phase_margin")}})[:900])
         return
     # a synthetic track, six minutes, 63 MB as WAV: known tempo and bars, and the size of a producer's bounce
@@ -228,7 +261,7 @@ def main():
     from concurrent.futures import ThreadPoolExecutor
     def rec_run(rec):
         try:
-            data = requests.get(rec["preview"], timeout=60).content
+            data = http("get", rec["preview"], timeout=60).content
         except Exception as e:
             return {"label": rec["name"], "error": f"preview {type(e).__name__}"}
         o = one(f"{rec['scene']}: {rec['name']}", data)
@@ -236,8 +269,9 @@ def main():
         return o
     with ThreadPoolExecutor(4) as ex:
         runs += list(ex.map(rec_run, json.load(open(os.path.join(os.path.dirname(__file__), "swap-test-records.json")))))
-    results["runs"] = runs
+    results["runs"] = runs; results["dropped"] = DROPS
     json.dump(results, open(os.path.join(OUT, "swap-test.json"), "w"), indent=1)
+    (warn if DROPS else note)("swap dropped calls", f"{len(DROPS)} failed and were tried again" + ((": " + " || ".join(DROPS))[:1500] if DROPS else ""))
     for o in runs:
         if o.get("error"): continue
         msg = {k: o.get(k) for k in ("tempo", "catalogue_tempo", "tempo_error_pct", "downbeat_error_beats", "read_s", "upload_s", "probe_ms")}
