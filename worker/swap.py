@@ -122,15 +122,21 @@ def _peaks(env, w=3, avg=12, delta=0.03, wait=8):
 
 def rough_tempo(drums):
     """The tempo the corpus would give the drum part (features/stems.py, rhythm_of_stem: a learned beat tracker on the
-    drums, its grid refitted to the kicks), read on forty seconds from the middle, with that tracker's beats in the
-    track's time (a second opinion on where the beats are); (None, []) when it cannot say."""
+    drums, its grid refitted to the kicks), read on the loudest forty seconds of drums (the middle of a track can be a
+    breakdown with none), with that tracker's beats in the track's time (a second opinion on where the beats are);
+    (None, []) when it cannot say."""
     import soundfile as sf
     from features import stems as S
-    n = len(drums); m = int(40 * SR); i0 = max(0, n // 2 - m // 2)
+    n = len(drums); m = int(40 * SR)
+    if n > m:
+        e = np.sqrt(np.mean(drums.mean(1)[: n // SR * SR].reshape(-1, SR) ** 2, axis=1))   # level second by second
+        c = np.convolve(e, np.ones(40), mode="valid"); i0 = int(np.argmax(c)) * SR
+    else:
+        i0 = 0
     seg = drums[i0: i0 + m]
     w = tempfile.mkdtemp()
     try:
-        fp = os.path.join(w, "mid_drums.wav"); sf.write(fp, seg, SR, subtype="PCM_16")
+        fp = os.path.join(w, "loud_drums.wav"); sf.write(fp, seg, SR, subtype="PCM_16")
         r = S.rhythm_of_stem(fp) or {}
         T = float(r.get("beats_per_minute") or 0)
         beats = [i0 / SR + float(b) for b in (r.get("_beats") or [])]

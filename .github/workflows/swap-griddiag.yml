@@ -3,7 +3,7 @@ name: swap grid diag
 on:
   workflow_dispatch:
     inputs:
-      only: { description: "the records whose scene or name contains this", default: "tech-house" }
+      only: { description: "the records whose scene or name contains this (empty: all)", default: "" }
 jobs:
   run:
     runs-on: ubuntu-24.04

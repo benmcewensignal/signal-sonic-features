@@ -46,7 +46,7 @@ def diag(rec):
 
 
 @app.local_entrypoint()
-def main(only: str = "tech-house"):
+def main(only: str = ""):
     recs = [r for r in json.load(open("tools/swap-test-records.json")) if only.lower() in (r["scene"] + " " + r["name"]).lower()]
     for o in diag.map(recs, return_exceptions=True):
         print("::notice title=grid diag::" + (json.dumps(o)[:1800] if isinstance(o, dict) else str(o)[:300]))
