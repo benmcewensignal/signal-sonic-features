@@ -80,16 +80,52 @@ def runs_of(act):
     return j
 
 
-def plan_for(res, loops):
+def plan_for(res, loops, second=None, moves=None, keep=None, master=True):
     """The page's rule (swap.html), mirrored: a bar plays the loop where your part's level is within 14 dB of its loud
-    bars (and above -50 dB), at your part's level in that bar, at most 12 dB up."""
-    g = res["grid"]; parts = {}
+    bars (and above -50 dB), at your part's level in that bar, at most 12 dB up. With second {part: entry}, that part
+    gets two layers: the first loop in the first half of the bars and the second in the rest (a section's own choice).
+    keep: your own part's share under the swap; moves: cuts and rolls at phrase ends; master: loudness and limiting."""
+    g = res["grid"]; parts = {}; nb = g["nb"]
     for p, L in loops.items():
         lv = np.array(res["levels"][p], float); amp = 10 ** (lv / 20); ref = float(np.percentile(amp, 90))
         act = amp >= max(0.2 * ref, 10 ** (-50 / 20))
-        gains = np.where(act, np.minimum(4.0, 10 ** ((lv - L["prep"]["rms_db"]) / 20)), 0.0)
-        parts[p] = {"loop": L["loop"]["id"], "f": L["prep"]["f"], "shift": L["prep"]["shift"], "gains": [round(float(x), 4) for x in gains], "runs": runs_of(act)}
-    return {"grid": {"g0": g["g0"], "bar": g["bar"], "nb": g["nb"]}, "tempo": res["tempo"], "name": res["name"], "parts": parts}
+        def layer(entry, where):
+            a = act & where
+            gains = np.where(a, np.minimum(4.0, 10 ** ((lv - entry["prep"]["rms_db"]) / 20)), 0.0)
+            return {"loop": entry["loop"]["id"], "f": entry["prep"]["f"], "shift": entry["prep"]["shift"], "gains": [round(float(x), 4) for x in gains], "runs": runs_of(a)}
+        if second and p in second:
+            half = np.arange(nb) < nb // 2
+            parts[p] = [layer(L, half), layer(second[p], ~half)]
+        else:
+            parts[p] = [layer(L, np.ones(nb, bool))]
+    out = {"grid": {"g0": g["g0"], "bar": g["bar"], "nb": nb}, "tempo": res["tempo"], "name": res["name"], "parts": parts, "master": master}
+    if keep: out["keep"] = keep
+    if moves: out["moves"] = moves
+    return out
+
+
+def lufs(data):
+    """Integrated loudness of an audio file's bytes (ffmpeg ebur128), or None."""
+    import re
+    p = subprocess.run(["ffmpeg", "-loglevel", "info", "-i", "pipe:0", "-af", "ebur128=framelog=quiet", "-f", "null", "-"], input=data, capture_output=True, timeout=600)
+    m = re.search(r"I:\s*(-?[\d.]+) LUFS", p.stderr.decode("utf-8", "replace"))
+    return float(m.group(1)) if m else None
+
+
+def last_beat_share(x, g0, bar, phrase=8, offset=0, band=150):
+    """How much of the low band's attack energy in each phrase's last bar falls in its last beat (a cut leaves it near
+    nothing in the swapped layer; a straight loop puts about a quarter there), averaged over the phrases."""
+    from scipy.signal import butter, sosfiltfilt
+    m = x.mean(1); lo = np.abs(sosfiltfilt(butter(4, band, "low", fs=SR, output="sos"), m))
+    hop = 64; e = lo[: len(lo) // hop * hop].reshape(-1, hop).max(1); r = np.maximum(0, np.diff(e, prepend=e[:1])); fr = SR / hop
+    shares = []
+    nb = int((len(m) / SR - g0) / bar)
+    for b in range(nb):
+        if (b - offset) % phrase != phrase - 1: continue
+        s0, s1 = int((g0 + b * bar) * fr), int((g0 + (b + 1) * bar) * fr); s4 = int((g0 + b * bar + 0.75 * bar) * fr)
+        tot = r[s0:s1].sum()
+        if tot > 0: shares.append(float(r[s4:s1].sum() / tot))
+    return round(float(np.mean(shares)), 3) if shares else None
 
 
 def wait(id_, limit=900):
@@ -192,21 +228,35 @@ def _one(label, data, truth=None, keep_render=False):
         if L.status_code != 200: picks[p] = {"error": L.text[:160]}; continue
         L = L.json(); loops[p] = L
         picks[p] = {"loop": f"{L['loop']['name']} by {L['loop']['user']} ({L['loop']['licence']})", "closeness": L["closeness"], "rank": L["rank"], "of": L["of"],
-                    "prep": L["prep"], "skipped": L.get("skipped"), "s": round(time.time() - t1, 1)}
+                    "prep": L["prep"], "skipped": L.get("skipped"), "s": round(time.time() - t1, 1), "others": len(L.get("others") or [])}
     out["yours"] = picks
+    # the listed loops' audio on demand: the second drum loop, prepared exactly as listed
+    others = (loops.get("drums") or {}).get("others") or []; second_drums = None
+    if others:
+        o = others[0]; t1 = time.time()
+        A = again(lambda: http("post", f"{BASE}/loopaudio", params={"t": tok()}, json={"part": "drums", "id": o["loop"]["id"], "f": o["prep"]["f"], "shift": o["prep"]["shift"], "tempo": R["tempo"]}, timeout=600), f"{label} loopaudio")
+        j = A.json() if A.headers.get("content-type", "").startswith("application/json") else {"error": A.text[:120]}
+        if j.get("error"): out["loopaudio"] = {"error": j["error"]}
+        else:
+            import base64 as _b64
+            y = decode(_b64.b64decode(j["wav"]))
+            out["loopaudio"] = {"s": round(time.time() - t1, 1), "samples": len(y), "listed_samples": o["prep"]["samples"], "same_prep": j["prep"]["samples"] == o["prep"]["samples"] and j["loop"]["id"] == o["loop"]["id"]}
+            if out["loopaudio"]["same_prep"]: second_drums = dict(o)
     art = (out["like"] or [[None]])[0][0]
     if art:
         ap = {}
         for p in ("drums", "bass"):
             t1 = time.time()
-            L = again(lambda: http("post", f"{BASE}/loop", params={"t": tok()}, json={"part": p, "target": {"kind": "artist", "name": art}, "tempo": R["tempo"], "key": out["key"]}, timeout=600), f"{label} artist loop {p}")
+            tg = {"kind": "artist", "name": art} if p == "drums" else {"kind": "artist", "name": art, "vector": (R.get("vectors") or {}).get(p), "w": 0.5}   # the bass: halfway to you
+            L = again(lambda: http("post", f"{BASE}/loop", params={"t": tok()}, json={"part": p, "target": tg, "tempo": R["tempo"], "key": out["key"]}, timeout=600), f"{label} artist loop {p}")
             j = L.json() if L.headers.get("content-type", "").startswith("application/json") else {"error": L.text[:120]}
-            ap[p] = {"error": j["error"]} if j.get("error") else {"loop": f"{j['loop']['name']} by {j['loop']['user']}", "artist": j.get("artist"), "s": round(time.time() - t1, 1)}
+            ap[p] = {"error": j["error"]} if j.get("error") else {"loop": f"{j['loop']['name']} by {j['loop']['user']}", "artist": j.get("artist"), "closer_than": j.get("closer_than"), "others": len(j.get("others") or []), "s": round(time.time() - t1, 1)}
         out["artist"] = {"name": art, "parts": ap}
     # the whole track with the drums and bass swapped for the loops nearest your own
     sw = {p: loops[p] for p in ("drums", "bass") if p in loops}
     if sw:
-        plan = plan_for(R, sw)
+        plan = plan_for(R, sw, second={"drums": second_drums} if (second_drums and "drums" in sw) else None, keep={"bass": 0.5},
+                        moves={"phrase": 8, "offset": 0, "cut": list(sw), "roll": ["drums"] if "drums" in sw else []}, master=True)
         t1 = time.time()
         rr = again(lambda: http("post", f"{BASE}/render", params={"t": tok()}, files={"file": ("track", data), "plan": (None, json.dumps(plan))}, timeout=600), f"{label} render")
         if rr.status_code != 200: out["render_error"] = rr.text[:200]
@@ -218,6 +268,12 @@ def _one(label, data, truth=None, keep_render=False):
             if f.status_code == 200:
                 x = decode(f.content)
                 out["render"]["seconds"] = round(len(x) / SR, 1)
+                res_ = st.get("result") or {}; out["render"]["laid"] = res_.get("laid"); out["render"]["loudness"] = res_.get("loudness")
+                try:
+                    lo, lr = lufs(data), lufs(f.content); out["render"]["lufs"] = {"original": lo, "swapped": lr, "diff": round(lr - lo, 2) if lo is not None and lr is not None else None}
+                except Exception as e:
+                    out["render"]["lufs"] = str(e)[:60]
+                out["render"]["last_beat_share"] = {"swapped": last_beat_share(x, g["g0"], g["bar"]), "original": last_beat_share(decode(data), g["g0"], g["bar"])}
                 out["render"]["vs_grid_ms"] = {"beats": grid_offset_ms(x, g["first_beat"], g["beat"]), "sixteenths": grid_offset_ms(x, g["first_beat"], g["beat"], 4)}
                 try: out["render"]["low_lag_vs_original_ms"] = low_lag_ms(decode(data), x)
                 except Exception as e: out["render"]["low_lag_vs_original_ms"] = str(e)[:60]
@@ -281,6 +337,10 @@ def main():
         msg["grid_strength"] = (o.get("grid") or {}).get("strength"); msg["tracker_offset_ms"] = (o.get("grid") or {}).get("tracker_offset_ms")
         msg["low_lag_ms"] = (o.get("render") or {}).get("low_lag_vs_original_ms")
         msg["drums"] = (o.get("yours") or {}).get("drums", {}).get("loop")
+        msg["others"] = {p: v.get("others") for p, v in (o.get("yours") or {}).items() if isinstance(v, dict)}
+        msg["loopaudio"] = o.get("loopaudio"); msg["lufs"] = (o.get("render") or {}).get("lufs"); msg["mastering"] = (o.get("render") or {}).get("loudness")
+        msg["last_beat_share"] = (o.get("render") or {}).get("last_beat_share"); msg["laid"] = (o.get("render") or {}).get("laid")
+        msg["artist_bass_halfway"] = ((o.get("artist") or {}).get("parts") or {}).get("bass")
         note(f"swap {o['label']}"[:60], json.dumps(msg)[:900])
 
 

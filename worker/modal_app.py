@@ -375,7 +375,18 @@ def swap():
         try:
             b = await req.json()
             r = await asyncio.to_thread(SW.loop_for, str(b.get("part") or ""), b.get("target") or {}, b.get("tempo"), b.get("key"),
-                                        [str(x) for x in (b.get("exclude") or [])][:50])
+                                        [str(x) for x in (b.get("exclude") or [])][:80], int(b.get("n") or 5) if 1 <= int(b.get("n") or 5) <= 8 else 5)
+        except Exception as e:
+            return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:160]}, 400)
+        return r if not r.get("error") else JSONResponse(r, 404)
+
+    @api.post("/loopaudio")
+    async def loopaudio(req: Request):
+        """A listed loop's prepared audio, for the page's pick among the loops /loop listed."""
+        if not ok(req): return no()
+        try:
+            b = await req.json()
+            r = await asyncio.to_thread(SW.loop_audio, str(b.get("part") or ""), int(b.get("id")), b.get("f"), b.get("shift"), b.get("tempo"))
         except Exception as e:
             return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:160]}, 400)
         return r if not r.get("error") else JSONResponse(r, 404)

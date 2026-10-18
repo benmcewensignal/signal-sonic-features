@@ -6,14 +6,17 @@ Where each step runs (worker/modal_app.py wires them to the swap endpoints):
                       part's level bar by bar, its measures on a listening window (the corpus measured two-minute
                       previews, so the window is measured the same way), the licensed loops and the artists nearest
                       each part, and the window of each part as MP3 for the page to play.
-  loop_for(...)       one licensed loop for one part and one target (your part, or the average of an artist's separated
-                      records' same part), stretched to your tempo and moved to your key with Rubber Band, cut to whole
-                      bars. No audio of yours is involved.
+  loop_for(...)       the nearest clean licensed loops (five) for one part and one target (your part, the average of an
+                      artist's separated records' same part, or a point between the two), each stretched to your tempo
+                      and moved to your key with Rubber Band and cut to whole bars; the first comes with its audio, the
+                      others' audio on demand (loop_audio). No audio of yours is involved.
   render(path, plan)  separates again (nothing is kept between calls) and lays the chosen loops by the plan the page
-                      played: the same bars, the same gains, the same loop processing.
+                      played: the same bars, the same gains, the same loop processing, a layer per section where the
+                      page chose differently by section, your own part kept under a swap at the share chosen, cuts and
+                      rolls at phrase ends, then loudness matched to your track and limited.
 The sounds come only from the loop library (Freesound, CC0 and CC BY), never from another record.
 """
-import os, io, json, math, time, hmac, hashlib, base64, subprocess, tempfile, shutil, urllib.request
+import os, io, re, json, math, time, hmac, hashlib, base64, threading, subprocess, tempfile, shutil, urllib.request
 import numpy as np
 
 SR = 44100
@@ -61,13 +64,28 @@ def decode_bytes(data, sr=SR):
     return np.frombuffer(p.stdout, np.float32).reshape(-1, 2).copy()
 
 
-def mp3_bytes(x, sr=SR, kbps=160, meta=None):
-    """float32 stereo -> MP3 bytes (libmp3lame, constant bit rate)."""
-    pcm = (np.clip(x, -1, 1) * 32767).astype("<i2").tobytes()
-    cmd = ["ffmpeg", "-loglevel", "error", "-f", "s16le", "-ar", str(sr), "-ac", "2", "-i", "pipe:0", "-c:a", "libmp3lame", "-b:a", f"{kbps}k"]
+def mp3_bytes(x, sr=SR, kbps=160, meta=None, af=None):
+    """float32 stereo -> MP3 bytes (libmp3lame, constant bit rate), through the ffmpeg audio filter af if given (the
+    render's limiter). Without a filter the audio is clipped to full scale first, as 16-bit; with one it goes in as
+    float, so the filter sees the peaks."""
+    if af:
+        pcm = np.ascontiguousarray(x, dtype="<f4").tobytes(); fmt = "f32le"
+    else:
+        pcm = (np.clip(x, -1, 1) * 32767).astype("<i2").tobytes(); fmt = "s16le"
+    cmd = ["ffmpeg", "-loglevel", "error", "-f", fmt, "-ar", str(sr), "-ac", "2", "-i", "pipe:0"] + (["-af", af] if af else []) + ["-c:a", "libmp3lame", "-b:a", f"{kbps}k"]
     for k, v in (meta or {}).items(): cmd += ["-metadata", f"{k}={v}"]
     p = subprocess.run(cmd + ["-f", "mp3", "pipe:1"], input=pcm, capture_output=True, check=True, timeout=600)
     return p.stdout
+
+
+def loudness_lufs(x, sr=SR):
+    """Integrated loudness of float32 stereo audio (EBU R128, ffmpeg's ebur128), and its true peak in dBFS."""
+    pcm = np.ascontiguousarray(x, dtype="<f4").tobytes()
+    p = subprocess.run(["ffmpeg", "-loglevel", "info", "-f", "f32le", "-ar", str(sr), "-ac", "2", "-i", "pipe:0", "-af", "ebur128=framelog=quiet:peak=true", "-f", "null", "-"],
+                       input=pcm, capture_output=True, timeout=600)
+    txt = p.stderr.decode("utf-8", "replace")
+    mI = re.search(r"I:\s*(-?[\d.]+) LUFS", txt); mP = re.search(r"Peak:\s*(-?[\d.]+) dBFS", txt)
+    return (float(mI.group(1)) if mI else None), (float(mP.group(1)) if mP else None)
 
 
 def wav_bytes(x, sr=SR):
@@ -450,7 +468,7 @@ def artist_target(part, name):
     L = loop_index()[FAM[part]]
     cz, _ = _space(L, c)
     own = np.array([float(_space(L, v)[0] @ cz) for v in V])
-    return c, {"artist": nm, "records": len(rows), "own": own}
+    return c, {"artist": nm, "records": len(rows), "own": own, "cz": cz}
 
 
 # ---------------------------------------------------------------- keys
@@ -537,6 +555,26 @@ def prepare(meta, f, shift, tempo, min_fit=None):
 
 class NotALoop(ValueError):
     pass
+
+
+_PREP = {}; _PREP_LOCK = threading.Lock()
+
+
+def prepare_cached(meta, f, shift, tempo, min_fit=None, keep=48):
+    """prepare(), with this container's recent cycles kept (the page asks for a listed loop's audio a moment after the
+    list), so a pick usually comes back at once. A cycle is kept only when it prepared; the grid gate is checked again
+    on a hit."""
+    k = (str(meta.get("id")), round(float(f), 4), int(shift), round(float(tempo), 3))
+    with _PREP_LOCK: hit = _PREP.get(k)
+    if hit:
+        if min_fit is not None and hit[1]["grid_fit"] < min_fit: raise NotALoop("its hits do not sit on a straight grid")
+        return hit[0], hit[1]
+    y, prep = prepare(meta, f, shift, tempo, min_fit)
+    with _PREP_LOCK:
+        _PREP[k] = (y, prep, time.time())
+        if len(_PREP) > keep:
+            for kk in sorted(_PREP, key=lambda z: _PREP[z][2])[: keep // 3]: _PREP.pop(kk, None)
+    return y, prep
 
 
 def loop_bars(d, lt):
@@ -644,59 +682,119 @@ def _licence(u):
     return f"CC {m.group(1).upper()} {m.group(2)}" if m else u
 
 
-def loop_for(part, target, tempo, key=None, exclude=()):
-    """One licensed loop for one part: target {"kind": "yours", "vector": [53]} or {"kind": "artist", "name": ...}.
-    Returns its credit, why it was chosen in one measured number, and the prepared cycle as WAV (base64)."""
+def _loop_entry(part, c, prep, info):
+    m = c["meta"]
+    e = {"loop": {"id": m.get("id"), "name": m.get("name"), "user": m.get("user"), "licence": _licence(m.get("license")),
+                  "licence_url": m.get("license"), "page": f"https://freesound.org/s/{m.get('id')}/", "tempo": m.get("tempo"), "key": m.get("key")},
+         "prep": prep, "closeness": round(c["sim"], 3), "rank": c["rank"], "of": c["of"]}
+    if info.get("cz") is not None:   # against the artist's average itself (whatever the target was steered to), as their own records are
+        L = loop_index()[FAM[part]]; z = np.asarray(L["Zp" if "Zp" in L else ("Zs" if "Zs" in L else "Z")][c["i"]], np.float32)
+        sim_art = float(z @ info["cz"]); e["closer_than"] = round(float(np.mean(info["own"] < sim_art)), 3); e["closeness_to_artist"] = round(sim_art, 3)
+    return e
+
+
+def _target_vector(part, target, info):
+    """The raw part vector the loops are ranked against: your part, an artist's average, or a point between the two
+    (w: 1 is their average, 0 is yours)."""
+    t = target or {}
+    if t.get("kind") == "artist":
+        v, info_ = artist_target(part, t.get("name")); info.update(info_)
+        if v is None: return None
+        y = t.get("vector"); w = t.get("w")
+        if w is not None and isinstance(y, list) and len(y) == 53:
+            w = min(1.0, max(0.0, float(w))); v = (1 - w) * np.asarray(y, float) + w * v; info["w"] = w
+        else:
+            info["w"] = 1.0
+        return v
+    v = t.get("vector")
+    return np.asarray(v, float) if isinstance(v, list) and len(v) == 53 else None
+
+
+def loop_for(part, target, tempo, key=None, exclude=(), n=5):
+    """The nearest clean licensed loops for one part: target {"kind": "yours", "vector": [53]}, {"kind": "artist",
+    "name": ...} or {"kind": "artist", "name": ..., "vector": [53], "w": 0.5} (a point between your part and the
+    artist's average). Returns up to n in rank order, the first with its prepared cycle as WAV (base64), the others
+    with their credit, closeness and preparation only (loop_audio gives their audio)."""
     if part not in PARTS: return {"error": "unknown part"}
     tempo = float(tempo or 0)
     if not (60 <= tempo <= 200): return {"error": "no tempo"}
     info = {}
-    if (target or {}).get("kind") == "artist":
-        v, info = artist_target(part, target.get("name"))
-        if v is None: return info
-    else:
-        v = (target or {}).get("vector")
-        if not (isinstance(v, list) and len(v) == 53): return {"error": "no part measures"}
+    v = _target_vector(part, target, info)
+    if v is None: return {"error": info.get("error") or "no part measures"}
     cands = choose(part, v, tempo, key, exclude)
     if not cands: return {"error": "no licensed loop at a tempo that stretches to this one"}
-    y = None; skipped = 0
-    for c in cands[:16]:   # the nearest that is a clean loop: whole bars at its own tempo, and drums with hits on a grid
-        m = c["meta"]
-        try:
-            y, prep = prepare(m, c["f"], c["shift"] if part != "drums" else 0, tempo, GRID_FIT_MIN.get(part)); break
-        except Exception:
-            skipped += 1; y = None; continue
-    if y is None: return {"error": "none of the nearest licensed loops is clean enough to lay on your bars"}
-    out = {"part": part, "loop": {"id": m.get("id"), "name": m.get("name"), "user": m.get("user"), "licence": _licence(m.get("license")),
-                                  "licence_url": m.get("license"), "page": f"https://freesound.org/s/{m.get('id')}/", "tempo": m.get("tempo"), "key": m.get("key")},
-           "prep": prep, "closeness": round(c["sim"], 3), "rank": c["rank"], "of": c["of"], "skipped": skipped, "wav": base64.b64encode(wav_bytes(y)).decode()}
+    gate = GRID_FIT_MIN.get(part); found = []; skipped = 0
+    from concurrent.futures import ThreadPoolExecutor
+    def prep_one(c):
+        try: return c, prepare_cached(c["meta"], c["f"], c["shift"] if part != "drums" else 0, tempo, gate)
+        except Exception: return c, None
+    with ThreadPoolExecutor(4) as ex:   # eight at a time, in rank order, until n are clean (at most 24 tried)
+        for lo in range(0, min(len(cands), 24), 8):
+            for c, r in ex.map(prep_one, cands[lo:lo + 8]):
+                if r is None: skipped += 1; continue
+                found.append((c, r[0], r[1]))
+                if len(found) >= n: break
+            if len(found) >= n: break
+    if not found: return {"error": "none of the nearest licensed loops is clean enough to lay on your bars"}
+    c0, y0, p0 = found[0]
+    out = {"part": part, **_loop_entry(part, c0, p0, info), "skipped": skipped, "wav": base64.b64encode(wav_bytes(y0)).decode(),
+           "others": [_loop_entry(part, c, prep, info) for c, _y, prep in found[1:]]}
     if info.get("artist"):
         own = info["own"]
-        out["artist"] = {"name": info["artist"], "records": info["records"],
-                         "closer_than": round(float(np.mean(own < c["sim"])), 3),   # share of the artist's own records further from their average
-                         "own_median": round(float(np.median(own)), 3)}
+        out["artist"] = {"name": info["artist"], "records": info["records"], "w": info.get("w", 1.0),
+                         "closer_than": out.get("closer_than"), "own_median": round(float(np.median(own)), 3)}
     return out
+
+
+def loop_audio(part, lid, f, shift, tempo):
+    """One listed loop's prepared cycle (WAV, base64) with its preparation: what loop_for gave for the first loop, for
+    any of the others when the page picks it."""
+    if part not in PARTS: return {"error": "unknown part"}
+    m = loop_by_id(part, lid)
+    if not m: return {"error": "no such loop"}
+    try:
+        y, prep = prepare_cached(m, float(f or 1.0), int(shift or 0) if part != "drums" else 0, float(tempo))
+    except Exception as e:
+        return {"error": "that loop could not be prepared: " + str(e)[:120]}
+    return {"part": part, "loop": {"id": m.get("id"), "name": m.get("name"), "user": m.get("user"), "licence": _licence(m.get("license")),
+                                   "licence_url": m.get("license"), "page": f"https://freesound.org/s/{m.get('id')}/", "tempo": m.get("tempo"), "key": m.get("key")},
+            "prep": prep, "wav": base64.b64encode(wav_bytes(y)).decode()}
 
 
 # ---------------------------------------------------------------- the whole track, by the plan the page played
 def clean_plan(plan, nb_max=10000):
-    """The page's plan, checked: per part either nothing (keep yours) or a loop id with the bars it plays in and a gain
-    for each bar."""
+    """The page's plan, checked. Per part: nothing (keep yours), or one or more layers, each a loop id with the bars it
+    plays in and a gain for each bar (a layer per section where the page chose differently by section). "keep": the
+    share of your own part heard under a swap, 0 to 1. "moves": cuts and rolls at phrase ends (phrase length, which
+    bar the phrases count from, and the parts each applies to). "master": loudness matched to the track and limited."""
     g = plan.get("grid") or {}
     grid = {"g0": float(g.get("g0") or 0), "bar": float(g.get("bar") or 0), "nb": int(g.get("nb") or 0)}
     if not (0.5 < grid["bar"] < 6 and 0 <= grid["g0"] < grid["bar"] and 0 < grid["nb"] <= nb_max): raise ValueError("grid")
     parts = {}
     for p in PARTS:
         c = (plan.get("parts") or {}).get(p)
-        if not c or not c.get("loop"): continue
-        gains = [min(8.0, max(0.0, float(x))) for x in (c.get("gains") or [])][:grid["nb"]]
-        gains += [0.0] * (grid["nb"] - len(gains))
-        runs = []
-        for r in (c.get("runs") or [])[:2000]:
-            r0, r1 = int(r[0]), int(r[1])
-            if 0 <= r0 < r1 <= grid["nb"]: runs.append((r0, r1))
-        parts[p] = {"loop": int(c["loop"]), "f": float(c.get("f") or 1), "shift": int(c.get("shift") or 0), "gains": gains, "runs": runs}
-    return {"grid": grid, "parts": parts, "tempo": float(plan.get("tempo") or 0), "name": str(plan.get("name") or "track")[:100]}
+        layers = c if isinstance(c, list) else ([c] if c else [])
+        L = []
+        for lay_ in layers[:8]:
+            if not isinstance(lay_, dict) or not lay_.get("loop"): continue
+            gains = [min(8.0, max(0.0, float(x))) for x in (lay_.get("gains") or [])][:grid["nb"]]
+            gains += [0.0] * (grid["nb"] - len(gains))
+            runs = []
+            for r in (lay_.get("runs") or [])[:2000]:
+                r0, r1 = int(r[0]), int(r[1])
+                if 0 <= r0 < r1 <= grid["nb"]: runs.append((r0, r1))
+            if runs and any(gains): L.append({"loop": int(lay_["loop"]), "f": float(lay_.get("f") or 1), "shift": int(lay_.get("shift") or 0), "gains": gains, "runs": runs})
+        if L: parts[p] = L
+    keep = {}
+    for p in PARTS:
+        k = (plan.get("keep") or {}).get(p)
+        keep[p] = min(1.0, max(0.0, float(k))) if k is not None else 0.0
+    mv = plan.get("moves") or {}
+    phrase = int(mv.get("phrase") or 8); phrase = phrase if phrase in (4, 8, 16) else 8
+    moves = {"phrase": phrase, "offset": int(mv.get("offset") or 0) % phrase,
+             "cut": [p for p in PARTS if p in (mv.get("cut") or [])], "roll": [p for p in PARTS if p in (mv.get("roll") or [])]}
+    return {"grid": grid, "parts": parts, "keep": keep, "moves": moves, "master": bool(plan.get("master", True)),
+            "tempo": float(plan.get("tempo") or 0), "name": str(plan.get("name") or "track")[:100]}
 
 
 def loop_by_id(part, lid):
@@ -706,24 +804,65 @@ def loop_by_id(part, lid):
     return None
 
 
-def lay(cycle, n, g0, bar, gains, runs, ramp_s=0.005):
+def phrase_ends(nb, phrase, offset):
+    """The last bar of each phrase: bars b with (b - offset) % phrase == phrase - 1."""
+    return [b for b in range(nb) if (b - offset) % phrase == phrase - 1]
+
+
+def apply_moves(out, g0, bar, gains, runs, nb, moves, part, ramp_s=0.005):
+    """Cuts and rolls at phrase ends on a laid part, before its gain envelope. A cut: the last beat of the phrase's last
+    bar is silent (five-millisecond ramp). A roll: that beat is the loop's own first sixteenth of it, played as two
+    sixteenths then four thirty-seconds, each with a two-millisecond fade (a fill from the loop's own material). Only
+    in bars where the layer plays."""
+    if not moves or (part not in moves.get("cut", ()) and part not in moves.get("roll", ())): return
+    active = np.zeros(nb, bool)
+    for r0, r1 in runs: active[r0:r1] = True
+    beat = bar / 4; six = beat / 4; n = len(out); R = max(1, int(ramp_s * SR)); F = max(1, int(0.002 * SR))
+    for b in phrase_ends(nb, moves["phrase"], moves["offset"]):
+        if not active[b] or gains[b] <= 0: continue
+        s4, e = int(round((g0 + b * bar + 3 * beat) * SR)), min(n, int(round((g0 + (b + 1) * bar) * SR)))
+        if s4 >= n or e <= s4: continue
+        if part in moves.get("roll", ()):
+            sl = out[s4: s4 + int(round(six * SR))].copy()
+            if len(sl) > 2 * F:
+                sl[:F] *= np.linspace(0, 1, F)[:, None]
+                seg = np.zeros((e - s4, 2), np.float32); pos = 0
+                for ln in (six, six, six / 2, six / 2, six / 2, six / 2):
+                    m = min(int(round(ln * SR)), len(sl), e - s4 - pos)
+                    if m <= 0: break
+                    piece = sl[:m].copy(); piece[-F:] *= np.linspace(1, 0, min(F, m))[:, None]
+                    seg[pos:pos + m] = piece; pos += m
+                out[s4:e] = seg
+        if part in moves.get("cut", ()):
+            r0 = max(0, s4 - R); out[r0:s4] *= np.linspace(1, 0, s4 - r0)[:, None]; out[s4:e] = 0
+
+
+def lay(cycle, n, g0, bar, gains, runs, ramp_s=0.005, moves=None, part=None):
     """A swapped part for the whole track: the cycle from the start of each run of bars, repeated to its end, at each
-    bar's gain, with five-millisecond ramps where the gain changes (as the page schedules it)."""
+    bar's gain, with five-millisecond ramps where the gain changes (as the page schedules it), and the moves applied."""
     out = np.zeros((n, 2), np.float32); C = len(cycle)
     for r0, r1 in runs:
         s0, s1 = int(round((g0 + r0 * bar) * SR)), min(n, int(round((g0 + r1 * bar) * SR)))
         k = s0
         while k < s1:
             m = min(C, s1 - k); out[k:k + m] += cycle[:m]; k += C
+    if moves: apply_moves(out, g0, bar, gains, runs, len(gains), moves, part, ramp_s)
+    return out * bar_envelope(n, g0, bar, gains, ramp_s)[:, None]
+
+
+def bar_envelope(n, g0, bar, gains, ramp_s=0.005):
+    """A gain for every sample from a gain per bar, each change ramped in over the last five milliseconds of the bar
+    before, so a bar's first hit has its own gain."""
     env = np.zeros(n, np.float32); R = max(1, int(ramp_s * SR)); prev = 0.0
     for b, gv in enumerate(gains):
         s0, s1 = int(round((g0 + b * bar) * SR)), min(n, int(round((g0 + (b + 1) * bar) * SR)))
         if s0 >= n: break
         env[s0:s1] = gv
-        if gv != prev:   # the change ramps in over the last five milliseconds of the bar before, so a bar's first hit has its own gain
+        if gv != prev:
             r0 = max(0, s0 - R); env[r0:s0] = np.linspace(prev, gv, s0 - r0, endpoint=False)
         prev = gv
-    return out * env[:, None]
+    if gains and int(round((g0 + len(gains) * bar) * SR)) < n: env[int(round((g0 + len(gains) * bar) * SR)):] = prev
+    return env
 
 
 def render(path, plan):
@@ -732,25 +871,51 @@ def render(path, plan):
     from features import stems as S
     P = clean_plan(plan); t0 = time.time()
     tempo = P["tempo"] or 240 / P["grid"]["bar"]
+    g0, bar, nb = P["grid"]["g0"], P["grid"]["bar"], P["grid"]["nb"]
     w = tempfile.mkdtemp()
     try:
         wav = os.path.join(w, "track.wav"); decode_to_wav(path, wav)
         st = S.separate(wav, os.path.join(w, "sep"))
         X = {k: read_wav(st[k])[0] for k in PARTS if k in st}
         n = min(len(v) for v in X.values()); X = {k: v[:n] for k, v in X.items()}
-        out = np.zeros((n, 2), np.float32); credits = []
+        original = sum(X.values())
+        out = np.zeros((n, 2), np.float32); credits = []; laid = {}
         for p in PARTS:
-            c = P["parts"].get(p)
-            if not c: out += X[p]; continue
-            m = loop_by_id(p, c["loop"])
-            if not m: out += X[p]; continue
-            y, prep = prepare(m, c["f"], c["shift"] if p != "drums" else 0, tempo)
-            out += lay(y, n, P["grid"]["g0"], P["grid"]["bar"], c["gains"], c["runs"])
-            credits.append(f"{m.get('name')} by {m.get('user')} (freesound.org/s/{m.get('id')}), {_licence(m.get('license'))}")
-        pk = float(np.abs(out).max()) or 1.0
-        if pk > 0.98: out *= 0.98 / pk
+            layers = P["parts"].get(p) or []
+            swapped = np.zeros(nb, bool)
+            for c in layers:
+                m = loop_by_id(p, c["loop"])
+                if not m: continue
+                try:
+                    y, prep = prepare_cached(m, c["f"], c["shift"] if p != "drums" else 0, tempo)
+                except Exception:
+                    continue
+                out += lay(y, n, g0, bar, c["gains"], c["runs"], moves=P["moves"], part=p)
+                swapped |= np.asarray(c["gains"]) > 0
+                cr = f"{m.get('name')} by {m.get('user')} (freesound.org/s/{m.get('id')}), {_licence(m.get('license'))}"
+                if cr not in credits: credits.append(cr)
+            # your own part: whole where nothing is swapped in the bar, at the kept share under a swap
+            if swapped.any():
+                yours = np.where(swapped, P["keep"][p], 1.0).tolist()
+                out += X[p] * bar_envelope(n, g0, bar, yours)[:, None]
+                laid[p] = {"layers": len(layers), "bars_swapped": int(swapped.sum()), "keep": P["keep"][p]}
+            else:
+                out += X[p]
+        loud = None; af = None
+        if P["master"] and laid:
+            ref, _pk = loudness_lufs(original); cur, _pk2 = loudness_lufs(out)
+            gain_db = 0.0
+            if ref is not None and cur is not None and ref > -70 and cur > -70: gain_db = max(-12.0, min(12.0, ref - cur))
+            out *= 10 ** (gain_db / 20)
+            # a lookahead limiter at -2 dBFS: MP3 coding adds up to a decibel of overshoot, so the file stays under full scale
+            af = "alimiter=limit=0.8:attack=5:release=60:level=false"
+            loud = {"track_lufs": ref, "swapped_lufs_before": cur, "gain_db": round(gain_db, 2), "ceiling_dbfs": -1.9}
+        else:
+            pk = float(np.abs(out).max()) or 1.0
+            if pk > 0.98: out *= 0.98 / pk
         meta = {"title": f"{P['name']} (swapped)", "comment": "Loops: " + "; ".join(credits) if credits else "No parts swapped"}
-        data = mp3_bytes(out, kbps=320, meta=meta)
-        return {"name": P["name"], "seconds": round(n / SR, 1), "credits": credits, "mp3": data, "took": round(time.time() - t0, 1)}
+        data = mp3_bytes(out, kbps=320, meta=meta, af=af)
+        return {"name": P["name"], "seconds": round(n / SR, 1), "credits": credits, "mp3": data, "took": round(time.time() - t0, 1),
+                "laid": laid, "moves": P["moves"], "loudness": loud}
     finally:
         shutil.rmtree(w, ignore_errors=True)
