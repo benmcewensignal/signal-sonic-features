@@ -375,15 +375,12 @@ def read_track(path, name="track"):
         ws, we = int((g0 + b0 * bar) * SR), min(n, int((g0 + (b0 + W) * bar) * SR))
         timing["bars"] = round(time.time() - t_start, 1)
         # what each part plays, sixteenth by sixteenth: notes for bass, melody and voice; kicks and snares for the drums
-        from concurrent.futures import ThreadPoolExecutor
-        def read_line(k):
-            try:
-                if k == "drums":
-                    kk, ss = hits_of(X[k], g0, bar, nb); return k, {"kick": kk, "snare": ss}
-                nts, on = notes_of(X[k], k, g0, bar, nb); return k, {"notes": nts, "onsets": [int(v) for v in on]}
-            except Exception as e:
-                return k, {"error": type(e).__name__ + ": " + str(e)[:80]}
-        with ThreadPoolExecutor(4) as ex: follow = dict(ex.map(read_line, PARTS))
+        # one process a part (pyin holds one core; the parts' files are read again in each)
+        from concurrent.futures import ProcessPoolExecutor
+        try:
+            with ProcessPoolExecutor(4) as ex: follow = dict(ex.map(_line_of_file, [(st[k], k, g0, bar, nb) for k in PARTS]))
+        except Exception as e:
+            follow = {k: {"error": type(e).__name__} for k in PARTS}
         timing["lines"] = round(time.time() - t_start, 1)
         # the parts' measures on the window, exactly as a reading measures them
         rec = {}
@@ -817,8 +814,8 @@ def notes_of(x, part, g0, bar, nb, sr_in=SR, delay=0.0):
     of the run's loudest frames (the median over the frames above the run's median level), so a bent or wobbling note
     reads as one note. Returns (notes, onsets)."""
     sr = 22050; y = librosa.resample(x.mean(1).astype(np.float32), orig_sr=sr_in, target_sr=sr) if sr_in != sr else x.mean(1).astype(np.float32)
-    fmin, fmax = NOTE_RANGES[part]; hop = 256; fr = sr / hop; step = bar / 16
-    f0, voiced, prob = librosa.pyin(y, fmin=fmin, fmax=fmax, sr=sr, frame_length=2048, hop_length=hop)
+    fmin, fmax = NOTE_RANGES[part]; hop = 512; fr = sr / hop; step = bar / 16   # 23 ms frames: five or more to a sixteenth
+    f0, voiced, prob = librosa.pyin(y, fmin=fmin, fmax=fmax, sr=sr, frame_length=2048 if fmin < 60 else 1024, hop_length=hop)
     midi = librosa.hz_to_midi(np.where(voiced, f0, np.nan))
     e = np.abs(y); eh = e[: len(e) // hop * hop].reshape(-1, hop).max(1); rise = np.maximum(0, np.diff(eh, prepend=eh[:1]))
     pk = _rise_peaks(rise, fr, 0.06, 0.2); pk_steps = set(int(round((i / fr - delay - g0) / step)) for i in pk)
@@ -885,6 +882,18 @@ def hits_of(x, g0, bar, nb, sr_in=SR, delay=0.0):
         mref = Mv[near].max() + 1e-9; href = Hv[near].max() + 1e-9
         if Mv[q] >= 0.25 * mref and Hv[q] >= 0.3 * href: snare[k] = 1
     return kick.tolist(), snare.tolist()
+
+
+def _line_of_file(args):
+    """What one part plays, read from its separated file: (part, {"notes", "onsets"} or {"kick", "snare"})."""
+    path, k, g0, bar, nb = args
+    try:
+        x, _sr = read_wav(path)
+        if k == "drums":
+            kk, ss = hits_of(x, g0, bar, nb); return k, {"kick": kk, "snare": ss}
+        nts, on = notes_of(x, k, g0, bar, nb); return k, {"notes": nts, "onsets": [int(v) for v in on]}
+    except Exception as e:
+        return k, {"error": type(e).__name__ + ": " + str(e)[:80]}
 
 
 def loop_notes(cycle, part, tempo, cycle_bars):
