@@ -42,7 +42,7 @@ def build():
                 y, prep = SW.prepare(m, 1.0, s, TEMPO)
             except Exception:
                 continue
-            if prep["rms_db"] < -45: continue
+            if prep["rms_db"] < -45 or prep["grid_fit"] < 0.6: continue   # a clean, straight loop: the example is the page's first impression
             picks[p] = {"id": m.get("id"), "name": m.get("name"), "user": m.get("user"), "licence": "CC0", "page": f"https://freesound.org/s/{m.get('id')}/",
                         "closeness": round(float(sim[i]), 3), "prep": prep}
             cycles[p] = (y, prep)
