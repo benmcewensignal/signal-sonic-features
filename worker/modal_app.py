@@ -9,10 +9,11 @@ Deploy: modal deploy worker/modal_app.py (the worker-deploy workflow does this o
 import os, modal
 
 app = modal.App("sonic-parts")
-image = (modal.Image.debian_slim(python_version="3.12")
-         .apt_install("ffmpeg", "libsndfile1")
-         .pip_install("numpy<2", "librosa==0.10.2", "soundfile", "demucs==4.0.1", "torch==2.3.1",
-                      "torchaudio==2.3.1", "essentia-tensorflow", "fastapi[standard]", "scikit-learn==1.8.0")
+_built = (modal.Image.debian_slim(python_version="3.12")
+          .apt_install("ffmpeg", "libsndfile1")
+          .pip_install("numpy<2", "librosa==0.10.2", "soundfile", "demucs==4.0.1", "torch==2.3.1",
+                       "torchaudio==2.3.1", "essentia-tensorflow", "fastapi[standard]", "scikit-learn==1.8.0"))
+image = (_built
          .add_local_python_source("features")
          .add_local_dir("worker", "/root/worker"))   # the worker with its model file
 secret = modal.Secret.from_name("sonic-parts")          # holds PARTS_KEY
@@ -261,3 +262,155 @@ async def recognise(request: Request):
     except Exception as e:
         return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:120]}, 500)
 
+
+
+# ---- Swap: your track split into its parts, any part swapped for an openly licensed loop, the whole track to download ----
+# worker/swap.py does the work. The page talks to one web app here directly (the files are larger than the site's
+# functions accept), with a token the site signs with PARTS_KEY (api/swap.js in signalgood):
+#   POST /start?t=&name=   body: the track's file      -> {"id"}       separation on a GPU, then the reading
+#   GET  /result?id=&t=                                -> {"status", "result"} without audio
+#   GET  /stem?id=&part=&t=                            -> MP3: one part over the listening window (part=probe: the click)
+#   POST /loop?t=          JSON {part, target, tempo, key, exclude} -> the licensed loop, prepared, as WAV in JSON
+#   POST /render?t=        form: file, plan            -> {"id"}       separates again and lays the plan's loops
+#   GET  /file?id=&t=                                  -> MP3 of the whole track, swapped (an attachment)
+#   GET  /artists?t=                                   -> [[artist, separated records], ...] for the search
+# The track lives in memory and a temporary directory for the length of each call; nothing is written anywhere.
+swap_gpu_image = (_built.apt_install("rubberband-cli")
+                  .env({"TF_FORCE_GPU_ALLOW_GROWTH": "true"})
+                  .add_local_python_source("features")
+                  .add_local_dir("worker", "/root/worker"))
+swap_light = (modal.Image.debian_slim(python_version="3.12")
+              .apt_install("ffmpeg", "rubberband-cli", "libsndfile1")
+              .pip_install("numpy<2", "soundfile", "fastapi[standard]")
+              .add_local_dir("worker", "/root/worker"))
+_embed = modal.Volume.from_name("sonic-embed", create_if_missing=True)
+
+
+@app.function(image=swap_gpu_image, gpu="T4", cpu=4.0, memory=12288, timeout=900, volumes={"/embed": _embed})
+def swap_read(data: bytes, name: str = "track") -> dict:
+    import tempfile
+    from worker.swap import read_track
+    with tempfile.NamedTemporaryFile(suffix=".audio") as f:
+        f.write(data); f.flush()
+        try:
+            return read_track(f.name, name)
+        except Exception as e:
+            return {"error": type(e).__name__ + ": " + str(e)[:200]}
+
+
+@app.function(image=swap_gpu_image, gpu="T4", cpu=4.0, memory=12288, timeout=900, volumes={"/embed": _embed})
+def swap_render(data: bytes, plan: dict) -> dict:
+    import tempfile
+    from worker.swap import render
+    with tempfile.NamedTemporaryFile(suffix=".audio") as f:
+        f.write(data); f.flush()
+        try:
+            return render(f.name, plan)
+        except Exception as e:
+            return {"error": type(e).__name__ + ": " + str(e)[:200]}
+
+
+@app.function(image=swap_light, secrets=[secret], cpu=2.0, memory=4096, timeout=900, scaledown_window=600, volumes={"/embed": _embed})
+@modal.concurrent(max_inputs=24)
+@modal.asgi_app()
+def swap():
+    import asyncio, json as _json, re as _re
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse, Response
+    from fastapi.middleware.cors import CORSMiddleware
+    from worker import swap as SW
+    api = FastAPI()
+    api.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["*"],
+                       expose_headers=["Content-Disposition"], max_age=3600)
+    KEY = os.environ.get("PARTS_KEY", "")
+    CACHE = {}
+
+    def ok(req): return SW.token_ok(req.query_params.get("t"), KEY)
+    def no(): return JSONResponse({"error": "unauthorised"}, 401)
+
+    async def finished(id_):
+        """The call's result once it has finished (kept here briefly so the page's next few requests do not fetch it
+        again); None while it runs."""
+        if id_ in CACHE: return CACHE[id_]
+        fc = modal.FunctionCall.from_id(id_)
+        try:
+            r = await fc.get.aio(timeout=0)
+        except TimeoutError:
+            return None
+        while len(CACHE) >= 12: CACHE.pop(next(iter(CACHE)))
+        CACHE[id_] = r
+        return r
+
+    @api.post("/start")
+    async def start(req: Request):
+        if not ok(req): return no()
+        body = await req.body()
+        if not body: return JSONResponse({"error": "no file"}, 400)
+        if len(body) > 200_000_000: return JSONResponse({"error": "the file is larger than 200 MB"}, 413)
+        fc = await swap_read.spawn.aio(body, (req.query_params.get("name") or "track")[:120])
+        return {"id": fc.object_id}
+
+    @api.get("/result")
+    async def result(req: Request):
+        if not ok(req): return no()
+        try:
+            r = await finished(req.query_params.get("id", ""))
+        except Exception as e:
+            return {"status": "failed", "error": type(e).__name__}
+        if r is None: return {"status": "running"}
+        if r.get("error"): return {"status": "failed", "error": r["error"]}
+        return {"status": "done", "result": {k: v for k, v in r.items() if k not in ("audio", "mp3")}}
+
+    @api.get("/stem")
+    async def stem(req: Request):
+        if not ok(req): return no()
+        r = await finished(req.query_params.get("id", ""))
+        a = ((r or {}).get("audio") or {}).get(req.query_params.get("part", ""))
+        if not a: return JSONResponse({"error": "not ready"}, 404)
+        return Response(content=a, media_type="audio/mpeg", headers={"Cache-Control": "private, max-age=3600"})
+
+    @api.post("/loop")
+    async def loop(req: Request):
+        if not ok(req): return no()
+        try:
+            b = await req.json()
+            r = await asyncio.to_thread(SW.loop_for, str(b.get("part") or ""), b.get("target") or {}, b.get("tempo"), b.get("key"),
+                                        [str(x) for x in (b.get("exclude") or [])][:50])
+        except Exception as e:
+            return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:160]}, 400)
+        return r if not r.get("error") else JSONResponse(r, 404)
+
+    @api.post("/render")
+    async def render_(req: Request):
+        if not ok(req): return no()
+        form = await req.form()
+        f = form.get("file"); plan = form.get("plan")
+        if f is None or plan is None: return JSONResponse({"error": "file and plan"}, 400)
+        data = await f.read()
+        if len(data) > 200_000_000: return JSONResponse({"error": "the file is larger than 200 MB"}, 413)
+        try:
+            P = SW.clean_plan(_json.loads(plan))
+        except Exception as e:
+            return JSONResponse({"error": "plan: " + str(e)[:80]}, 400)
+        fc = await swap_render.spawn.aio(data, P)
+        return {"id": fc.object_id}
+
+    @api.get("/file")
+    async def file_(req: Request):
+        if not ok(req): return no()
+        r = await finished(req.query_params.get("id", ""))
+        if r is None: return JSONResponse({"status": "running"}, 202)
+        if not r.get("mp3"): return JSONResponse({"error": r.get("error") or "no file"}, 404)
+        nm = _re.sub(r"[^A-Za-z0-9 ._()-]+", "", str(r.get("name") or "track"))[:80].strip() or "track"
+        return Response(content=r["mp3"], media_type="audio/mpeg",
+                        headers={"Content-Disposition": f'attachment; filename="{nm} (swapped).mp3"', "Cache-Control": "private, max-age=3600"})
+
+    _ART = {}
+
+    @api.get("/artists")
+    async def artists(req: Request):
+        if not ok(req): return no()
+        if "list" not in _ART: _ART["list"] = await asyncio.to_thread(SW.artists_separated)
+        return {"artists": _ART["list"]}
+
+    return api

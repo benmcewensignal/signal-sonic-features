@@ -1,0 +1,114 @@
+[
+ {
+  "id": "bp:18167947",
+  "name": "Last Night",
+  "artists": [
+   "Loofy"
+  ],
+  "scene": "tech-house",
+  "tempo": 129.12,
+  "tempo2": 129.5,
+  "key": "D#m",
+  "preview": "https://geo-samples.beatport.com/track/f3addd38-d5ef-4334-a87f-c0585d0d5846.LOFI.mp3"
+ },
+ {
+  "id": "bp:17519477",
+  "name": "Identity",
+  "artists": [
+   "Daz"
+  ],
+  "scene": "drum-and-bass",
+  "tempo": 163.22,
+  "tempo2": 163.25,
+  "key": "C#",
+  "preview": "https://geo-samples.beatport.com/track/9e9baf4b-59a2-443f-92e0-f04ab40d7621.LOFI.mp3"
+ },
+ {
+  "id": "bp:19403137",
+  "name": "We Could Share",
+  "artists": [
+   "DJ TRIPZ"
+  ],
+  "scene": "uk-garage-speed-garage",
+  "tempo": 135.17,
+  "tempo2": 133.0,
+  "key": "Am",
+  "preview": "https://geo-samples.beatport.com/track/ebf069a0-f514-4bc7-8d47-39cafa8f812d.LOFI.mp3"
+ },
+ {
+  "id": "bp:19674620",
+  "name": "Messiah",
+  "artists": [
+   "Tracy",
+   "ShaunMusiQ & Ftears",
+   "Stady K",
+   "Thatohatsi",
+   "Cowboii"
+  ],
+  "scene": "amapiano",
+  "tempo": 112.84,
+  "tempo2": 112.75,
+  "key": "Fm",
+  "preview": "https://geo-samples.beatport.com/track/8e321612-9cd1-4b5f-b7c2-3cdfd33c28e0.LOFI.mp3"
+ },
+ {
+  "id": "bp:18126911",
+  "name": "What Is Love",
+  "artists": [
+   "Estiva"
+  ],
+  "scene": "melodic-house-techno",
+  "tempo": 123.69,
+  "tempo2": 123.0,
+  "key": "Gm",
+  "preview": "https://geo-samples.beatport.com/track/f7b4eb2a-0b9a-4e3f-b89b-f91afc59779f.LOFI.mp3"
+ },
+ {
+  "id": "bp:18766149",
+  "name": "Ragged N Raw",
+  "artists": [
+   "Afro Exotiq"
+  ],
+  "scene": "afro-house",
+  "tempo": 94.38,
+  "tempo2": 177.0,
+  "key": "Em",
+  "preview": "https://geo-samples.beatport.com/track/7d4a7f83-7177-48ae-9d18-fae36eedbb20.LOFI.mp3"
+ },
+ {
+  "id": "bp:13814466",
+  "name": "Big Blow",
+  "artists": [
+   "Joey Negro Pres. The Sunburst Band"
+  ],
+  "scene": "house",
+  "tempo": 122.99,
+  "tempo2": 123.0,
+  "key": "Cm",
+  "preview": "https://geo-samples.beatport.com/track/024a9559-c08b-4978-8619-87a6a0a2597c.LOFI.mp3"
+ },
+ {
+  "id": "bp:19602856",
+  "name": "Verra\u0308ter",
+  "artists": [
+   "Kopfwehmusik"
+  ],
+  "scene": "hard-techno",
+  "tempo": 143.55,
+  "tempo2": null,
+  "key": "G#m",
+  "preview": "https://geo-samples.beatport.com/track/3a2e1119-7d8a-46fe-834b-06a27cd07bec.LOFI.mp3"
+ },
+ {
+  "id": "bp:18030245",
+  "name": "Jealous",
+  "artists": [
+   "Mochakk"
+  ],
+  "scene": "tech-house",
+  "tempo": null,
+  "tempo2": null,
+  "key": null,
+  "preview": "https://geo-samples.beatport.com/track/8781c0a5-a28b-4954-ba46-8aa95fa59b4c.LOFI.mp3"
+ }
+]
