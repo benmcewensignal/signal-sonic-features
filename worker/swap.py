@@ -494,12 +494,12 @@ def _rubberband(x, ratio, shift, w):
     return np.stack([c[:n] for c in ch], 1).astype(np.float32)
 
 
-def prepare(meta, f, shift, tempo):
-    """A loop as one cycle of whole bars at the track's tempo: its bars read from its length and stated tempo (cut to
-    whole bars when it runs over), stretched to the track's tempo, moved by shift semitones, cut to exactly the cycle
-    with anything past the end wrapped onto the start. Returns (cycle as float32 stereo, info)."""
+def prepare(meta, f, shift, tempo, min_fit=None):
+    """A loop as one cycle of whole bars at the track's tempo: its bars read from its length and stated tempo, stretched
+    to the track's tempo, moved by shift semitones, cut to exactly the cycle. With min_fit, a loop whose hits sit less
+    squarely than that on a straight grid is refused before any stretching. Returns (cycle as float32 stereo, info)."""
     raw = urllib.request.urlopen(meta["preview"], timeout=30).read()
-    return prepare_audio(decode_bytes(raw), meta, f, shift, tempo)
+    return prepare_audio(decode_bytes(raw), meta, f, shift, tempo, min_fit)
 
 
 class NotALoop(ValueError):
@@ -519,13 +519,22 @@ def loop_bars(d, lt):
     return (best[1], best[2]) if best else None
 
 
-def prepare_audio(x, meta, f, shift, tempo):
+def loop_shape(x, meta, tempo):
+    """A decoded loop's bars, the tempo its length says, whether it plays at half or double time against the track, and
+    how squarely its hits sit on a straight sixteenth grid at its own tempo: (bars, tempo, f, fit). Raises NotALoop when
+    it does not divide into whole bars or is too far from the track's tempo to stretch."""
     d = len(x) / SR
     lb = loop_bars(d, float(meta.get("tempo") or tempo))
     if not lb: raise NotALoop("its length is not a whole number of bars at its tempo")
     N, lt_eff = lb                                # a clean loop: its length says its exact tempo
     f = min((1.0, 2.0, 0.5), key=lambda q: abs(lt_eff * q - tempo))   # half or double time where that is nearer
     if abs(lt_eff * f / tempo - 1) > 0.15: raise NotALoop("too far from the track's tempo to stretch")
+    return N, lt_eff, f, grid_fit(x, lt_eff)
+
+
+def prepare_audio(x, meta, f, shift, tempo, min_fit=None):
+    N, lt_eff, f, fit = loop_shape(x, meta, tempo)
+    if min_fit is not None and fit < min_fit: raise NotALoop("its hits do not sit on a straight grid")
     cb = N * f                                    # the track's bars in one cycle
     C = int(round(cb * 240 / tempo * SR))         # the cycle in samples at the track's tempo
     ratio = C / len(x)                            # output length over input length
@@ -543,7 +552,6 @@ def prepare_audio(x, meta, f, shift, tempo):
     pk = float(np.abs(out).max()) or 1.0
     if pk > 0.99: out *= 0.99 / pk
     m = out.mean(1); rms = float(np.sqrt(np.mean(m ** 2)))
-    fit = grid_fit(out, tempo)
     return out.astype(np.float32), {"bars": N, "f": f, "cycle_bars": cb, "ratio": round(ratio, 6), "shift": shift, "loop_tempo": round(lt_eff, 3),
                                     "samples": C, "rms_db": round(20 * math.log10(rms), 2) if rms > 1e-6 else -120.0, "grid_fit": round(fit, 3)}
 
@@ -593,12 +601,9 @@ def loop_for(part, target, tempo, key=None, exclude=()):
     for c in cands[:10]:   # the nearest that is a clean loop: whole bars at its own tempo, its hits on a straight grid
         m = c["meta"]
         try:
-            y_, prep_ = prepare(m, c["f"], c["shift"] if part != "drums" else 0, tempo)
+            y, prep = prepare(m, c["f"], c["shift"] if part != "drums" else 0, tempo, GRID_FIT_MIN); break
         except Exception:
-            skipped += 1; continue
-        if prep_["grid_fit"] < GRID_FIT_MIN:
-            skipped += 1; continue
-        y, prep = y_, prep_; break
+            skipped += 1; y = None; continue
     if y is None: return {"error": "none of the nearest licensed loops is clean enough to lay on your bars"}
     out = {"part": part, "loop": {"id": m.get("id"), "name": m.get("name"), "user": m.get("user"), "licence": _licence(m.get("license")),
                                   "licence_url": m.get("license"), "page": f"https://freesound.org/s/{m.get('id')}/", "tempo": m.get("tempo"), "key": m.get("key")},

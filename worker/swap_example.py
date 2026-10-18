@@ -27,10 +27,12 @@ def build():
     ids = json.load(open("/root/ids.json"))["ids"]
     RP = SW.record_parts(); rows = [RP["at"][t] for t in ids if t in RP["at"]]
     picks, cycles = {}, {}
-    for p in SW.PARTS:
+    from concurrent.futures import ThreadPoolExecutor
+    def pick(p):
         c = RP["V"][rows, SW.PARTS.index(p)].astype(float).mean(0)
         L = SW.loop_index()[SW.FAM[p]]
         q, zn = SW._space(L, c); sim = np.asarray(L[zn], np.float32) @ q
+        tries = 0
         for i in np.argsort(-sim)[:600]:
             m = L["meta"][int(i)]
             if "publicdomain/zero" not in str(m.get("license")): continue      # CC0 only: the example owes no one a credit
@@ -38,15 +40,19 @@ def build():
             if not lt or abs(lt / TEMPO - 1) > 0.05: continue
             s = SW.key_shift(m.get("key"), KEY) if p != "drums" else 0
             if p != "drums" and (not m.get("key") or abs(s) > 3): continue
-            try:
-                y, prep = SW.prepare(m, 1.0, s, TEMPO)
+            tries += 1
+            if tries > 40: break
+            try:   # a clean, straight loop: the example is the page's first impression (voices are rarely quantised)
+                y, prep = SW.prepare(m, 1.0, s, TEMPO, 0.45 if p == "vocals" else 0.6)
             except Exception:
                 continue
-            if prep["rms_db"] < -45 or prep["grid_fit"] < 0.6: continue   # a clean, straight loop: the example is the page's first impression
-            picks[p] = {"id": m.get("id"), "name": m.get("name"), "user": m.get("user"), "licence": "CC0", "page": f"https://freesound.org/s/{m.get('id')}/",
-                        "closeness": round(float(sim[i]), 3), "prep": prep}
-            cycles[p] = (y, prep)
-            break
+            if prep["rms_db"] < -45: continue
+            return p, {"id": m.get("id"), "name": m.get("name"), "user": m.get("user"), "licence": "CC0", "page": f"https://freesound.org/s/{m.get('id')}/",
+                       "closeness": round(float(sim[i]), 3), "prep": prep}, (y, prep)
+        return p, None, None
+    with ThreadPoolExecutor(4) as ex:
+        for p, meta_, cyc in ex.map(pick, SW.PARTS):
+            if meta_: picks[p] = meta_; cycles[p] = cyc
     bar = 240 / TEMPO; g0 = 0.5; n = int((g0 + BARS * bar + 2.0) * SW.SR)
     out = np.zeros((n, 2), np.float32)
     for p, (y, prep) in cycles.items():
