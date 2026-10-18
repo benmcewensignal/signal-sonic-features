@@ -84,8 +84,12 @@ def loudness_lufs(x, sr=SR):
     p = subprocess.run(["ffmpeg", "-loglevel", "info", "-f", "f32le", "-ar", str(sr), "-ac", "2", "-i", "pipe:0", "-af", "ebur128=framelog=quiet:peak=true", "-f", "null", "-"],
                        input=pcm, capture_output=True, timeout=600)
     txt = p.stderr.decode("utf-8", "replace")
-    mI = re.search(r"I:\s*(-?[\d.]+) LUFS", txt); mP = re.search(r"Peak:\s*(-?[\d.]+) dBFS", txt)
-    return (float(mI.group(1)) if mI else None), (float(mP.group(1)) if mP else None)
+    # the summary's lines, not the running ones an older ffmpeg prints per frame ("... I: 0.0 LUFS ...")
+    mI = re.search(r"Integrated loudness:\s*I:\s*(-?[\d.]+) LUFS", txt); mP = re.search(r"True peak:\s*Peak:\s*(-?[\d.]+) dBFS", txt)
+    if not mI:
+        allI = re.findall(r"I:\s*(-?[\d.]+) LUFS", txt); allP = re.findall(r"Peak:\s*(-?[\d.]+) dBFS", txt)
+        return (float(allI[-1]) if allI else None), (float(allP[-1]) if allP else None)
+    return float(mI.group(1)), (float(mP.group(1)) if mP else None)
 
 
 def wav_bytes(x, sr=SR):
