@@ -108,6 +108,30 @@ def loudness_lufs(x, sr=SR):
     return round(-0.691 + 10 * math.log10(z[keep].mean()), 2), round(20 * math.log10(float(np.abs(x).max()) + 1e-12), 2)
 
 
+def limited(x, sr=SR, ceiling=0.8):
+    """x through ffmpeg's lookahead limiter (alimiter, 5 ms attack, 60 ms release) at ceiling (0.8 is -1.9 dBFS)."""
+    pcm = np.ascontiguousarray(x, dtype="<f4").tobytes()
+    p = subprocess.run(["ffmpeg", "-loglevel", "error", "-f", "f32le", "-ar", str(sr), "-ac", "2", "-i", "pipe:0", "-af", f"alimiter=limit={ceiling}:attack=5:release=60:level=false",
+                        "-f", "f32le", "pipe:1"], input=pcm, capture_output=True, check=True, timeout=600)
+    y = np.frombuffer(p.stdout, np.float32).reshape(-1, 2); out = np.zeros_like(x, dtype=np.float32); m = min(len(y), len(x)); out[:m] = y[:m]
+    return out
+
+
+def master(out, reference, sr=SR):
+    """The swapped mix at the reference's loudness after limiting: a gain to the reference, the limiter, the loudness
+    read again and the gain corrected once (limiting takes loudness off a mix whose peaks it holds down). Returns
+    (audio, what was measured)."""
+    ref, _ = loudness_lufs(reference, sr); cur, pk0 = loudness_lufs(out, sr)
+    info = {"track_lufs": ref, "swapped_lufs_before": cur, "peak_before_dbfs": pk0, "ceiling_dbfs": -1.9}
+    if ref is None or cur is None or ref < -70 or cur < -70:
+        info["gain_db"] = 0.0; return limited(out, sr), info
+    g = max(-12.0, min(12.0, ref - cur)); y = limited(out * 10 ** (g / 20), sr); l1, _ = loudness_lufs(y, sr)
+    if l1 is not None and abs(ref - l1) > 0.3:
+        g = max(-12.0, min(12.0, g + max(-6.0, min(6.0, ref - l1)))); y = limited(out * 10 ** (g / 20), sr); l1, _ = loudness_lufs(y, sr)
+    info["gain_db"] = round(g, 2); info["swapped_lufs"] = l1
+    return y, info
+
+
 def wav_bytes(x, sr=SR):
     import soundfile as sf
     b = io.BytesIO(); sf.write(b, np.clip(x, -1, 1), sr, format="WAV", subtype="PCM_16"); return b.getvalue()
@@ -756,8 +780,8 @@ def loop_for(part, target, tempo, key=None, exclude=(), n=5):
     def prep_one(c):
         try: return c, prepare_cached(c["meta"], c["f"], c["shift"] if part != "drums" else 0, tempo, gate)
         except Exception: return c, None
-    with ThreadPoolExecutor(4) as ex:   # eight at a time, in rank order, until n are clean (at most 24 tried)
-        for lo in range(0, min(len(cands), 24), 8):
+    with ThreadPoolExecutor(4) as ex:   # eight at a time, in rank order, until n are clean (at most 40 tried)
+        for lo in range(0, min(len(cands), 40), 8):
             for c, r in ex.map(prep_one, cands[lo:lo + 8]):
                 if r is None: skipped += 1; continue
                 found.append((c, r[0], r[1]))
@@ -886,12 +910,12 @@ def hits_of(x, g0, bar, nb, sr_in=SR, delay=0.0):
 
 def _line_of_file(args):
     """What one part plays, read from its separated file: (part, {"notes", "onsets"} or {"kick", "snare"})."""
-    path, k, g0, bar, nb = args
+    path, k, g0, bar, nb = args; t0 = time.time()
     try:
         x, _sr = read_wav(path)
         if k == "drums":
-            kk, ss = hits_of(x, g0, bar, nb); return k, {"kick": kk, "snare": ss}
-        nts, on = notes_of(x, k, g0, bar, nb); return k, {"notes": nts, "onsets": [int(v) for v in on]}
+            kk, ss = hits_of(x, g0, bar, nb); return k, {"kick": kk, "snare": ss, "took": round(time.time() - t0, 1)}
+        nts, on = notes_of(x, k, g0, bar, nb); return k, {"notes": nts, "onsets": [int(v) for v in on], "took": round(time.time() - t0, 1)}
     except Exception as e:
         return k, {"error": type(e).__name__ + ": " + str(e)[:80]}
 
@@ -1187,20 +1211,16 @@ def render(path, plan):
                 laid[p] = {"layers": len(layers), "bars_swapped": int(swapped.sum()), "keep": P["keep"][p]}
             else:
                 out += X[p]
-        loud = None; af = None
+        loud = None
         if P["master"] and laid:
-            ref, _pk = loudness_lufs(original); cur, _pk2 = loudness_lufs(out)
-            gain_db = 0.0
-            if ref is not None and cur is not None and ref > -70 and cur > -70: gain_db = max(-12.0, min(12.0, ref - cur))
-            out *= 10 ** (gain_db / 20)
-            # a lookahead limiter at -2 dBFS: MP3 coding adds up to a decibel of overshoot, so the file stays under full scale
-            af = "alimiter=limit=0.8:attack=5:release=60:level=false"
-            loud = {"track_lufs": ref, "swapped_lufs_before": cur, "gain_db": round(gain_db, 2), "ceiling_dbfs": -1.9}
+            # loudness matched to the original after a lookahead limiter at -1.9 dBFS (MP3 coding adds up to a decibel
+            # of overshoot, so the file stays under full scale)
+            out, loud = master(out, original)
         else:
             pk = float(np.abs(out).max()) or 1.0
             if pk > 0.98: out *= 0.98 / pk
         meta = {"title": f"{P['name']} (swapped)", "comment": "Loops: " + "; ".join(credits) if credits else "No parts swapped"}
-        data = mp3_bytes(out, kbps=320, meta=meta, af=af)
+        data = mp3_bytes(out, kbps=320, meta=meta)
         return {"name": P["name"], "seconds": round(n / SR, 1), "credits": credits, "mp3": data, "took": round(time.time() - t0, 1),
                 "laid": laid, "moves": P["moves"], "loudness": loud}
     finally:

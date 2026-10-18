@@ -275,13 +275,17 @@ async def recognise(request: Request):
 #   GET  /file?id=&t=                                  -> MP3 of the whole track, swapped (an attachment)
 #   GET  /artists?t=                                   -> [[artist, separated records], ...] for the search
 # The track lives in memory and a temporary directory for the length of each call; nothing is written anywhere.
+# pyin's compiled code (numba) is made once, at build, so a fresh container does not spend half a minute a part on it
+_WARM = "import numpy as np, librosa; y = np.random.default_rng(0).standard_normal(22050 * 4).astype('float32'); [librosa.pyin(y, fmin=lo, fmax=hi, sr=22050, frame_length=fl, hop_length=512) for lo, hi, fl in ((35, 330, 2048), (80, 1500, 1024))]"
 swap_gpu_image = (_built.apt_install("rubberband-cli")
+                  .run_commands(f"python -c \"{_WARM}\"")
                   .env({"TF_FORCE_GPU_ALLOW_GROWTH": "true"})
                   .add_local_python_source("features")
                   .add_local_dir("worker", "/root/worker"))
 swap_light = (modal.Image.debian_slim(python_version="3.12")
               .apt_install("ffmpeg", "rubberband-cli", "libsndfile1")
               .pip_install("numpy<2", "scipy", "librosa==0.10.2", "soundfile", "fastapi[standard]")   # librosa: pyin, for a loop's own notes
+              .run_commands(f"python -c \"{_WARM}\"")
               .add_local_dir("worker", "/root/worker"))
 _embed = modal.Volume.from_name("sonic-embed", create_if_missing=True)
 
