@@ -281,7 +281,7 @@ swap_gpu_image = (_built.apt_install("rubberband-cli")
                   .add_local_dir("worker", "/root/worker"))
 swap_light = (modal.Image.debian_slim(python_version="3.12")
               .apt_install("ffmpeg", "rubberband-cli", "libsndfile1")
-              .pip_install("numpy<2", "soundfile", "fastapi[standard]")
+              .pip_install("numpy<2", "scipy", "librosa==0.10.2", "soundfile", "fastapi[standard]")   # librosa: pyin, for a loop's own notes
               .add_local_dir("worker", "/root/worker"))
 _embed = modal.Volume.from_name("sonic-embed", create_if_missing=True)
 
@@ -387,6 +387,20 @@ def swap():
         try:
             b = await req.json()
             r = await asyncio.to_thread(SW.loop_audio, str(b.get("part") or ""), int(b.get("id")), b.get("f"), b.get("shift"), b.get("tempo"))
+        except Exception as e:
+            return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:160]}, 400)
+        return r if not r.get("error") else JSONResponse(r, 404)
+
+    @api.post("/follow")
+    async def follow(req: Request):
+        """A listed loop following your notes (or your kick and snare pattern) over the window's bars, for the page to
+        play in place of the loop's cycle."""
+        if not ok(req): return no()
+        try:
+            b = await req.json(); bars = int(b.get("bars") or 0)
+            if not (1 <= bars <= 128): return JSONResponse({"error": "bars"}, 400)
+            your = {k: [(int(v) if v is not None else None) for v in (b.get("your") or {}).get(k) or []][: bars * 16] for k in ("notes", "kick", "snare")}
+            r = await asyncio.to_thread(SW.follow_audio, str(b.get("part") or ""), int(b.get("id")), b.get("f"), b.get("shift"), b.get("tempo"), bars, your)
         except Exception as e:
             return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:160]}, 400)
         return r if not r.get("error") else JSONResponse(r, 404)

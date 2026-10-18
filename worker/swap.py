@@ -354,6 +354,17 @@ def read_track(path, name="track"):
         b0, W = listening_window(levels, nb, bar)
         ws, we = int((g0 + b0 * bar) * SR), min(n, int((g0 + (b0 + W) * bar) * SR))
         timing["bars"] = round(time.time() - t_start, 1)
+        # what each part plays, sixteenth by sixteenth: notes for bass, melody and voice; kicks and snares for the drums
+        from concurrent.futures import ThreadPoolExecutor
+        def read_line(k):
+            try:
+                if k == "drums":
+                    kk, ss = hits_of(X[k], g0, bar, nb); return k, {"kick": kk, "snare": ss}
+                nts, on = notes_of(X[k], k, g0, bar, nb); return k, {"notes": nts, "onsets": [int(v) for v in on]}
+            except Exception as e:
+                return k, {"error": type(e).__name__ + ": " + str(e)[:80]}
+        with ThreadPoolExecutor(4) as ex: follow = dict(ex.map(read_line, PARTS))
+        timing["lines"] = round(time.time() - t_start, 1)
         # the parts' measures on the window, exactly as a reading measures them
         rec = {}
         for k in PARTS:
@@ -398,7 +409,7 @@ def read_track(path, name="track"):
                          "nbeats": nbeats, "rough_tempo": round(T0, 2) if T0 else None, "strength": round(strength, 4), "tracker_offset_ms": tr_off},
                 "beat_levels": blevels,
                 "window": {"b0": b0, "bars": W, "start_s": round(ws / SR, 5), "end_s": round(we / SR, 5)},
-                "levels": levels, "vectors": vec, "plain": plain, "nearest": nearest, "like": like,
+                "levels": levels, "vectors": vec, "plain": plain, "nearest": nearest, "like": like, "follow": follow,
                 "model": S.MODEL, "timing": timing, "audio": audio}
     finally:
         shutil.rmtree(w, ignore_errors=True)
@@ -761,6 +772,236 @@ def loop_audio(part, lid, f, shift, tempo):
             "prep": prep, "wav": base64.b64encode(wav_bytes(y)).decode()}
 
 
+
+
+# ---------------------------------------------------------------- following your notes (your line or pattern, the loop's sound)
+NOTE_RANGES = {"bass": (35, 330), "other": (80, 1500), "vocals": (80, 1100)}
+
+def _rise_peaks(r, fr, wait_s=0.06, rel=0.2):
+    """Local maxima of a rise envelope at least rel of its 95th-percentile peak, at least wait_s apart (the stronger kept)."""
+    thr = rel * (np.percentile(r[r > 0], 95) if (r > 0).any() else 1.0)
+    cand = np.where((r[1:-1] >= r[:-2]) & (r[1:-1] > r[2:]) & (r[1:-1] >= thr))[0] + 1
+    out = []; wait = int(wait_s * fr)
+    for i in cand:
+        if out and i - out[-1] < wait:
+            if r[i] > r[out[-1]]: out[-1] = i
+            continue
+        out.append(i)
+    return np.array(out, int)
+
+def notes_of(x, part, g0, bar, nb, sr_in=SR, delay=0.0):
+    import librosa
+    """Per sixteenth of each bar: the MIDI note sounding there (int) or None. pyin on the mono part at 22050 Hz gives a
+    pitch per frame; a step is voiced when 40% of its middle frames are; a note runs from an onset (a peak in the rise
+    of the part's level) or the first voiced step to the next onset or silence, and every step of it takes the pitch
+    of the run's loudest frames (the median over the frames above the run's median level), so a bent or wobbling note
+    reads as one note. Returns (notes, onsets)."""
+    sr = 22050; y = librosa.resample(x.mean(1).astype(np.float32), orig_sr=sr_in, target_sr=sr) if sr_in != sr else x.mean(1).astype(np.float32)
+    fmin, fmax = NOTE_RANGES[part]; hop = 256; fr = sr / hop; step = bar / 16
+    f0, voiced, prob = librosa.pyin(y, fmin=fmin, fmax=fmax, sr=sr, frame_length=2048, hop_length=hop)
+    midi = librosa.hz_to_midi(np.where(voiced, f0, np.nan))
+    e = np.abs(y); eh = e[: len(e) // hop * hop].reshape(-1, hop).max(1); rise = np.maximum(0, np.diff(eh, prepend=eh[:1]))
+    pk = _rise_peaks(rise, fr, 0.06, 0.2); pk_steps = set(int(round((i / fr - delay - g0) / step)) for i in pk)
+    def frames(k):
+        t0 = g0 + delay + (k // 16) * bar + (k % 16) * step; return int((t0 + 0.15 * step) * fr), int((t0 + 0.85 * step) * fr)
+    raw = []
+    for k in range(nb * 16):
+        i0, i1 = frames(k); seg = midi[i0:i1]
+        raw.append(np.isfinite(seg).mean() >= 0.4 if len(seg) else False)
+    notes = [None] * len(raw); onsets = [False] * len(raw); i = 0
+    while i < len(raw):
+        if not raw[i]: i += 1; continue
+        j = i + 1
+        while j < len(raw) and raw[j] and j not in pk_steps: j += 1
+        i0, _ = frames(i); _, i1 = frames(j - 1); m = midi[i0:i1]; lv = eh[i0:i1][: len(m)]
+        ok = np.isfinite(m)
+        if ok.any():
+            loud = lv >= np.median(lv[ok]) if ok.sum() > 2 else np.ones(len(m), bool)
+            sel = m[ok & loud] if (ok & loud).any() else m[ok]
+            n = int(round(float(np.median(sel))))
+            for k in range(i, j): notes[k] = n
+            onsets[i] = True
+        i = j
+    return notes, onsets
+
+def hits_of(x, g0, bar, nb, sr_in=SR, delay=0.0):
+    from scipy.signal import butter, sosfiltfilt
+    """Per sixteenth: a kick and a snare. Hits are peaks in the rise of the drums' level (full band, 1.5 ms frames);
+    each is sorted by the sound in its first 40 ms: a kick when the 30-120 Hz band holds at least 40% of the loudest
+    nearby hit's (a hit within 100 ms after a kick is that kick's swell); a snare (or clap, with or without a kick under it) when 150-800 Hz holds a quarter and 2-8 kHz
+    three tenths of the loudest nearby hit's. Each lands on its nearest step. Returns (kick, snare) as lists of 0/1."""
+    m = x.mean(1).astype(np.float32); hop = 64; fr = sr_in / hop; step = bar / 16; n = nb * 16
+    e = np.abs(m); eh = e[: len(e) // hop * hop].reshape(-1, hop).max(1); rise = np.maximum(0, np.diff(eh, prepend=eh[:1]))
+    pk = _rise_peaks(rise, fr, 0.04, 0.08)
+    def band(lo, hi): return np.abs(sosfiltfilt(butter(4, [lo, hi], "band", fs=sr_in, output="sos"), m))
+    L, M, H = band(30, 120), band(150, 800), band(2000, 8000); W = int(0.04 * sr_in)
+    rows = []
+    for i in pk:
+        s0 = int(i * hop); s1 = s0 + W
+        rows.append((i / fr - delay, float(L[s0:s1].mean()), float(M[s0:s1].mean()), float(H[s0:s1].mean()), float(rise[i])))
+    kick = np.zeros(n, int); snare = np.zeros(n, int)
+    if not rows: return kick.tolist(), snare.tolist()
+    T = np.array([r[0] for r in rows]); Lv = np.array([r[1] for r in rows]); Mv = np.array([r[2] for r in rows]); Hv = np.array([r[3] for r in rows])
+    # kicks first: low band at least half the loudest nearby and outweighing the mids; a second kick within 100 ms is the
+    # same kick's swell
+    Rv = np.array([r[4] for r in rows])
+    isk = np.zeros(len(T), bool); last_k = -1.0; last_r = 0.0
+    for q, t in enumerate(T):
+        near = np.abs(T - t) <= 4 * bar; lref = Lv[near].max() + 1e-9
+        # within 150 ms of a kick, only a rise as sharp as that kick's (60%) is a new kick; a softer one is its swell
+        if Lv[q] >= 0.4 * lref and (t - last_k > 0.15 or Rv[q] >= 0.6 * last_r): isk[q] = True; last_k = t; last_r = Rv[q]
+    tail = np.zeros(len(T), bool)   # a hit within 100 ms after a kick is that kick's tail
+    kt = T[isk]
+    for q, t in enumerate(T):
+        if not isk[q] and kt.size and ((t - kt > 0) & (t - kt <= 0.15)).any(): tail[q] = True
+    for q, t in enumerate(T):
+        k = int(round((t - g0) / step))
+        if not (0 <= k < n): continue
+        if isk[q]: kick[k] = 1
+        if tail[q]: continue
+        # a snare or clap, with or without a kick under it: mids and highs both strong against the loudest nearby hit
+        # (a kick alone has little above 2 kHz; a hat has little between 150 and 800 Hz)
+        near = (np.abs(T - t) <= 4 * bar) & ~tail
+        mref = Mv[near].max() + 1e-9; href = Hv[near].max() + 1e-9
+        if Mv[q] >= 0.25 * mref and Hv[q] >= 0.3 * href: snare[k] = 1
+    return kick.tolist(), snare.tolist()
+
+
+def loop_notes(cycle, part, tempo, cycle_bars):
+    """The prepared cycle's own notes per sixteenth (its grid starts at its first sample)."""
+    steps = int(round(cycle_bars * 16)); bar = 240 / tempo
+    n, _on = notes_of(cycle, part, 0.0, bar, max(1, int(math.ceil(cycle_bars))))
+    return n[:steps] if len(n) >= steps else n + [None] * (steps - len(n))
+
+
+def loop_kit(cycle, tempo):
+    """A drum loop's kit: its kick (the loudest kick hit, to the next hit or 350 ms), its snare (likewise, the loudest
+    hit that is not a kick), each faded at its end, and its top (the cycle above 1.8 kHz: hats and the rest)."""
+    from scipy.signal import butter, sosfiltfilt
+    m = cycle.mean(1).astype(np.float32); hop = 64; fr = SR / hop
+    e = np.abs(m); eh = e[: len(e) // hop * hop].reshape(-1, hop).max(1); rise = np.maximum(0, np.diff(eh, prepend=eh[:1]))
+    pk = _rise_peaks(rise, fr, 0.04, 0.08)
+    def band(lo, hi): return np.abs(sosfiltfilt(butter(4, [lo, hi], "band", fs=SR, output="sos"), m))
+    L, M, H = band(30, 120), band(150, 800), band(2000, 8000); W = int(0.04 * SR)
+    hits = [(int(i * hop), float(L[int(i * hop): int(i * hop) + W].mean()), float(M[int(i * hop): int(i * hop) + W].mean()), float(H[int(i * hop): int(i * hop) + W].mean()), float(rise[i])) for i in pk]
+    def take(q):
+        """From hit q to the next hit whose rise is as sharp as its own (60%: a new attack, not a swell), or 350 ms."""
+        s0 = hits[q][0]; e_ = min(len(cycle), s0 + int(0.35 * SR))
+        for h in hits[q + 1:]:
+            if h[4] >= 0.6 * hits[q][4]: e_ = min(e_, h[0]); break
+        seg = cycle[s0:e_].copy(); F = min(len(seg), int(0.01 * SR))
+        if F > 1: seg[-F:] *= np.linspace(1, 0, F)[:, None]
+        return seg
+    kit = {"kick": None, "snare": None, "top": sosfiltfilt(butter(4, 1800, "high", fs=SR, output="sos"), cycle, axis=0).astype(np.float32)}
+    if hits:
+        lref = max(h[1] for h in hits) + 1e-9; isk = [h[1] >= 0.4 * lref for h in hits]
+        tail = [False] * len(hits)   # a softer hit within 150 ms after a kick is its swell
+        for q, h in enumerate(hits):
+            if isk[q]: continue
+            for q2 in range(q - 1, -1, -1):
+                if h[0] - hits[q2][0] > 0.15 * SR: break
+                if isk[q2] and h[4] < 0.6 * hits[q2][4]: tail[q] = True; break
+        ks = [q for q in range(len(hits)) if isk[q]]
+        if ks: kit["kick"] = take(max(ks, key=lambda q: hits[q][1]))
+        sn = [q for q, h in enumerate(hits) if not isk[q] and not tail[q] and h[2] > 0 and h[3] > 0]
+        if sn:
+            mref = max(hits[q][2] for q in sn) + 1e-9; sn = [q for q in sn if hits[q][2] >= 0.33 * mref]
+            kit["snare"] = take(max(sn, key=lambda q: hits[q][2] + hits[q][3]))
+    return kit
+
+
+def _tile(cycle, n):
+    out = np.zeros((n, 2), np.float32); C = len(cycle); k = 0
+    while k < n:
+        m = min(C, n - k); out[k:k + m] = cycle[:m]; k += C
+    return out
+
+
+def follow_tonal(cycle, cycle_bars, lnotes, your, tempo, bars, part):
+    """The cycle, tiled over bars whole bars and re-pitched sixteenth by sixteenth to your notes with Rubber Band's
+    frequency map: at each step the loop's own note there is shifted to your note, your line moved whole octaves to
+    the loop's register (the octave that puts the median of your notes nearest the median of the loop's). Where you
+    hold no note, your last note in the bar holds; before your first note, the loop plays its own. Returns (audio,
+    info): the steps followed, the shift range in semitones."""
+    bar = 240 / tempo; n = int(round(bars * bar * SR)); x = _tile(cycle, n)
+    steps = int(round(cycle_bars * 16)); ln = [v for v in lnotes if v is not None]; yn = [v for v in your if v is not None]
+    if not ln or not yn: return x, {"followed": 0, "why": "no notes read in the " + ("loop" if not ln else "part")}
+    lmed = float(np.median(ln)); off = 12 * int(round((lmed - float(np.median(yn))) / 12))
+    ratios = []; last = None; followed = 0; shifts = []
+    for k in range(bars * 16):
+        if k % 16 == 0: last = None
+        y = your[k] if k < len(your) else None
+        if y is not None: last = y
+        l = lnotes[k % steps] if steps else None
+        if last is None: r = 1.0
+        else:
+            src = l if l is not None else lmed; st = (last + off) - src; shifts.append(st); r = float(2 ** (st / 12)); followed += 1
+        ratios.append(min(4.0, max(0.25, r)))
+    step_n = n / (bars * 16); lines = []; prev = None
+    for k, r in enumerate(ratios):
+        if prev is None or abs(r - prev) > 1e-6: lines.append(f"{int(round(k * step_n))} {r:.6f}"); prev = r
+    if len(lines) <= 1 and (prev is None or abs(prev - 1) < 1e-6): return x, {"followed": followed, "shift_semitones": [0, 0]}
+    import soundfile as sf
+    w = tempfile.mkdtemp()
+    try:
+        a, b, mp = os.path.join(w, "in.wav"), os.path.join(w, "out.wav"), os.path.join(w, "map.txt")
+        sf.write(a, x, SR, subtype="FLOAT"); open(mp, "w").write("\n".join(lines) + "\n")
+        subprocess.run(["rubberband", "-q", "-3", "--freqmap", mp, a, b], check=True, timeout=600, capture_output=True)
+        y, _sr = sf.read(b, always_2d=True, dtype="float32")
+    finally:
+        shutil.rmtree(w, ignore_errors=True)
+    out = np.zeros((n, 2), np.float32); m = min(n, len(y)); out[:m] = y[:m, :2]
+    pk = float(np.abs(out).max()) or 1.0
+    if pk > 0.99: out *= 0.99 / pk
+    return out, {"followed": followed, "of": bars * 16, "shift_semitones": [round(min(shifts), 1), round(max(shifts), 1)] if shifts else [0, 0], "octave": off}
+
+
+def follow_drums(cycle, kit, kick, snare, tempo, bars):
+    """The loop's top tiled over bars whole bars, with its kick at your kicks and its snare at your snares (per
+    sixteenth). Returns (audio, info)."""
+    bar = 240 / tempo; n = int(round(bars * bar * SR)); out = _tile(kit["top"], n) if kit.get("top") is not None else np.zeros((n, 2), np.float32)
+    step = bar / 16; placed = {"kick": 0, "snare": 0}
+    for name, flags in (("kick", kick), ("snare", snare)):
+        smp = kit.get(name)
+        if smp is None or not len(smp): continue
+        for k, f in enumerate(flags[: bars * 16]):
+            if not f: continue
+            s0 = int(round(k * step * SR)); m = min(len(smp), n - s0)
+            if m <= 0: break
+            out[s0:s0 + m] += smp[:m]; placed[name] += 1
+    pk = float(np.abs(out).max()) or 1.0
+    if pk > 0.99: out *= 0.99 / pk
+    return out, {"placed": placed, "has": {"kick": kit.get("kick") is not None, "snare": kit.get("snare") is not None}}
+
+
+def follow_part(part, meta, f, shift, tempo, bars, your):
+    """A listed loop following your notes (bass, melody, voice: notes per sixteenth) or your pattern (drums: kick and
+    snare flags per sixteenth) over bars whole bars from a bar line. Returns (audio, prep, info)."""
+    y, prep = prepare_cached(meta, float(f or 1.0), int(shift or 0) if part != "drums" else 0, float(tempo))
+    if part == "drums":
+        kit = loop_kit(y, tempo); out, info = follow_drums(y, kit, your.get("kick") or [], your.get("snare") or [], tempo, bars)
+    else:
+        ln = loop_notes(y, part, tempo, prep["cycle_bars"]); out, info = follow_tonal(y, prep["cycle_bars"], ln, your.get("notes") or [], tempo, bars, part)
+        info["loop_notes"] = sum(1 for v in ln if v is not None); info["loop_steps"] = len(ln)
+    m = out.mean(1); rms = float(np.sqrt(np.mean(m ** 2)))
+    info["rms_db"] = round(20 * math.log10(rms), 2) if rms > 1e-6 else -120.0
+    return out, prep, info
+
+
+def follow_audio(part, lid, f, shift, tempo, bars, your):
+    """The /follow endpoint: a listed loop following your notes or pattern over bars whole bars, as MP3 (base64) with
+    the loop's preparation and what was followed."""
+    if part not in PARTS: return {"error": "unknown part"}
+    m = loop_by_id(part, lid)
+    if not m: return {"error": "no such loop"}
+    try:
+        out, prep, info = follow_part(part, m, f, shift, float(tempo), int(bars), your or {})
+    except Exception as e:
+        return {"error": "could not follow: " + type(e).__name__ + ": " + str(e)[:120]}
+    return {"part": part, "loop": {"id": m.get("id"), "name": m.get("name"), "user": m.get("user")}, "prep": prep, "info": info,
+            "bars": int(bars), "mp3": base64.b64encode(mp3_bytes(out)).decode()}
+
+
 # ---------------------------------------------------------------- the whole track, by the plan the page played
 def clean_plan(plan, nb_max=10000):
     """The page's plan, checked. Per part: nothing (keep yours), or one or more layers, each a loop id with the bars it
@@ -783,7 +1024,7 @@ def clean_plan(plan, nb_max=10000):
             for r in (lay_.get("runs") or [])[:2000]:
                 r0, r1 = int(r[0]), int(r[1])
                 if 0 <= r0 < r1 <= grid["nb"]: runs.append((r0, r1))
-            if runs and any(gains): L.append({"loop": int(lay_["loop"]), "f": float(lay_.get("f") or 1), "shift": int(lay_.get("shift") or 0), "gains": gains, "runs": runs})
+            if runs and any(gains): L.append({"loop": int(lay_["loop"]), "f": float(lay_.get("f") or 1), "shift": int(lay_.get("shift") or 0), "gains": gains, "runs": runs, "follow": bool(lay_.get("follow"))})
         if L: parts[p] = L
     keep = {}
     for p in PARTS:
@@ -837,15 +1078,21 @@ def apply_moves(out, g0, bar, gains, runs, nb, moves, part, ramp_s=0.005):
             r0 = max(0, s4 - R); out[r0:s4] *= np.linspace(1, 0, s4 - r0)[:, None]; out[s4:e] = 0
 
 
-def lay(cycle, n, g0, bar, gains, runs, ramp_s=0.005, moves=None, part=None):
-    """A swapped part for the whole track: the cycle from the start of each run of bars, repeated to its end, at each
-    bar's gain, with five-millisecond ramps where the gain changes (as the page schedules it), and the moves applied."""
-    out = np.zeros((n, 2), np.float32); C = len(cycle)
-    for r0, r1 in runs:
-        s0, s1 = int(round((g0 + r0 * bar) * SR)), min(n, int(round((g0 + r1 * bar) * SR)))
-        k = s0
-        while k < s1:
-            m = min(C, s1 - k); out[k:k + m] += cycle[:m]; k += C
+def lay(cycle, n, g0, bar, gains, runs, ramp_s=0.005, moves=None, part=None, timed=None):
+    """A swapped part for the whole track: the cycle from the start of each run of bars, repeated to its end (or, with
+    timed, audio already laid out from the first bar line: a part following your notes), at each bar's gain, with
+    five-millisecond ramps where the gain changes (as the page schedules it), and the moves applied."""
+    out = np.zeros((n, 2), np.float32)
+    if timed is not None:
+        s0 = int(round(g0 * SR)); m = min(len(timed), n - s0)
+        if m > 0: out[s0:s0 + m] = timed[:m]
+    else:
+        C = len(cycle)
+        for r0, r1 in runs:
+            s0, s1 = int(round((g0 + r0 * bar) * SR)), min(n, int(round((g0 + r1 * bar) * SR)))
+            k = s0
+            while k < s1:
+                m = min(C, s1 - k); out[k:k + m] += cycle[:m]; k += C
     if moves: apply_moves(out, g0, bar, gains, runs, len(gains), moves, part, ramp_s)
     return out * bar_envelope(n, g0, bar, gains, ramp_s)[:, None]
 
@@ -879,7 +1126,12 @@ def render(path, plan):
         X = {k: read_wav(st[k])[0] for k in PARTS if k in st}
         n = min(len(v) for v in X.values()); X = {k: v[:n] for k, v in X.items()}
         original = sum(X.values())
-        out = np.zeros((n, 2), np.float32); credits = []; laid = {}
+        out = np.zeros((n, 2), np.float32); credits = []; laid = {}; lines = {}
+        def your_line(p):   # what your part plays, read once from the fresh separation on the plan's bar lines
+            if p not in lines:
+                if p == "drums": kk, ss = hits_of(X[p], g0, bar, nb); lines[p] = {"kick": kk, "snare": ss}
+                else: nts, _on = notes_of(X[p], p, g0, bar, nb); lines[p] = {"notes": nts}
+            return lines[p]
         for p in PARTS:
             layers = P["parts"].get(p) or []
             swapped = np.zeros(nb, bool)
@@ -887,10 +1139,15 @@ def render(path, plan):
                 m = loop_by_id(p, c["loop"])
                 if not m: continue
                 try:
-                    y, prep = prepare_cached(m, c["f"], c["shift"] if p != "drums" else 0, tempo)
-                except Exception:
-                    continue
-                out += lay(y, n, g0, bar, c["gains"], c["runs"], moves=P["moves"], part=p)
+                    if c.get("follow"):
+                        y, prep, finfo = follow_part(p, m, c["f"], c["shift"], tempo, nb, your_line(p))
+                        out += lay(None, n, g0, bar, c["gains"], c["runs"], moves=P["moves"], part=p, timed=y)
+                        laid.setdefault(p + "_follow", []).append(finfo)
+                    else:
+                        y, prep = prepare_cached(m, c["f"], c["shift"] if p != "drums" else 0, tempo)
+                        out += lay(y, n, g0, bar, c["gains"], c["runs"], moves=P["moves"], part=p)
+                except Exception as e:
+                    laid.setdefault("errors", []).append(f"{p} {c['loop']}: {type(e).__name__}: {str(e)[:80]}"); continue
                 swapped |= np.asarray(c["gains"]) > 0
                 cr = f"{m.get('name')} by {m.get('user')} (freesound.org/s/{m.get('id')}), {_licence(m.get('license'))}"
                 if cr not in credits: credits.append(cr)
