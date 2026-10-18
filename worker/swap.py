@@ -25,15 +25,25 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 # ---------------------------------------------------------------- the token the site signs (api/swap.js)
-def token_ok(t, key):
-    """'<expiry>.<nonce>.<signature>', signed by the site with the worker's shared key, valid until its expiry."""
+def token_scope(t, key):
+    """'<expiry>.<nonce>.<scope>.<signature>', signed by the site with the worker's shared key, valid until its expiry.
+    Returns the scope ('t' may split a track; 'e' may choose loops and render the example only), or None."""
     try:
-        exp, nonce, sig = str(t or "").split(".")
-        if int(exp) < time.time() or not key: return False
-        want = hmac.new(key.encode(), f"swap|{exp}|{nonce}".encode(), hashlib.sha256).hexdigest()[:32]
-        return hmac.compare_digest(want, sig)
+        exp, nonce, scope, sig = str(t or "").split(".")
+        if int(exp) < time.time() or not key or scope not in ("t", "e"): return None
+        want = hmac.new(key.encode(), f"swap|{exp}|{nonce}|{scope}".encode(), hashlib.sha256).hexdigest()[:32]
+        return scope if hmac.compare_digest(want, sig) else None
     except Exception:
-        return False
+        return None
+
+
+def example_ok(data):
+    """Whether a file is one of the page's examples (worker/swap_examples.json lists their SHA-256)."""
+    try:
+        allowed = set(json.load(open(os.path.join(HERE, "swap_examples.json"))).get("sha256") or [])
+    except Exception:
+        allowed = set()
+    return hashlib.sha256(data).hexdigest() in allowed
 
 
 # ---------------------------------------------------------------- audio in and out
@@ -268,7 +278,15 @@ def read_track(path, name="track"):
         try: key = SCN.key_from_parts(rec)
         except Exception: pass
         like = None
-        try: like = SCN.part_sounds_like(rec, k=5)
+        try:
+            like = SCN.part_sounds_like(rec, k=5)
+            # only artists Sonic can average: three or more separated records under the name the catalogue writes
+            if like and like.get("all"):
+                RP = record_parts(); AI = artist_ids(); keep = []
+                for nm, sc in like["all"]:
+                    hit = AI.get(str(nm).lower())
+                    if hit and sum(1 for t in hit[1] if t in RP["at"]) >= 3: keep.append([hit[0], sc])
+                like["all"] = keep
         except Exception: pass
         nearest = None
         try: nearest = SCN.licensed_parts(rec, tempo, (key or {}).get("key"))

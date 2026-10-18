@@ -325,7 +325,7 @@ def swap():
     KEY = os.environ.get("PARTS_KEY", "")
     CACHE = {}
 
-    def ok(req): return SW.token_ok(req.query_params.get("t"), KEY)
+    def ok(req): return SW.token_scope(req.query_params.get("t"), KEY)
     def no(): return JSONResponse({"error": "unauthorised"}, 401)
 
     async def finished(id_):
@@ -343,7 +343,7 @@ def swap():
 
     @api.post("/start")
     async def start(req: Request):
-        if not ok(req): return no()
+        if ok(req) != "t": return no()
         body = await req.body()
         if not body: return JSONResponse({"error": "no file"}, 400)
         if len(body) > 200_000_000: return JSONResponse({"error": "the file is larger than 200 MB"}, 413)
@@ -388,6 +388,7 @@ def swap():
         if f is None or plan is None: return JSONResponse({"error": "file and plan"}, 400)
         data = await f.read()
         if len(data) > 200_000_000: return JSONResponse({"error": "the file is larger than 200 MB"}, 413)
+        if ok(req) == "e" and not SW.example_ok(data): return JSONResponse({"error": "this key renders the example only"}, 403)
         try:
             P = SW.clean_plan(_json.loads(plan))
         except Exception as e:

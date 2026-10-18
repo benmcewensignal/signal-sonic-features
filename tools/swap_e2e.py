@@ -17,9 +17,9 @@ SR = 44100
 PARTS = ("drums", "bass", "other", "vocals")
 
 
-def tok():
+def tok(scope="t"):
     exp = int(time.time()) + 3600; nonce = secrets.token_hex(6)
-    return f"{exp}.{nonce}." + hmac.new(KEY.encode(), f"swap|{exp}|{nonce}".encode(), hashlib.sha256).hexdigest()[:32]
+    return f"{exp}.{nonce}.{scope}." + hmac.new(KEY.encode(), f"swap|{exp}|{nonce}|{scope}".encode(), hashlib.sha256).hexdigest()[:32]
 
 
 def note(title, msg): print(f"::notice title={title}::{msg}", flush=True)
@@ -164,9 +164,10 @@ def main():
                                                     "Access-Control-Request-Headers": "content-type"}, timeout=60)
     results["preflight"] = {"status": pf.status_code, "allow_origin": pf.headers.get("access-control-allow-origin")}
     results["no_token"] = requests.get(f"{BASE}/artists", timeout=60).status_code
+    results["example_token_cannot_split"] = requests.post(f"{BASE}/start", params={"t": tok("e")}, data=b"x" * 1000, timeout=60).status_code
     a = requests.get(f"{BASE}/artists", params={"t": tok()}, timeout=300)
     results["artists"] = len(a.json().get("artists", [])) if a.status_code == 200 else a.text[:200]
-    note("swap door", json.dumps({k: results[k] for k in ("preflight", "no_token", "artists")}))
+    note("swap door", json.dumps({k: results[k] for k in ("preflight", "no_token", "example_token_cannot_split", "artists")}))
     runs = []
     # a synthetic track, six minutes, 63 MB as WAV: known tempo and bars, and the size of a producer's bounce
     st, truth = track(bpm=124.0, offset=0.37, pickup_beats=1, bars=180, seed=3)
