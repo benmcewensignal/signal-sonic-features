@@ -40,9 +40,23 @@ def one(meta):
         t = (np.arange(len(fl)) * hop + n / 2) / SW.SR
         qq = 60 / tempo / 4; dd = np.abs(((t + qq / 2) % qq) - qq / 2)
         return float(fl[dd <= 0.02].sum() / (fl.sum() + 1e-12))
+    def best_lead(y, tempo):
+        """The lead in milliseconds (0-80) and the tempo within 2% that put the most of its hits on the grid."""
+        m = np.abs(y.mean(1)); hop = 64
+        e = m[: len(m) // hop * hop].reshape(-1, hop).max(1); rr = np.maximum(0, np.diff(e, prepend=e[:1]))
+        t = (np.arange(len(rr)) + 0.5) * hop / SW.SR; tot = rr.sum() + 1e-12
+        best = (0.0, 0.0, tempo)
+        for k in np.linspace(-0.02, 0.02, 21):
+            qq = 60 / (tempo * (1 + k)) / 4
+            for lead in np.arange(0, 0.0801, 0.002):
+                dd = np.abs(((t - lead + qq / 2) % qq) - qq / 2)
+                f = float(rr[dd <= 0.015].sum() / tot)
+                if f > best[0]: best = (f, lead, tempo * (1 + k))
+        return best
     if 0.96 <= r <= 1.04:
         te = N * 240 / d
-        out.update(kind="clean", fit=round(SW.grid_fit(x, te), 3), flux=round(flux_fit(x, te), 3))
+        bf, lead, tb = best_lead(x, lt * q)
+        out.update(kind="clean", fit=round(SW.grid_fit(x, te), 3), flux=round(flux_fit(x, te), 3), best_fit=round(bf, 3), lead_ms=round(1000 * lead, 1), best_tempo_vs_stated=round(tb / (lt * q), 4), len_tempo_vs_stated=round(te / (lt * q), 4))
     elif 1.04 < r <= 1.2:
         # a tail: the tempo that puts the most of its hits on the grid within 2% of the stated one, cut to N bars
         bestf = None
@@ -76,5 +90,9 @@ def main():
                 "clean or tail & flux fit >= .35": share(("clean", "tail"), "flux", 0.35),
                 "median level fit (clean)": float(sorted([r["fit"] for r in res if r.get("kind") == "clean"] or [0])[len([r for r in res if r.get("kind") == "clean"]) // 2]),
                 "median flux fit (clean)": float(sorted([r["flux"] for r in res if r.get("kind") == "clean"] or [0])[len([r for r in res if r.get("kind") == "clean"]) // 2]),
+                "clean & best fit >= .45": share(("clean",), "best_fit", 0.45), "clean & best fit >= .6": share(("clean",), "best_fit", 0.6),
+                "lead ms quantiles (clean)": sorted(r["lead_ms"] for r in res if r.get("kind") == "clean")[::max(1, len([r for r in res if r.get("kind") == "clean"]) // 8)],
+                "best tempo / stated quantiles": sorted(r["best_tempo_vs_stated"] for r in res if r.get("kind") == "clean")[::max(1, len([r for r in res if r.get("kind") == "clean"]) // 8)],
+                "length tempo / stated quantiles": sorted(r["len_tempo_vs_stated"] for r in res if r.get("kind") == "clean")[::max(1, len([r for r in res if r.get("kind") == "clean"]) // 8)],
                 "ratio quantiles": [round(x, 3) for x in sorted(r["ratio_to_bars"] for r in res)[::max(1, n // 10)]]}
         print("::notice title=swap loops " + fam + "::" + json.dumps(summ))
