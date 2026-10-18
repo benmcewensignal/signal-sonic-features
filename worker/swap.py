@@ -125,10 +125,10 @@ def master(out, reference, sr=SR):
     info = {"track_lufs": ref, "swapped_lufs_before": cur, "peak_before_dbfs": pk0, "ceiling_dbfs": -1.9}
     if ref is None or cur is None or ref < -70 or cur < -70:
         info["gain_db"] = 0.0; return limited(out, sr), info
-    g = max(-12.0, min(12.0, ref - cur)); y = limited(out * 10 ** (g / 20), sr); l1, _ = loudness_lufs(y, sr)
-    if l1 is not None and abs(ref - l1) > 0.3:
-        g = max(-12.0, min(12.0, g + max(-6.0, min(6.0, ref - l1)))); y = limited(out * 10 ** (g / 20), sr); l1, _ = loudness_lufs(y, sr)
-    info["gain_db"] = round(g, 2); info["swapped_lufs"] = l1
+    g = max(-12.0, min(12.0, ref - cur)); y = limited(out * 10 ** (g / 20), sr); l1, _ = loudness_lufs(y, sr); passes = 1
+    while l1 is not None and abs(ref - l1) > 0.3 and passes < 4:
+        g = max(-12.0, min(14.0, g + max(-6.0, min(6.0, ref - l1)))); y = limited(out * 10 ** (g / 20), sr); l1, _ = loudness_lufs(y, sr); passes += 1
+    info["gain_db"] = round(g, 2); info["swapped_lufs"] = l1; info["passes"] = passes
     return y, info
 
 
@@ -921,10 +921,22 @@ def _line_of_file(args):
 
 
 def loop_notes(cycle, part, tempo, cycle_bars):
-    """The prepared cycle's own notes per sixteenth (its grid starts at its first sample)."""
+    """The prepared cycle's own notes per sixteenth (its grid starts at its first sample). A loop pyin marks unvoiced
+    throughout (a sub that barely crosses its range, a loop that is mostly silence) still gets one note, the median
+    pitch of the fifth of its frames pyin is surest of, on every step, so it can at least be moved to your notes."""
     steps = int(round(cycle_bars * 16)); bar = 240 / tempo
     n, _on = notes_of(cycle, part, 0.0, bar, max(1, int(math.ceil(cycle_bars))))
-    return n[:steps] if len(n) >= steps else n + [None] * (steps - len(n))
+    n = n[:steps] if len(n) >= steps else n + [None] * (steps - len(n))
+    if not any(v is not None for v in n):
+        try:
+            import librosa
+            y = librosa.resample(cycle.mean(1).astype(np.float32), orig_sr=SR, target_sr=22050); fmin, fmax = NOTE_RANGES[part]
+            f0, _v, prob = librosa.pyin(y, fmin=max(25, fmin * 0.7), fmax=fmax, sr=22050, frame_length=2048, hop_length=512)
+            ok = np.isfinite(f0) & (prob >= np.percentile(prob, 80))
+            if ok.any(): n = [int(round(float(np.median(librosa.hz_to_midi(f0[ok])))))] * steps
+        except Exception:
+            pass
+    return n
 
 
 def loop_kit(cycle, tempo):
@@ -1178,7 +1190,7 @@ def render(path, plan):
         st = S.separate(wav, os.path.join(w, "sep"))
         X = {k: read_wav(st[k])[0] for k in PARTS if k in st}
         n = min(len(v) for v in X.values()); X = {k: v[:n] for k, v in X.items()}
-        original = sum(X.values())
+        original = read_wav(wav)[0][:n]   # the track itself: its separated parts sum to a little less
         out = np.zeros((n, 2), np.float32); credits = []; laid = {}; lines = {}
         def your_line(p):   # what your part plays, read once from the fresh separation on the plan's bar lines
             if p not in lines:
