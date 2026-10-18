@@ -1,0 +1,221 @@
+2026-10-18 18:59:51+00:00 2026-10-18 18:59:51.743828: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:51+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:51+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:51+00:00 2026-10-18 18:59:51.743866: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:51+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:51+00:00 2026-10-18 18:59:51.743889: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:51+00:00 2026-10-18 18:59:51.743907: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:51+00:00 2026-10-18 18:59:51.743928: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:51+00:00 2026-10-18 18:59:51.745494: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:51+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:51+00:00 2026-10-18 18:59:51.746720: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:51+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:51+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:51+00:00 2026-10-18 18:59:51.746753: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:51+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:51+00:00 2026-10-18 18:59:51.746779: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:51+00:00 2026-10-18 18:59:51.746797: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:51+00:00 2026-10-18 18:59:51.746814: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.170447: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.171768: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.171803: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.171831: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.171892: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.171911: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.178659: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.179907: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.179942: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.179968: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.179988: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.180006: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.182588: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.183808: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.183840: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.183863: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.183882: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.183899: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.188878: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.190114: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.190150: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.190172: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.190192: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.190208: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.190516: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.191697: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.191728: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.191749: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.191768: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.191785: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.192971: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.194156: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.194187: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.194210: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.194230: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.194248: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.195476: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.196667: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.196697: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.196718: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.196739: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.196757: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.197759: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.198945: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.198974: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.198997: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.199015: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.199033: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.200839: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.202034: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.202061: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.202085: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.202103: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.202120: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.204983: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.206179: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.206210: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.206232: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.206252: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.206271: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.209050: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.210246: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.210275: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.210295: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.210313: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.210329: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.212917: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.214101: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.214129: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.214155: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.214173: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.214190: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.216750: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.217936: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.217964: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.217986: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.218005: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.218023: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.224428: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.225660: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.225695: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.225718: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.225736: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.225757: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.230502: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.231756: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.231790: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.231815: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.231833: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.231850: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.234933: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.236164: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.236200: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.236223: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.236242: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.236261: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.239185: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.240404: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.240436: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.240459: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.240476: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.240494: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.243037: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.244247: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.244276: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.244298: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.244315: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.244331: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.246993: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.248195: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.248233: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.248254: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.248285: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.248302: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.250752: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:923] could not open file to read NUMA node: /sys/bus/pci/devices/0000:f4:00.0/numa_node
+2026-10-18 18:59:52+00:00 Your kernel may have been built without NUMA support.
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.251948: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1733] Found device 0 with properties: 
+2026-10-18 18:59:52+00:00 pciBusID: 0000:f4:00.0 name: Tesla T4 computeCapability: 7.5
+2026-10-18 18:59:52+00:00 coreClock: 1.59GHz coreCount: 40 deviceMemorySize: 14.57GiB deviceMemoryBandwidth: 298.08GiB/s
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.251981: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1766] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+2026-10-18 18:59:52+00:00 Skipping registering GPU devices...
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.252003: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1258] Device interconnect StreamExecutor with strength 1 edge matrix:
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.252021: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1264]      0 
+2026-10-18 18:59:52+00:00 2026-10-18 18:59:52.252038: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1277] 0:   N 
+2026-10-18 19:00:33+00:00     GET /result -> 200 OK  (duration: 318.0 ms, execution: 219.5 ms)
+2026-10-18 19:00:37+00:00     GET /result -> 200 OK  (duration: 320.1 ms, execution: 219.9 ms)
+2026-10-18 19:00:40+00:00     GET /result -> 200 OK  (duration: 317.4 ms, execution: 216.9 ms)
