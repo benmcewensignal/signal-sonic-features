@@ -1,0 +1,17 @@
+name: swap grid diag
+# Where a record's kicks sit against Swap's beat grid (tools/swap_griddiag.py). Annotations only.
+on:
+  workflow_dispatch:
+    inputs:
+      only: { description: "the records whose scene or name contains this", default: "tech-house" }
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q modal numpy
+      - env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: modal run tools/swap_griddiag.py --only "${{ inputs.only }}"
