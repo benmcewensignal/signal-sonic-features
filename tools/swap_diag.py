@@ -53,8 +53,27 @@ def one(meta):
                 f = float(rr[dd <= 0.015].sum() / tot)
                 if f > best[0]: best = (f, lead, tempo * (1 + k))
         return best
+    def flux_lead(y, tempo, max_s=0.06):
+        """As the worker's lead (worker/swap.py, _lead) but read from the rise in the spectrum (12 ms windows, 1.5 ms
+        apart), which sees a tonal loop's note starts where its level barely rises. On synthetic basslines, plucks and
+        pads with known leads it reads 1 to 2 ms early; on synthetic drums, whose kicks sweep down in pitch, 8 ms late."""
+        m = y.mean(1); n = 512; hop = 64
+        if len(m) < n * 2: return None
+        fr = np.lib.stride_tricks.sliding_window_view(m, n)[::hop] * np.hanning(n)
+        S = np.log1p(np.abs(np.fft.rfft(fr, axis=1)))
+        fl = np.r_[0, np.maximum(0, np.diff(S, axis=0)).sum(1)]
+        t = (np.arange(len(fl)) * hop + n / 2) / SW.SR; tot = float(fl.sum()) + 1e-12
+        qq = 60 / tempo / 4; leads = np.arange(0, max_s + 1e-9, 0.001)
+        dd = np.abs(((t[None, :] - leads[:, None] + qq / 2) % qq) - qq / 2)
+        fits = (fl[None, :] * (dd <= 0.015)).sum(1) / tot
+        spread = (fl[None, :] * np.minimum(dd, 0.03)).sum(1) / tot
+        ok = np.where(fits >= fits.max() - 0.02)[0]; k = int(ok[np.argmin(spread[ok])])
+        return float(leads[k]), float(fits[k]), float(fits[0])
     if 0.96 <= r <= 1.04:
         te = N * 240 / d
+        fx = flux_lead(x, te); lv = SW._lead(x, te)
+        if fx: out.update(flux_lead_ms=round(1000 * fx[0], 1), flux_fit_lead=round(fx[1], 3), flux_fit0=round(fx[2], 3))
+        out.update(level_lead_ms=round(1000 * lv[0], 1), level_fit_lead=round(lv[1], 3))
         bf, lead, tb = best_lead(x, lt * q)
         out.update(kind="clean", fit=round(SW.grid_fit(x, te), 3), flux=round(flux_fit(x, te), 3), best_fit=round(bf, 3), lead_ms=round(1000 * lead, 1), best_tempo_vs_stated=round(tb / (lt * q), 4), len_tempo_vs_stated=round(te / (lt * q), 4))
     elif 1.04 < r <= 1.2:
@@ -95,4 +114,13 @@ def main():
                 "best tempo / stated quantiles": sorted(r["best_tempo_vs_stated"] for r in res if r.get("kind") == "clean")[::max(1, len([r for r in res if r.get("kind") == "clean"]) // 8)],
                 "length tempo / stated quantiles": sorted(r["len_tempo_vs_stated"] for r in res if r.get("kind") == "clean")[::max(1, len([r for r in res if r.get("kind") == "clean"]) // 8)],
                 "ratio quantiles": [round(x, 3) for x in sorted(r["ratio_to_bars"] for r in res)[::max(1, n // 10)]]}
+        cl = [r for r in res if r.get("kind") == "clean" and "flux_lead_ms" in r]
+        def q8(v): v = sorted(v); return [round(float(x), 1) for x in v[::max(1, len(v) // 8)]] + ([round(float(v[-1]), 1)] if v else [])
+        def med(v): v = sorted(v); return round(float(v[len(v) // 2]), 3) if v else None
+        summ.update({"clean read for leads": len(cl),
+                     "flux lead ms quantiles": q8([r["flux_lead_ms"] for r in cl]),
+                     "flux fit at that lead / at none (medians)": [med([r["flux_fit_lead"] for r in cl]), med([r["flux_fit0"] for r in cl])],
+                     "flux fit at lead >= .45": round(sum(1 for r in cl if r["flux_fit_lead"] >= 0.45) / max(1, len(cl)), 3),
+                     "level lead ms quantiles (worker rule)": q8([r["level_lead_ms"] for r in cl]),
+                     "flux minus level lead ms, where level fit >= .3": q8([r["flux_lead_ms"] - r["level_lead_ms"] for r in cl if r["level_fit_lead"] >= 0.3])})
         print("::notice title=swap loops " + fam + "::" + json.dumps(summ))
