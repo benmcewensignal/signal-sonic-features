@@ -931,8 +931,8 @@ def loop_notes(cycle, part, tempo, cycle_bars):
         try:
             import librosa
             y = librosa.resample(cycle.mean(1).astype(np.float32), orig_sr=SR, target_sr=22050); fmin, fmax = NOTE_RANGES[part]
-            f0, _v, prob = librosa.pyin(y, fmin=max(25, fmin * 0.7), fmax=fmax, sr=22050, frame_length=2048, hop_length=512)
-            ok = np.isfinite(f0) & (prob >= np.percentile(prob, 80))
+            f0, _v, prob = librosa.pyin(y, fmin=max(25, fmin * 0.7), fmax=fmax, sr=22050, frame_length=2048, hop_length=512, fill_na=None)
+            ok = np.isfinite(f0) & (prob >= np.percentile(prob, 80)) & (prob > 0.05)
             if ok.any(): n = [int(round(float(np.median(librosa.hz_to_midi(f0[ok])))))] * steps
         except Exception:
             pass
