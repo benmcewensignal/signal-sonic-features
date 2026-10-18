@@ -1,0 +1,32 @@
+name: modal logs
+# The parts worker's recent logs (modal app logs), kept on the modal-logs branch, since a run's own log cannot be read
+# from outside. Lines that look like a container dying (preempted, out of memory, killed, an exit code) become annotations.
+on:
+  workflow_dispatch:
+    inputs:
+      seconds: { description: "how long to stream for", default: "90" }
+permissions: { contents: write }
+jobs:
+  logs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q modal
+      - name: stream
+        env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs" && cd "$RUNNER_TEMP/logs"
+          modal app logs --help > help.txt 2>&1 || true
+          if grep -q -- "--timestamps" help.txt; then ts="--timestamps"; else ts=""; fi
+          timeout "${{ inputs.seconds }}" modal app logs sonic-parts $ts > modal-logs.txt 2>&1 || true
+          echo "::notice title=modal logs::$(wc -l < modal-logs.txt) lines; timestamps: ${ts:-no}"
+          grep -n -i -E "preempt|out of memory|oom|killed|exit code|terminated|interrupt|SIGTERM|SIGKILL|memory limit|restart" modal-logs.txt | head -40 > signs.txt || true
+          if [ -s signs.txt ]; then echo "::warning title=modal log signs::$(head -c 3000 signs.txt | sed 's/%/%25/g' | tr '\n' '|')"; fi
+      - name: keep
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/logs" && git init -q && git checkout -q -b modal-logs
+          git config user.name sonic-bot; git config user.email sonic@earlysignal.live; git add -A && git commit -qm "modal logs ${{ github.run_id }}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" modal-logs:modal-logs
