@@ -80,7 +80,7 @@ def runs_of(act):
     return j
 
 
-def plan_for(res, loops, second=None, moves=None, keep=None, master=True):
+def plan_for(res, loops, second=None, moves=None, keep=None, master=True, follow=None):
     """The page's rule (swap.html), mirrored: a bar plays the loop where your part's level is within 14 dB of its loud
     bars (and above -50 dB), at your part's level in that bar, at most 12 dB up. With second {part: entry}, that part
     gets two layers: the first loop in the first half of the bars and the second in the rest (a section's own choice).
@@ -98,6 +98,8 @@ def plan_for(res, loops, second=None, moves=None, keep=None, master=True):
             parts[p] = [layer(L, half), layer(second[p], ~half)]
         else:
             parts[p] = [layer(L, np.ones(nb, bool))]
+        if follow and p in follow:
+            for lay_ in parts[p]: lay_["follow"] = True
     out = {"grid": {"g0": g["g0"], "bar": g["bar"], "nb": nb}, "tempo": res["tempo"], "name": res["name"], "parts": parts, "master": master}
     if keep: out["keep"] = keep
     if moves: out["moves"] = moves
@@ -230,6 +232,20 @@ def _one(label, data, truth=None, keep_render=False):
         picks[p] = {"loop": f"{L['loop']['name']} by {L['loop']['user']} ({L['loop']['licence']})", "closeness": L["closeness"], "rank": L["rank"], "of": L["of"],
                     "prep": L["prep"], "skipped": L.get("skipped"), "s": round(time.time() - t1, 1), "others": len(L.get("others") or [])}
     out["yours"] = picks
+    # following your notes: the bass loop re-pitched to the line read from your bass, the drum loop's kit on your pattern,
+    # over the window's bars; the audio must be as long as those bars
+    FL = R.get("follow") or {}; out["lines"] = {p: ({"error": v.get("error")} if v.get("error") else ({"kicks": sum(v["kick"]), "snares": sum(v["snare"])} if p == "drums" else {"steps_with_notes": sum(1 for x in v["notes"] if x is not None), "of": len(v["notes"])})) for p, v in FL.items()}
+    wb0, wbars = R["window"]["b0"], R["window"]["bars"]
+    for p in ("bass", "drums"):
+        if p not in loops or p not in FL or FL[p].get("error"): continue
+        your = {"kick": FL[p]["kick"][wb0 * 16:(wb0 + wbars) * 16], "snare": FL[p]["snare"][wb0 * 16:(wb0 + wbars) * 16]} if p == "drums" else {"notes": FL[p]["notes"][wb0 * 16:(wb0 + wbars) * 16]}
+        Lp = loops[p]; t1 = time.time()
+        Fr = again(lambda: http("post", f"{BASE}/follow", params={"t": tok()}, json={"part": p, "id": Lp["loop"]["id"], "f": Lp["prep"]["f"], "shift": Lp["prep"]["shift"], "tempo": R["tempo"], "bars": wbars, "your": your}, timeout=600), f"{label} follow {p}")
+        j = Fr.json() if Fr.headers.get("content-type", "").startswith("application/json") else {"error": Fr.text[:120]}
+        if j.get("error"): out.setdefault("follow", {})[p] = {"error": j["error"]}; continue
+        import base64 as _b64
+        y = decode(_b64.b64decode(j["mp3"])); want = wbars * g["bar"]
+        out.setdefault("follow", {})[p] = {"s": round(time.time() - t1, 1), "seconds": round(len(y) / SR, 2), "want_seconds": round(want, 2), "info": j.get("info")}
     # the listed loops' audio on demand: the second drum loop, prepared exactly as listed
     others = (loops.get("drums") or {}).get("others") or []; second_drums = None
     if others:
@@ -256,7 +272,8 @@ def _one(label, data, truth=None, keep_render=False):
     sw = {p: loops[p] for p in ("drums", "bass") if p in loops}
     if sw:
         plan = plan_for(R, sw, second={"drums": second_drums} if (second_drums and "drums" in sw) else None, keep={"bass": 0.5},
-                        moves={"phrase": 8, "offset": 0, "cut": list(sw), "roll": ["drums"] if "drums" in sw else []}, master=True)
+                        moves={"phrase": 8, "offset": 0, "cut": list(sw), "roll": ["drums"] if "drums" in sw else []}, master=True,
+                        follow=["bass"] if ("bass" in sw and (out.get("follow") or {}).get("bass", {}).get("info")) else None)
         t1 = time.time()
         rr = again(lambda: http("post", f"{BASE}/render", params={"t": tok()}, files={"file": ("track", data), "plan": (None, json.dumps(plan))}, timeout=600), f"{label} render")
         if rr.status_code != 200: out["render_error"] = rr.text[:200]
@@ -341,6 +358,7 @@ def main():
         msg["loopaudio"] = o.get("loopaudio"); msg["lufs"] = (o.get("render") or {}).get("lufs"); msg["mastering"] = (o.get("render") or {}).get("loudness")
         msg["last_beat_share"] = (o.get("render") or {}).get("last_beat_share"); msg["laid"] = (o.get("render") or {}).get("laid")
         msg["artist_bass_halfway"] = ((o.get("artist") or {}).get("parts") or {}).get("bass")
+        msg["lines"] = o.get("lines"); msg["follow"] = o.get("follow"); msg["timing"] = (o.get("timing") or {}).get("lines")
         note(f"swap {o['label']}"[:60], json.dumps(msg)[:900])
 
 
