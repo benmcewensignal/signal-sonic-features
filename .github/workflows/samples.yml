@@ -1,11 +1,12 @@
 name: samples
-# Sample matching: openly licensed loops from Freesound, measured as separated parts and matched to scenes.
-# Measuring runs on ten runners at once, each with a time budget, and saves as it goes.
+# The loop library: openly licensed loops from Freesound (and Openverse, ccMixter), measured as separated parts and matched to
+# scenes. Loops already in data/loops-measured.json are not measured again; new ones are added and the worker's
+# loop_index.pkl rebuilt, which deploys the worker. Measuring runs on ten runners at once, each with a time budget.
 on:
   workflow_dispatch:
     inputs:
       pages: { description: "result pages per search", default: "14" }
-      max: { description: "most loops per shard", default: "400" }
+      max: { description: "most loops per shard", default: "1500" }
       budget: { description: "minutes each shard may measure for", default: "75" }
 permissions: { contents: write }
 jobs:
@@ -55,11 +56,12 @@ jobs:
         with: { pattern: "loops-*", merge-multiple: true }
       - name: match loops to scenes
         run: python tools/samples.py --stage match --out sample-matches.json
-      - name: keep the matches in the repository, where they can be read
+      - name: keep the matches in the repository, where they can be read, and rebuild the worker's loop library from them
         run: |
           mkdir -p data && cp sample-matches.json data/sample-matches.json && cp loops-measured.json data/loops-measured.json
+          python tools/build_loop_index.py
           git config user.name sonic-bot; git config user.email sonic@earlysignal.live
-          git add data/sample-matches.json data/loops-measured.json && git commit -qm "sample matches: drums" || exit 0
+          git add data/sample-matches.json data/loops-measured.json worker/loop_index.pkl && git commit -qm "loop library: searched again, new loops measured and added (run ${{ github.run_id }})" || exit 0
           for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
       - uses: actions/upload-artifact@v4
         with: { name: sample-matches, path: sample-matches.json }

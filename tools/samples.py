@@ -19,8 +19,14 @@ WORDS = {"drum-and-bass": ["drum and bass", "dnb", "jungle", "d&b", "amen"], "14
          "electro": ["electro"], "electronica": ["electronica", "idm"], "nu-disco-disco": ["disco"], "indie-dance": ["indie", "disco"],
          "melodic-house-techno": ["melodic"], "mainstage": ["edm", "big room", "bigroom"]}
 
+def known_ids():
+    """The loops already in the library (data/loops-measured.json): searched past, not measured again."""
+    try: return {l["id"] for l in json.load(open("data/loops-measured.json"))}
+    except Exception: return set()
+
+
 def search(pages):
-    out, seen = [], set()
+    out, seen = [], set(known_ids())
     import time as _t
     QUERIES = ["drum loop", "percussion loop", "breakbeat loop", "house drum loop", "deep house drum loop", "tech house drum loop",
                "techno drum loop", "hard techno loop", "minimal techno loop", "drum and bass loop", "jungle break loop", "dnb drum loop 174",
@@ -34,12 +40,60 @@ def search(pages):
                "latin house loop", "baile funk drums", "gqom beat", "nu disco drum loop", "electro breakbeat loop", "idm drum loop",
                "chillout drum loop", "hi hat loop", "top loop", "groove loop 124"]
     # beyond drums: bass, melody and vocal loops, so a record's other parts can be matched to licensed sounds too
+    # a second round (October 2026): searches by tempo and by sound, so the thin families (bass, melody, voice) grow
+    QUERIES = QUERIES + [f"drum loop {t} bpm" for t in (118, 120, 122, 124, 125, 126, 128, 130, 132, 135, 138, 140, 145, 150, 160, 170, 172, 174, 180)] + [
+        "kick loop", "clap loop", "snare loop", "ride loop", "amen break", "think break", "two step drum loop", "techno percussion loop", "house top loop",
+        "minimal percussion loop", "tribal percussion loop", "djembe loop", "tabla loop", "timbale loop", "cowbell loop", "tambourine loop", "drum fill loop",
+        "broken beat loop", "halftime drum loop", "footwork drum loop", "juke drum loop", "ghetto house loop", "speed garage drum loop", "bassline house drums",
+        "deep techno loop", "dub techno loop", "acid techno loop", "industrial techno loop", "hypnotic techno loop", "peak time techno loop", "schranz loop",
+        "melodic house drums", "organic house drums", "downtempo percussion", "lofi drum loop", "trip hop drum loop", "breakbeat 128", "electro beat loop",
+        "miami bass loop", "freestyle drum loop", "dancehall drum loop", "reggaeton loop", "dembow loop", "afrobeats drum loop", "kuduro loop", "batida loop",
+        "singeli loop", "jersey club drum loop", "baltimore club loop", "footwork loop 160", "hardstyle drum loop", "rawstyle loop", "frenchcore loop",
+        "uptempo loop", "happy hardcore drum loop", "gabber loop", "donk loop", "makina loop", "hard house drum loop", "bounce drum loop", "trance 138 drums",
+        "psytrance kick bass loop", "goa trance loop", "progressive trance drums", "eurodance drum loop", "italo disco drum loop", "synthwave drum loop",
+        "funk drum loop", "soul drum loop", "disco house drums", "french house drum loop", "filter house loop", "jackin drums 126", "latin house percussion"]
     FAMILIES = {"drums": (QUERIES, {"drums", "drum", "drum-loop", "drumloop", "beat", "breakbeat", "percussion", "loop"}),
                 "bass": (["bass loop", "bassline loop", "sub bass loop", "reese bass loop", "acid bassline", "log drum loop", "house bassline", "techno bassline",
-                          "dnb bass loop", "garage bassline", "808 bass loop", "deep house bass"], {"bass", "bassline", "sub", "808", "reese", "acid", "log-drum", "logdrum", "sub-bass"}),
+                          "dnb bass loop", "garage bassline", "808 bass loop", "deep house bass",
+                          "synth bass loop", "moog bass loop", "fm bass loop", "wobble bass loop", "rolling bass loop", "neurofunk bass loop", "dubstep bass loop",
+                          "trance bass loop", "psytrance bassline", "offbeat bass loop", "electro bass loop", "funk bass loop", "disco bass loop", "slap bass loop",
+                          "minimal bass loop", "progressive house bass loop", "tech house bassline", "deep tech bass loop", "amapiano bass loop", "afro house bass loop",
+                          "uk garage bass loop", "speed garage bass loop", "bassline house loop", "303 acid loop", "tb-303 loop", "acid line loop", "bass riff loop",
+                          "bass groove loop", "bass sequence loop", "plucked bass loop", "picked bass loop", "fretless bass loop", "upright bass loop",
+                          "bass loop 120 bpm", "bass loop 124 bpm", "bass loop 125 bpm", "bass loop 126 bpm", "bass loop 128 bpm", "bass loop 130 bpm",
+                          "bass loop 135 bpm", "bass loop 140 bpm", "bass loop 150 bpm", "bass loop 160 bpm", "bass loop 170 bpm", "bass loop 174 bpm",
+                          "hardstyle bass loop", "donk bass loop", "melodic techno bass loop", "deep house bassline 122", "jackin house bass", "organic house bass",
+                          "latin bass loop", "reggaeton bass loop", "afrobeat bass loop", "dub bass loop", "breaks bass loop", "electro bassline"],
+                         {"bass", "bassline", "sub", "808", "reese", "acid", "log-drum", "logdrum", "sub-bass"}),
                 "melody": (["synth loop", "chord loop", "piano loop", "pad loop", "arp loop", "lead loop", "keys loop", "rhodes loop", "stab loop",
-                            "amapiano piano loop", "deep house chords", "trance lead loop", "melodic techno loop"], {"synth", "chord", "chords", "piano", "keys", "pad", "arp", "arpeggio", "lead", "melody", "melodic", "rhodes", "organ", "stab"}),
-                "vocals": (["vocal loop", "vocal chop", "acapella", "vocal phrase", "vocal hook", "house vocal", "vocal sample loop", "spoken word loop"],
+                            "amapiano piano loop", "deep house chords", "trance lead loop", "melodic techno loop",
+                            "melody loop", "synth melody loop", "techno synth loop", "house piano loop", "organ loop", "strings loop", "string loop", "pluck loop",
+                            "sequence loop", "arpeggio loop", "chord progression loop", "trance pluck loop", "deep house synth loop", "lofi piano loop",
+                            "guitar loop", "electric guitar loop", "acoustic guitar loop", "funk guitar loop", "brass loop", "horn loop", "flute loop",
+                            "sax loop", "saxophone loop", "bell loop", "marimba loop", "kalimba loop", "synth stab loop", "ambient pad loop", "drone loop",
+                            "amapiano keys loop", "afro house synth loop", "latin piano loop", "disco strings loop", "psytrance lead loop", "hardstyle lead loop",
+                            "dubstep synth loop", "dnb pad loop", "jungle pad loop", "garage chords loop", "2 step chords", "house organ loop", "house stab loop",
+                            "piano house loop", "italo synth loop", "synthwave loop", "electro synth loop", "acid synth loop", "techno stab loop", "techno chord loop",
+                            "trance chords loop", "uplifting trance loop", "progressive house synth loop", "big room lead loop", "future bass chords",
+                            "trap melody loop", "lofi keys loop", "jazz piano loop", "soul keys loop", "gospel chords loop", "choir pad loop", "vox pad loop",
+                            "chord stab loop 124", "synth loop 120 bpm", "synth loop 124 bpm", "synth loop 126 bpm", "synth loop 128 bpm", "synth loop 130 bpm",
+                            "synth loop 135 bpm", "synth loop 140 bpm", "synth loop 150 bpm", "synth loop 170 bpm", "synth loop 174 bpm", "melody loop 128 bpm",
+                            "piano loop 124 bpm", "piano loop 128 bpm", "chords loop 122 bpm", "keys loop 126 bpm", "pad loop 120 bpm", "arp loop 128 bpm",
+                            "balearic loop", "afrobeats melody loop", "amapiano lead loop", "gqom synth loop", "baile funk melody", "kuduro synth loop"], {"synth", "chord", "chords", "piano", "keys", "pad", "arp", "arpeggio", "lead", "melody", "melodic", "rhodes", "organ", "stab"}),
+                "vocals": (["vocal loop", "vocal chop", "acapella", "vocal phrase", "vocal hook", "house vocal", "vocal sample loop", "spoken word loop",
+                            "female vocal loop", "male vocal loop", "vocal chant loop", "choir loop", "vocal ad lib", "rap vocal loop", "spoken vocal loop",
+                            "vocal hook loop", "house vocal loop", "techno vocal loop", "garage vocal loop", "dnb vocal loop", "vocal shout loop", "vocal hum loop",
+                            "vocoder vocal loop", "soul vocal loop", "gospel vocal loop", "afro vocal loop", "amapiano vocal loop", "chant loop", "vocal oh loop",
+                            "vocal ah loop", "vocal phrase 120 bpm", "vocal loop 122 bpm", "vocal loop 124 bpm", "vocal loop 125 bpm", "vocal loop 126 bpm",
+                            "vocal loop 128 bpm", "vocal loop 130 bpm", "vocal loop 135 bpm", "vocal loop 140 bpm", "vocal loop 150 bpm", "vocal loop 160 bpm",
+                            "vocal loop 170 bpm", "vocal loop 174 bpm", "acapella 124 bpm", "acapella 128 bpm", "acapella house", "acapella techno", "acapella garage",
+                            "acapella dnb", "acapella trance", "vocal sample house", "diva vocal loop", "soulful vocal loop", "deep house vocal loop",
+                            "tech house vocal loop", "vocal stab loop", "vocal fx loop", "vocal texture loop", "humming loop", "whisper loop", "singing loop",
+                            "sung phrase loop", "vocal melody loop", "vocal harmony loop", "vocal riff loop", "scat loop", "beatbox loop", "vocal percussion loop",
+                            "female vocal 128", "male vocal 128", "female vocal 124", "vocal chop loop 128", "vocal chop house", "vocal chop future bass",
+                            "vocal chop garage", "vocal chop dnb", "vocal spoken loop 128", "poetry loop", "vocal hook house 126", "pop vocal loop",
+                            "rnb vocal loop", "vocal loop reggaeton", "latin vocal loop", "african vocal loop", "zulu vocal loop", "arabic vocal loop",
+                            "indian vocal loop", "gregorian chant loop", "monk chant loop", "vocal drone loop"],
                            {"vocal", "vocals", "voice", "acapella", "a-cappella", "vox", "chop", "singing", "sung", "spoken"})}
     for fam, (qs, _tags) in FAMILIES.items():
       for q in qs:
@@ -220,13 +274,20 @@ def main():
     a = ap.parse_args()
     if a.stage == "measure": return measure_stage(a)
     if a.stage == "search":   # searched once, and the list handed to every shard, so ten runners do not all hit Freesound's limit
-        f = search(a.pages); seen = {x["id"] for x in f}
+        f = search(a.pages); seen = {x["id"] for x in f} | known_ids()
         ov = openverse_search(seen); cc = ccmixter_search(seen); f = f + ov + cc
         json.dump(f, open("found.json", "w")); print("::notice title=search::" + json.dumps({"found": len(f), "openverse": len(ov), "ccmixter": len(cc)})); return
     if a.stage == "match":
         import glob
         rows = [r for f in sorted(glob.glob("loops-*.json")) for r in json.load(open(f))]
         print(f"loops measured across shards: {len(rows)}", flush=True)
+        try:   # the library grows: what was measured before stays, in its order, and the new loops follow
+            old = json.load(open("data/loops-measured.json")); have = {l["id"] for l in old}
+            new = [r for r in rows if r.get("id") not in have]
+            print(f"::notice title=library::{len(old)} loops kept, {len(new)} new of {len(rows)} measured this run", flush=True)
+            rows = old + new
+        except Exception as e:
+            print(f"::warning title=library::no earlier library read ({type(e).__name__}); this run's loops alone", flush=True)
     else:
         if not KEY: sys.exit("no Freesound key")
         found = search(a.pages)[:a.max]; print(f"loops found: {len(found)}", flush=True)
