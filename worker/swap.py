@@ -122,19 +122,21 @@ def _peaks(env, w=3, avg=12, delta=0.03, wait=8):
 
 def rough_tempo(drums):
     """The tempo the corpus would give the drum part (features/stems.py, rhythm_of_stem: a learned beat tracker on the
-    drums, its grid refitted to the kicks), read on forty seconds from the middle; None when it cannot say."""
+    drums, its grid refitted to the kicks), read on forty seconds from the middle, with that tracker's beats in the
+    track's time (a second opinion on where the beats are); (None, []) when it cannot say."""
     import soundfile as sf
     from features import stems as S
-    n = len(drums); m = int(40 * SR)
-    seg = drums[max(0, n // 2 - m // 2): max(0, n // 2 - m // 2) + m]
+    n = len(drums); m = int(40 * SR); i0 = max(0, n // 2 - m // 2)
+    seg = drums[i0: i0 + m]
     w = tempfile.mkdtemp()
     try:
         fp = os.path.join(w, "mid_drums.wav"); sf.write(fp, seg, SR, subtype="PCM_16")
         r = S.rhythm_of_stem(fp) or {}
         T = float(r.get("beats_per_minute") or 0)
-        return T if 50 <= T <= 250 else None
+        beats = [i0 / SR + float(b) for b in (r.get("_beats") or [])]
+        return (T if 50 <= T <= 250 else None), beats
     except Exception:
-        return None
+        return None, []
     finally:
         shutil.rmtree(w, ignore_errors=True)
 
@@ -146,7 +148,8 @@ def beat_grid(drums, mix, dur, T0=None):
     period and the eighth-note phase from the hits' Fourier component at the eighth-note rate, searched within 4% in
     steps of 0.01%; which eighths are beats from where the kicks and snares fall (30-500 Hz), on the beats more than
     between them in house, techno, garage, breaks and drum and bass alike; then a straight line through the hits nearest
-    each eighth, timed in the waveform. Returns (first beat at or after 0 s, period in seconds)."""
+    each eighth, timed in the waveform. Returns (first beat at or after 0 s, period in seconds, how strongly the hits
+    repeat at the eighth-note rate: the share of their rise that the Fourier component keeps, near 1 for a strict pulse)."""
     import librosa
     y = drums.mean(1)
     if float(np.sqrt(np.mean(y ** 2))) < 2e-3: y = mix.mean(1)
@@ -189,7 +192,7 @@ def beat_grid(drums, mix, dur, T0=None):
     while 60 / p < 86: p /= 2
     while 60 / p >= 186: p *= 2
     a = a - math.floor(a / p) * p      # the first beat at or after zero
-    return float(a), float(p)
+    return float(a), float(p), float(best / (full.sum() + 1e-12))
 
 
 def bar_phase(stems, a, p, dur):
@@ -290,8 +293,12 @@ def read_track(path, name="track"):
         if len(X) < 4: return {"error": "separation came back without all four parts"}
         n = min(len(v) for v in X.values()); X = {k: v[:n] for k, v in X.items()}; dur = n / SR
         mix = sum(X.values())
-        T0 = rough_tempo(X["drums"]); timing["rough_tempo"] = round(time.time() - t_start, 1)
-        a, p = beat_grid(X["drums"], mix, dur, T0); timing["grid"] = round(time.time() - t_start, 1)
+        T0, tbeats = rough_tempo(X["drums"]); timing["rough_tempo"] = round(time.time() - t_start, 1)
+        a, p, strength = beat_grid(X["drums"], mix, dur, T0); timing["grid"] = round(time.time() - t_start, 1)
+        # the tracker's beats against the grid: a second opinion on where the beats fall, in milliseconds (median)
+        tr_off = None
+        if len(tbeats) >= 8:
+            o = (np.asarray(tbeats) - a) % p; o = np.where(o > p / 2, o - p, o); tr_off = round(1000 * float(np.median(o)), 1)
         ph, margin = bar_phase(X, a, p, dur); bar = 4 * p
         g0 = a + ph * p
         if g0 >= bar: g0 -= bar
@@ -344,7 +351,7 @@ def read_track(path, name="track"):
         plain = {k: {c: (rec.get(k) or {}).get(c) for c in ("crest", "centroid_hz", "flatness", "onsets_per_s", "share_of_energy")} for k in PARTS}
         return {"name": str(name)[:120], "duration": round(dur, 2), "tempo": tempo, "key": key,
                 "grid": {"first_beat": round(a, 5), "beat": round(p, 6), "bar": round(bar, 6), "g0": round(g0, 5), "nb": nb, "phase": ph, "phase_margin": round(margin, 3),
-                         "nbeats": nbeats, "rough_tempo": round(T0, 2) if T0 else None},
+                         "nbeats": nbeats, "rough_tempo": round(T0, 2) if T0 else None, "strength": round(strength, 4), "tracker_offset_ms": tr_off},
                 "beat_levels": blevels,
                 "window": {"b0": b0, "bars": W, "start_s": round(ws / SR, 5), "end_s": round(we / SR, 5)},
                 "levels": levels, "vectors": vec, "plain": plain, "nearest": nearest, "like": like,
@@ -508,32 +515,60 @@ class NotALoop(ValueError):
 
 def loop_bars(d, lt):
     """How many bars a loop of d seconds holds at its stated tempo lt (or half or double it, for loops tagged at the
-    other octave), and the tempo its length says exactly: (bars, tempo), or None when no whole 1, 2, 4, 8 or 16 bars
-    fits within 4%. A loop that does not divide into whole bars at its tempo drifts off the beat, so it is not used."""
+    other octave): (bars, the multiple of lt, length over that many bars), for lengths from 4% short to 20% long of a
+    whole 1, 2, 4, 8 or 16 bars (a tail after the last bar is common), or None. A loop that does not divide into whole
+    bars at its tempo drifts off the beat, so it is not used."""
     best = None
     for q in (1.0, 2.0, 0.5):
         bars_f = d * lt * q / 240
         for N in (1, 2, 4, 8, 16):
-            e = abs(bars_f / N - 1)
-            if e <= 0.04 and (best is None or e < best[0]): best = (e, N, N * 240 / d)
-    return (best[1], best[2]) if best else None
+            r = bars_f / N
+            if 0.96 <= r <= 1.20 and (best is None or abs(math.log(r)) < abs(math.log(best[2]))): best = (N, q, r)
+    return best
+
+
+def _lead(x, tempo, max_s=0.06):
+    """Where a loop's grid starts: the lead (0 to 60 ms: an MP3's encoder delay, or a late first hit) that puts the most
+    of its hits within 15 ms of a straight sixteenth grid, and that share, against the share with no lead at all."""
+    m = np.abs(x.mean(1)); hop = 64
+    e = m[: len(m) // hop * hop].reshape(-1, hop).max(1); r = np.maximum(0, np.diff(e, prepend=e[:1]))
+    tot = float(r.sum())
+    if tot <= 0: return 0.0, 0.0, 0.0
+    t = (np.arange(len(r)) + 0.5) * hop / SR; q = 60 / tempo / 4
+    leads = np.arange(0, max_s + 1e-9, 0.001)
+    d = np.abs(((t[None, :] - leads[:, None] + q / 2) % q) - q / 2)
+    fits = (r[None, :] * (d <= 0.015)).sum(1) / tot
+    # among the leads that keep nearly the most hits on the grid, the one that centres them (the window is 30 ms wide)
+    spread = (r[None, :] * np.minimum(d, 0.03)).sum(1) / tot
+    ok = np.where(fits >= fits.max() - 0.02)[0]
+    k = int(ok[np.argmin(spread[ok])])
+    return float(leads[k]), float(fits[k]), float(fits[0])
 
 
 def loop_shape(x, meta, tempo):
-    """A decoded loop's bars, the tempo its length says, whether it plays at half or double time against the track, and
-    how squarely its hits sit on a straight sixteenth grid at its own tempo: (bars, tempo, f, fit). Raises NotALoop when
-    it does not divide into whole bars or is too far from the track's tempo to stretch."""
-    d = len(x) / SR
-    lb = loop_bars(d, float(meta.get("tempo") or tempo))
+    """A decoded loop made ready to lay: its lead trimmed when that puts its hits squarely on the grid, cut to whole
+    bars, with the tempo its length says (or its stated tempo when it has a tail), whether it plays at half or double
+    time against the track, and how squarely its hits sit on a straight sixteenth grid. Returns
+    (audio, bars, tempo, f, fit, lead in seconds); raises NotALoop when it does not divide into whole bars or is too far
+    from the track's tempo to stretch."""
+    lt = float(meta.get("tempo") or tempo)
+    lb = loop_bars(len(x) / SR, lt)
     if not lb: raise NotALoop("its length is not a whole number of bars at its tempo")
-    N, lt_eff = lb                                # a clean loop: its length says its exact tempo
-    f = min((1.0, 2.0, 0.5), key=lambda q: abs(lt_eff * q - tempo))   # half or double time where that is nearer
+    N, q, r = lb; lq = lt * q
+    lead, fit, fit0 = _lead(x, lq)
+    if fit < 0.3 or fit < fit0 - 0.02: lead, fit = 0.0, fit0   # trim only where the hits show a grid, and never to its cost
+    x = x[int(round(lead * SR)):]
+    if r <= 1.04:
+        lt_eff = N * 240 / (len(x) / SR)                  # a clean loop: its length says its exact tempo
+    else:
+        lt_eff = lq; x = x[:int(round(N * 240 / lt_eff * SR))]   # a tail after the last bar: cut at its stated tempo
+    f = min((1.0, 2.0, 0.5), key=lambda k: abs(lt_eff * k - tempo))   # half or double time where that is nearer
     if abs(lt_eff * f / tempo - 1) > 0.15: raise NotALoop("too far from the track's tempo to stretch")
-    return N, lt_eff, f, grid_fit(x, lt_eff)
+    return x, N, lt_eff, f, fit, lead
 
 
 def prepare_audio(x, meta, f, shift, tempo, min_fit=None):
-    N, lt_eff, f, fit = loop_shape(x, meta, tempo)
+    x, N, lt_eff, f, fit, lead = loop_shape(x, meta, tempo)
     if min_fit is not None and fit < min_fit: raise NotALoop("its hits do not sit on a straight grid")
     cb = N * f                                    # the track's bars in one cycle
     C = int(round(cb * 240 / tempo * SR))         # the cycle in samples at the track's tempo
@@ -553,10 +588,11 @@ def prepare_audio(x, meta, f, shift, tempo, min_fit=None):
     if pk > 0.99: out *= 0.99 / pk
     m = out.mean(1); rms = float(np.sqrt(np.mean(m ** 2)))
     return out.astype(np.float32), {"bars": N, "f": f, "cycle_bars": cb, "ratio": round(ratio, 6), "shift": shift, "loop_tempo": round(lt_eff, 3),
-                                    "samples": C, "rms_db": round(20 * math.log10(rms), 2) if rms > 1e-6 else -120.0, "grid_fit": round(fit, 3)}
+                                    "samples": C, "rms_db": round(20 * math.log10(rms), 2) if rms > 1e-6 else -120.0, "grid_fit": round(fit, 3),
+                                    "lead_ms": round(1000 * lead, 1)}
 
 
-GRID_FIT_MIN = 0.45   # a swung loop scores about 0.48 and passes; one that starts late or drifts does not
+GRID_FIT_MIN = {"drums": 0.3}   # drums only: their hits are sharp enough to judge (about three in five clean drum loops pass)
 
 
 def grid_fit(y, tempo):
@@ -598,10 +634,10 @@ def loop_for(part, target, tempo, key=None, exclude=()):
     cands = choose(part, v, tempo, key, exclude)
     if not cands: return {"error": "no licensed loop at a tempo that stretches to this one"}
     y = None; skipped = 0
-    for c in cands[:10]:   # the nearest that is a clean loop: whole bars at its own tempo, its hits on a straight grid
+    for c in cands[:16]:   # the nearest that is a clean loop: whole bars at its own tempo, and drums with hits on a grid
         m = c["meta"]
         try:
-            y, prep = prepare(m, c["f"], c["shift"] if part != "drums" else 0, tempo, GRID_FIT_MIN); break
+            y, prep = prepare(m, c["f"], c["shift"] if part != "drums" else 0, tempo, GRID_FIT_MIN.get(part)); break
         except Exception:
             skipped += 1; y = None; continue
     if y is None: return {"error": "none of the nearest licensed loops is clean enough to lay on your bars"}

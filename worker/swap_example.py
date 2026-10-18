@@ -43,7 +43,7 @@ def build():
             tries += 1
             if tries > 40: break
             try:   # a clean, straight loop: the example is the page's first impression (voices are rarely quantised)
-                y, prep = SW.prepare(m, 1.0, s, TEMPO, 0.45 if p == "vocals" else 0.6)
+                y, prep = SW.prepare(m, 1.0, s, TEMPO, 0.5 if p == "drums" else None)
             except Exception:
                 continue
             if prep["rms_db"] < -45: continue

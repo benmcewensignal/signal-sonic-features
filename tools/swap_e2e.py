@@ -66,7 +66,7 @@ def plan_for(res, loops):
 def wait(id_, limit=900):
     t0 = time.time()
     while time.time() - t0 < limit:
-        rr = requests.get(f"{BASE}/result", params={"id": id_, "t": tok()}, timeout=120)
+        rr = requests.get(f"{BASE}/result", params={"id": id_, "t": tok()}, timeout=300)
         try: r = rr.json()
         except Exception: r = {"status": "running"} if rr.status_code >= 500 else {"status": "failed", "error": f"{rr.status_code} {rr.text[:120]}"}
         if r.get("status") != "running": return r, time.time() - t0
@@ -87,6 +87,22 @@ def grid_offset_ms(x, a, p, mult=1, band=150):
     at = (-np.angle(z) / (2 * np.pi) * q) % q
     d = (at - a) % q
     return round(1000 * (d - q if d > q / 2 else d), 1), round(float(abs(z) / (r.sum() + 1e-9)), 3)
+
+
+def low_lag_ms(x, y, max_ms=150, band=150):
+    """How far y's low band (kicks and bass) sits after x's, in milliseconds: the lag of the largest cross-correlation of
+    their attack envelopes within max_ms. A swapped render whose loops sit on the track's beats lags its original by
+    about nothing; one laid on a grid a sixteenth off lags by a sixteenth."""
+    from scipy.signal import butter, sosfiltfilt
+    def env(z):
+        lo = np.abs(sosfiltfilt(butter(4, band, "low", fs=SR, output="sos"), z.mean(1)))
+        hop = 64; e = lo[: len(lo) // hop * hop].reshape(-1, hop).max(1); r = np.maximum(0, np.diff(e, prepend=e[:1]))
+        return (r - r.mean()) / (r.std() + 1e-12)
+    a, b = env(x), env(y); n = min(len(a), len(b)); a, b = a[:n], b[:n]
+    L = int(max_ms / 1000 * SR / 64)
+    xc = [float(np.dot(a[max(0, -k): n - max(0, k)], b[max(0, k): n - max(0, -k)])) for k in range(-L, L + 1)]
+    k = int(np.argmax(xc)) - L
+    return round(k * 64 / SR * 1000, 1)
 
 
 def probe_offset(data):
@@ -140,7 +156,7 @@ def _one(label, data, truth=None, keep_render=False):
         v = (R.get("vectors") or {}).get(p)
         if not v: continue
         t1 = time.time()
-        L = requests.post(f"{BASE}/loop", params={"t": tok()}, json={"part": p, "target": {"kind": "yours", "vector": v}, "tempo": R["tempo"], "key": out["key"]}, timeout=300)
+        L = requests.post(f"{BASE}/loop", params={"t": tok()}, json={"part": p, "target": {"kind": "yours", "vector": v}, "tempo": R["tempo"], "key": out["key"]}, timeout=600)
         if L.status_code != 200: picks[p] = {"error": L.text[:160]}; continue
         L = L.json(); loops[p] = L
         picks[p] = {"loop": f"{L['loop']['name']} by {L['loop']['user']} ({L['loop']['licence']})", "closeness": L["closeness"], "rank": L["rank"], "of": L["of"],
@@ -151,7 +167,7 @@ def _one(label, data, truth=None, keep_render=False):
         ap = {}
         for p in ("drums", "bass"):
             t1 = time.time()
-            L = requests.post(f"{BASE}/loop", params={"t": tok()}, json={"part": p, "target": {"kind": "artist", "name": art}, "tempo": R["tempo"], "key": out["key"]}, timeout=300)
+            L = requests.post(f"{BASE}/loop", params={"t": tok()}, json={"part": p, "target": {"kind": "artist", "name": art}, "tempo": R["tempo"], "key": out["key"]}, timeout=600)
             j = L.json() if L.headers.get("content-type", "").startswith("application/json") else {"error": L.text[:120]}
             ap[p] = {"error": j["error"]} if j.get("error") else {"loop": f"{j['loop']['name']} by {j['loop']['user']}", "artist": j.get("artist"), "s": round(time.time() - t1, 1)}
         out["artist"] = {"name": art, "parts": ap}
@@ -171,6 +187,8 @@ def _one(label, data, truth=None, keep_render=False):
                 x = decode(f.content)
                 out["render"]["seconds"] = round(len(x) / SR, 1)
                 out["render"]["vs_grid_ms"] = {"beats": grid_offset_ms(x, g["first_beat"], g["beat"]), "sixteenths": grid_offset_ms(x, g["first_beat"], g["beat"], 4)}
+                try: out["render"]["low_lag_vs_original_ms"] = low_lag_ms(decode(data), x)
+                except Exception as e: out["render"]["low_lag_vs_original_ms"] = str(e)[:60]
                 if keep_render:
                     open(os.path.join(OUT, f"{label}-swapped.mp3"), "wb").write(f.content)
     print(json.dumps(out, indent=1)[:4000], flush=True)
@@ -216,6 +234,8 @@ def main():
         msg["phase_margin"] = (o.get("grid") or {}).get("phase_margin")
         msg["render"] = {k: (o.get("render") or {}).get(k) for k in ("s", "seconds", "vs_grid_ms")}
         msg["original_vs_grid_ms"] = o.get("original_vs_grid_ms"); msg["rough_tempo"] = (o.get("grid") or {}).get("rough_tempo")
+        msg["grid_strength"] = (o.get("grid") or {}).get("strength"); msg["tracker_offset_ms"] = (o.get("grid") or {}).get("tracker_offset_ms")
+        msg["low_lag_ms"] = (o.get("render") or {}).get("low_lag_vs_original_ms")
         msg["drums"] = (o.get("yours") or {}).get("drums", {}).get("loop")
         note(f"swap {o['label']}"[:60], json.dumps(msg)[:900])
 
