@@ -1,7 +1,7 @@
 """A synthetic dance track with known beats and bars, as four parts (tools/swap_e2e.py writes its mix to test Swap)."""
 import numpy as np
 SR = 44100
-def track(bpm=124.0, offset=0.37, pickup_beats=1, bars=48, seed=1):
+def track(bpm=124.0, offset=0.37, pickup_beats=1, bars=48, seed=1, style="four"):
     rng = np.random.default_rng(seed)
     p = 60 / bpm; bar = 4 * p
     g0 = offset + pickup_beats * p           # the first downbeat
@@ -30,10 +30,15 @@ def track(bpm=124.0, offset=0.37, pickup_beats=1, bars=48, seed=1):
         bass_on = b >= 8 and not (24 <= b < 32)
         for q in range(4):
             tb = t0 + q * p
-            if drums_on:
+            if drums_on and style == "four":
                 put(D, tb, kick)
                 if q in (1, 3): put(D, tb, clap)
                 put(D, tb + p / 2, hat)
+            elif drums_on:   # a broken beat: kicks on one and the and of two, snares on two and four, hats on every eighth
+                if q == 0: put(D, tb, kick)
+                if q == 1: put(D, tb + p / 2, kick)
+                if q in (1, 3): put(D, tb, clap)
+                put(D, tb, hat * 0.6); put(D, tb + p / 2, hat)
             if bass_on:
                 put(B, tb + p / 2, sawn(notes[b % 4] - 12, p / 2, 0.35))
         if b >= 4:

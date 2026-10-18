@@ -37,13 +37,7 @@ def token_scope(t, key):
         return None
 
 
-def example_ok(data):
-    """Whether a file is one of the page's examples (worker/swap_examples.json lists their SHA-256)."""
-    try:
-        allowed = set(json.load(open(os.path.join(HERE, "swap_examples.json"))).get("sha256") or [])
-    except Exception:
-        allowed = set()
-    return hashlib.sha256(data).hexdigest() in allowed
+EXAMPLE_URL = "https://www.earlysignal.live/data/swap-example/source.mp3"   # the page's example (worker/swap_example.py)
 
 
 # ---------------------------------------------------------------- audio in and out
@@ -100,11 +94,12 @@ def _fit_line(tp, a, p, tol=0.08):
     return float(a), float(p)
 
 
-def _attack_times(y22, tp, sr=22050):
-    """Each attack found in the spectrogram (whose frames lag a kick by about 9 ms) moved to where the drum part's
-    low band (under 150 Hz, filtered both ways so nothing shifts) first reaches half its peak near it."""
+def _attack_times(y22, tp, sr=22050, low=None):
+    """Each attack found in the spectrogram (whose frames lag a hit by several milliseconds) moved to where the drum
+    part's level (its band under low Hz when given, filtered both ways so nothing shifts) first reaches half its peak
+    near it."""
     from scipy.signal import butter, sosfiltfilt
-    lo = np.abs(sosfiltfilt(butter(4, 150, "low", fs=sr, output="sos"), y22))
+    lo = np.abs(sosfiltfilt(butter(4, low, "low", fs=sr, output="sos"), y22)) if low else np.abs(y22)
     out = []
     for t in tp:
         i0, i1 = max(0, int((t - 0.04) * sr)), min(len(lo), int((t + 0.03) * sr))
@@ -127,10 +122,10 @@ def _peaks(env, w=3, avg=12, delta=0.03, wait=8):
 
 def rough_tempo(drums):
     """The tempo the corpus would give the drum part (features/stems.py, rhythm_of_stem: a learned beat tracker on the
-    drums, its grid refitted to the kicks), read on the middle minute; None when it cannot say."""
+    drums, its grid refitted to the kicks), read on forty seconds from the middle; None when it cannot say."""
     import soundfile as sf
     from features import stems as S
-    n = len(drums); m = int(60 * SR)
+    n = len(drums); m = int(40 * SR)
     seg = drums[max(0, n // 2 - m // 2): max(0, n // 2 - m // 2) + m]
     w = tempfile.mkdtemp()
     try:
@@ -145,11 +140,13 @@ def rough_tempo(drums):
 
 
 def beat_grid(drums, mix, dur, T0=None):
-    """A steady beat grid for the whole track, from the kicks' attacks (rises in the drum part's 30-120 Hz band; the
-    whole band when there is no kick, the mix when the drums are near silent): the rough tempo as the corpus reads it
-    (T0; librosa's tracker when there is none), folded into 86-186 bpm; the exact period and phase from the attacks'
-    Fourier component at the beat rate, searched within 4% in steps of 0.01%; then a straight line through the attacks
-    nearest each beat, timed in the waveform. Returns (first beat at or after 0 s, period in seconds)."""
+    """A steady beat grid for the whole track. Kicks are not on every beat in a broken beat, so the grid is read from
+    every hit of the drum part (the mix when the drums are near silent), which sit on eighth notes in nearly every style:
+    the rough tempo as the corpus reads it (T0; librosa's tracker when there is none), folded into 86-186 bpm; the exact
+    period and the eighth-note phase from the hits' Fourier component at the eighth-note rate, searched within 4% in
+    steps of 0.01%; which eighths are beats from where the kicks and snares fall (30-500 Hz), on the beats more than
+    between them in house, techno, garage, breaks and drum and bass alike; then a straight line through the hits nearest
+    each eighth, timed in the waveform. Returns (first beat at or after 0 s, period in seconds)."""
     import librosa
     y = drums.mean(1)
     if float(np.sqrt(np.mean(y ** 2))) < 2e-3: y = mix.mean(1)
@@ -162,28 +159,33 @@ def beat_grid(drums, mix, dur, T0=None):
     while T0 >= 186: T0 /= 2
     hop = 128; fr = 22050 / hop
     X = np.abs(librosa.stft(y22, n_fft=1024, hop_length=hop)); f = librosa.fft_frequencies(sr=22050, n_fft=1024)
-    low = X[(f >= 30) & (f < 120)].sum(0); env = np.maximum(0, np.diff(low, prepend=low[:1]))
-    if env.sum() < 1e-3 * max(1.0, X.sum()): env = np.maximum(0, np.diff(X.sum(0), prepend=X.sum(0)[:1]))
-    env = env / (env.max() + 1e-12)
-    t = np.arange(len(env)) / fr
+    def rise(v): r = np.maximum(0, np.diff(v, prepend=v[:1])); return r / (r.max() + 1e-12)
+    full = rise(np.log1p(X).sum(0)); lowmid = rise(X[(f >= 30) & (f < 500)].sum(0))
+    t = np.arange(len(full)) / fr
     periods = 60 / (T0 * (1 + np.linspace(-0.04, 0.04, 801)))
     best, ang, pb = -1.0, 0.0, 60 / T0
     for c in range(0, len(periods), 50):
         P = periods[c:c + 50]
-        Z = np.exp(-2j * np.pi * np.outer(1 / P, t)) @ env
+        Z = np.exp(-2j * np.pi * np.outer(2 / P, t)) @ full      # the eighth-note rate
         i = int(np.argmax(np.abs(Z)))
         if abs(Z[i]) > best: best, ang, pb = float(abs(Z[i])), float(np.angle(Z[i])), float(P[i])
-    p = pb; a = (-ang / (2 * np.pi) * p) % p
-    # the attacks: peaks of the envelope, placed between frames by a parabola through the peak and its neighbours
-    pk = _peaks(env, wait=int(0.15 * p * fr))
+    p = pb; a = (-ang / (2 * np.pi) * (p / 2)) % (p / 2)
+    # the hits: peaks of the envelope, placed between frames by a parabola through the peak and its neighbours, then
+    # timed in the waveform; a line through those nearest each eighth note
+    pk = _peaks(full, wait=int(0.4 * (p / 2) * fr))
     if len(pk) >= 16:
-        strong = pk[env[pk] >= 0.25 * np.percentile(env[pk], 90)]
-        strong = strong[(strong > 0) & (strong < len(env) - 1)]
-        y0, y1, y2 = env[strong - 1], env[strong], env[strong + 1]
+        strong = pk[full[pk] >= 0.25 * np.percentile(full[pk], 90)]
+        strong = strong[(strong > 0) & (strong < len(full) - 1)]
+        y0, y1, y2 = full[strong - 1], full[strong], full[strong + 1]
         den = y0 - 2 * y1 + y2; off = np.where(np.abs(den) > 1e-12, 0.5 * (y0 - y2) / den, 0.0)
-        tp = (strong + np.clip(off, -0.5, 0.5)) / fr
-        tp = _attack_times(y22, tp)
-        a, p = _fit_line(tp, a, p)
+        tp = _attack_times(y22, (strong + np.clip(off, -0.5, 0.5)) / fr)
+        a, h = _fit_line(tp, a, p / 2); p = 2 * h
+    # beats or the eighths between them: where the kicks and snares land
+    def at_beats(a_):
+        k = np.arange(max(0, int(math.ceil(-a_ / p))), int((dur - a_) / p))
+        idx = ((a_ + k * p) * fr).astype(int); idx = idx[(idx >= 1) & (idx < len(lowmid) - 3)]
+        return float(sum(lowmid[i - 1:i + 3].max() for i in idx))
+    if at_beats(a + p / 2) > at_beats(a): a = a + p / 2
     while 60 / p < 86: p /= 2
     while 60 / p >= 186: p *= 2
     a = a - math.floor(a / p) * p      # the first beat at or after zero
@@ -541,8 +543,27 @@ def prepare_audio(x, meta, f, shift, tempo):
     pk = float(np.abs(out).max()) or 1.0
     if pk > 0.99: out *= 0.99 / pk
     m = out.mean(1); rms = float(np.sqrt(np.mean(m ** 2)))
+    fit = grid_fit(out, tempo)
     return out.astype(np.float32), {"bars": N, "f": f, "cycle_bars": cb, "ratio": round(ratio, 6), "shift": shift, "loop_tempo": round(lt_eff, 3),
-                                    "samples": C, "rms_db": round(20 * math.log10(rms), 2) if rms > 1e-6 else -120.0}
+                                    "samples": C, "rms_db": round(20 * math.log10(rms), 2) if rms > 1e-6 else -120.0, "grid_fit": round(fit, 3)}
+
+
+GRID_FIT_MIN = 0.45   # a swung loop scores about 0.48 and passes; one that starts late or drifts does not
+
+
+def grid_fit(y, tempo):
+    """How squarely a prepared cycle's attacks sit on a straight sixteenth-note grid that starts at its first sample:
+    the share of the rise in its level that falls within 15 ms of a sixteenth. A quantised loop that starts on its first
+    beat scores near 1; one that starts late, drifts or is played loose scores near a quarter, what chance gives; a
+    swung loop, whose offbeat sixteenths are late, scores about a half."""
+    m = np.abs(y.mean(1)); hop = 64
+    e = m[: len(m) // hop * hop].reshape(-1, hop).max(1)
+    r = np.maximum(0, np.diff(e, prepend=e[:1]))
+    if r.sum() <= 0: return 0.0
+    t = (np.arange(len(r)) + 0.5) * hop / SR
+    q = 60 / tempo / 4
+    d = np.abs(((t + q / 2) % q) - q / 2)
+    return float(r[d <= 0.015].sum() / r.sum())
 
 
 def _licence(u):
@@ -569,15 +590,16 @@ def loop_for(part, target, tempo, key=None, exclude=()):
     cands = choose(part, v, tempo, key, exclude)
     if not cands: return {"error": "no licensed loop at a tempo that stretches to this one"}
     y = None; skipped = 0
-    for c in cands[:8]:   # the nearest that is a clean loop: a whole number of bars at its own tempo
+    for c in cands[:10]:   # the nearest that is a clean loop: whole bars at its own tempo, its hits on a straight grid
         m = c["meta"]
         try:
-            y, prep = prepare(m, c["f"], c["shift"] if part != "drums" else 0, tempo); break
-        except NotALoop:
-            skipped += 1
+            y_, prep_ = prepare(m, c["f"], c["shift"] if part != "drums" else 0, tempo)
         except Exception:
-            skipped += 1
-    if y is None: return {"error": "none of the nearest licensed loops divides into whole bars"}
+            skipped += 1; continue
+        if prep_["grid_fit"] < GRID_FIT_MIN:
+            skipped += 1; continue
+        y, prep = y_, prep_; break
+    if y is None: return {"error": "none of the nearest licensed loops is clean enough to lay on your bars"}
     out = {"part": part, "loop": {"id": m.get("id"), "name": m.get("name"), "user": m.get("user"), "licence": _licence(m.get("license")),
                                   "licence_url": m.get("license"), "page": f"https://freesound.org/s/{m.get('id')}/", "tempo": m.get("tempo"), "key": m.get("key")},
            "prep": prep, "closeness": round(c["sim"], 3), "rank": c["rank"], "of": c["of"], "skipped": skipped, "wav": base64.b64encode(wav_bytes(y)).decode()}

@@ -385,10 +385,15 @@ def swap():
         if not ok(req): return no()
         form = await req.form()
         f = form.get("file"); plan = form.get("plan")
-        if f is None or plan is None: return JSONResponse({"error": "file and plan"}, 400)
-        data = await f.read()
+        if plan is None: return JSONResponse({"error": "no plan"}, 400)
+        if ok(req) == "e":
+            # the example's key renders the example only, which the worker fetches from the site itself
+            import urllib.request as _u
+            data = await asyncio.to_thread(lambda: _u.urlopen(SW.EXAMPLE_URL, timeout=60).read())
+        else:
+            if f is None: return JSONResponse({"error": "no file"}, 400)
+            data = await f.read()
         if len(data) > 200_000_000: return JSONResponse({"error": "the file is larger than 200 MB"}, 413)
-        if ok(req) == "e" and not SW.example_ok(data): return JSONResponse({"error": "this key renders the example only"}, 403)
         try:
             P = SW.clean_plan(_json.loads(plan))
         except Exception as e:

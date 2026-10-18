@@ -66,7 +66,9 @@ def plan_for(res, loops):
 def wait(id_, limit=900):
     t0 = time.time()
     while time.time() - t0 < limit:
-        r = requests.get(f"{BASE}/result", params={"id": id_, "t": tok()}, timeout=120).json()
+        rr = requests.get(f"{BASE}/result", params={"id": id_, "t": tok()}, timeout=120)
+        try: r = rr.json()
+        except Exception: r = {"status": "running"} if rr.status_code >= 500 else {"status": "failed", "error": f"{rr.status_code} {rr.text[:120]}"}
         if r.get("status") != "running": return r, time.time() - t0
         time.sleep(3)
     return {"status": "timeout"}, time.time() - t0
@@ -93,6 +95,18 @@ def probe_offset(data):
 
 
 def one(label, data, truth=None, keep_render=False):
+    """One track through the whole path; a failure anywhere is recorded with where it happened, not raised."""
+    import traceback
+    try:
+        return _one(label, data, truth, keep_render)
+    except Exception as e:
+        tb = traceback.format_exc().strip().splitlines()
+        where = " | ".join(x.strip() for x in tb[-4:])[:600]
+        print(f"::error title=swap {label}"[:60] + f"::{type(e).__name__}: {where}", flush=True)
+        return {"label": label, "error": f"{type(e).__name__}: {str(e)[:200]}", "where": where}
+
+
+def _one(label, data, truth=None, keep_render=False):
     out = {"label": label, "bytes": len(data)}
     t0 = time.time()
     r = requests.post(f"{BASE}/start", params={"t": tok(), "name": label}, data=data, timeout=600)
@@ -179,6 +193,10 @@ def main():
     st, truth = track(bpm=124.0, offset=0.37, pickup_beats=1, bars=180, seed=3)
     mix = sum(st.values()); wp = os.path.join(OUT, "synthetic.wav"); wav_file(mix, wp)
     runs.append(one("synthetic", open(wp, "rb").read(), truth, keep_render=True))
+    # a broken beat at drum and bass tempo: kicks on one and the and of two, so the grid cannot lean on the kick
+    st, truth = track(bpm=172.0, offset=0.81, pickup_beats=2, bars=96, seed=5, style="broken")
+    wp = os.path.join(OUT, "synthetic-broken.wav"); wav_file(sum(st.values()), wp)
+    runs.append(one("synthetic broken beat", open(wp, "rb").read(), truth))
     from concurrent.futures import ThreadPoolExecutor
     def rec_run(rec):
         try:
