@@ -79,17 +79,33 @@ def mp3_bytes(x, sr=SR, kbps=160, meta=None, af=None):
 
 
 def loudness_lufs(x, sr=SR):
-    """Integrated loudness of float32 stereo audio (EBU R128, ffmpeg's ebur128), and its true peak in dBFS."""
-    pcm = np.ascontiguousarray(x, dtype="<f4").tobytes()
-    p = subprocess.run(["ffmpeg", "-loglevel", "info", "-f", "f32le", "-ar", str(sr), "-ac", "2", "-i", "pipe:0", "-af", "ebur128=framelog=quiet:peak=true", "-f", "null", "-"],
-                       input=pcm, capture_output=True, timeout=600)
-    txt = p.stderr.decode("utf-8", "replace")
-    # the summary's lines, not the running ones an older ffmpeg prints per frame ("... I: 0.0 LUFS ...")
-    mI = re.search(r"Integrated loudness:\s*I:\s*(-?[\d.]+) LUFS", txt); mP = re.search(r"True peak:\s*Peak:\s*(-?[\d.]+) dBFS", txt)
-    if not mI:
-        allI = re.findall(r"I:\s*(-?[\d.]+) LUFS", txt); allP = re.findall(r"Peak:\s*(-?[\d.]+) dBFS", txt)
-        return (float(allI[-1]) if allI else None), (float(allP[-1]) if allP else None)
-    return float(mI.group(1)), (float(mP.group(1)) if mP else None)
+    """Integrated loudness of float32 stereo audio (ITU-R BS.1770-4 / EBU R128: K-weighting, 400 ms blocks at 75%
+    overlap, an absolute gate at -70 LUFS and a relative gate 10 LU under the mean), and its sample peak in dBFS.
+    Computed here rather than read from ffmpeg's log, whose layout differs between versions."""
+    from scipy.signal import lfilter
+    x = np.asarray(x, np.float64)
+    if x.ndim == 1: x = x[:, None]
+    if len(x) < int(0.4 * sr): return None, None
+    def shelf(G, fc, Q):
+        A = 10 ** (G / 40); w0 = 2 * math.pi * fc / sr; a = math.sin(w0) / (2 * Q); c = math.cos(w0); r = math.sqrt(A)
+        b = [A * ((A + 1) + (A - 1) * c + 2 * r * a), -2 * A * ((A - 1) + (A + 1) * c), A * ((A + 1) + (A - 1) * c - 2 * r * a)]
+        a_ = [(A + 1) - (A - 1) * c + 2 * r * a, 2 * ((A - 1) - (A + 1) * c), (A + 1) - (A - 1) * c - 2 * r * a]
+        return np.array(b) / a_[0], np.array(a_) / a_[0]
+    def highpass(fc, Q):
+        w0 = 2 * math.pi * fc / sr; a = math.sin(w0) / (2 * Q); c = math.cos(w0)
+        b = [(1 + c) / 2, -(1 + c), (1 + c) / 2]; a_ = [1 + a, -2 * c, 1 - a]
+        return np.array(b) / a_[0], np.array(a_) / a_[0]
+    b1, a1 = shelf(4.0, 1500.0, 1 / math.sqrt(2)); b2, a2 = highpass(38.0, 0.5)
+    y = lfilter(b2, a2, lfilter(b1, a1, x, axis=0), axis=0)
+    T = int(0.4 * sr); hop = T // 4; n = (len(y) - T) // hop + 1
+    z = np.array([np.mean(y[i * hop: i * hop + T] ** 2, axis=0).sum() for i in range(n)])   # the channels' mean squares, summed
+    l = -0.691 + 10 * np.log10(z + 1e-20)
+    keep = l > -70
+    if not keep.any(): return None, round(20 * math.log10(float(np.abs(x).max()) + 1e-12), 2)
+    rel = -0.691 + 10 * math.log10(z[keep].mean()) - 10
+    keep &= l > rel
+    if not keep.any(): return None, round(20 * math.log10(float(np.abs(x).max()) + 1e-12), 2)
+    return round(-0.691 + 10 * math.log10(z[keep].mean()), 2), round(20 * math.log10(float(np.abs(x).max()) + 1e-12), 2)
 
 
 def wav_bytes(x, sr=SR):
