@@ -142,14 +142,14 @@ def rough_tempo(drums):
 
 
 def beat_grid(drums, mix, dur, T0=None):
-    """A steady beat grid for the whole track. Kicks are not on every beat in a broken beat, so the grid is read from
-    every hit of the drum part (the mix when the drums are near silent), which sit on eighth notes in nearly every style:
-    the rough tempo as the corpus reads it (T0; librosa's tracker when there is none), folded into 86-186 bpm; the exact
-    period and the eighth-note phase from the hits' Fourier component at the eighth-note rate, searched within 4% in
-    steps of 0.01%; which eighths are beats from where the kicks and snares fall (30-500 Hz), on the beats more than
-    between them in house, techno, garage, breaks and drum and bass alike; then a straight line through the hits nearest
-    each eighth, timed in the waveform. Returns (first beat at or after 0 s, period in seconds, how strongly the hits
-    repeat at the eighth-note rate: the share of their rise that the Fourier component keeps, near 1 for a strict pulse)."""
+    """A steady beat grid for the whole track, from the drum part (the mix when the drums are near silent): the rough
+    tempo as the corpus reads it (T0; librosa's tracker when there is none), folded into 86-186 bpm; the exact period
+    from every hit's Fourier component at the eighth-note rate, searched within 4% in steps of 0.01% (hits sit on eighth
+    notes in nearly every style, so the tempo holds even where the kick is broken); the beats from where the kicks and
+    snares land, which is on the beat in four-on-the-floor, garage, breaks and drum and bass alike, then a straight line
+    through those attacks, timed in the waveform. Returns (first beat at or after 0 s, period in seconds, how sure: how
+    many times more kick and snare the chosen beats find than a phase chosen at random does; about 10 on a steady four
+    on the floor, near 1 where the beats are a guess)."""
     import librosa
     y = drums.mean(1)
     if float(np.sqrt(np.mean(y ** 2))) < 2e-3: y = mix.mean(1)
@@ -172,27 +172,47 @@ def beat_grid(drums, mix, dur, T0=None):
         Z = np.exp(-2j * np.pi * np.outer(2 / P, t)) @ full      # the eighth-note rate
         i = int(np.argmax(np.abs(Z)))
         if abs(Z[i]) > best: best, ang, pb = float(abs(Z[i])), float(np.angle(Z[i])), float(P[i])
-    p = pb; a = (-ang / (2 * np.pi) * (p / 2)) % (p / 2)
-    # the hits: peaks of the envelope, placed between frames by a parabola through the peak and its neighbours, then
-    # timed in the waveform; a line through those nearest each eighth note
-    pk = _peaks(full, wait=int(0.4 * (p / 2) * fr))
-    if len(pk) >= 16:
-        strong = pk[full[pk] >= 0.25 * np.percentile(full[pk], 90)]
-        strong = strong[(strong > 0) & (strong < len(full) - 1)]
-        y0, y1, y2 = full[strong - 1], full[strong], full[strong + 1]
-        den = y0 - 2 * y1 + y2; off = np.where(np.abs(den) > 1e-12, 0.5 * (y0 - y2) / den, 0.0)
-        tp = _attack_times(y22, (strong + np.clip(off, -0.5, 0.5)) / fr)
-        a, h = _fit_line(tp, a, p / 2); p = 2 * h
-    # beats or the eighths between them: where the kicks and snares land
-    def at_beats(a_):
-        k = np.arange(max(0, int(math.ceil(-a_ / p))), int((dur - a_) / p))
-        idx = ((a_ + k * p) * fr).astype(int); idx = idx[(idx >= 1) & (idx < len(lowmid) - 3)]
-        return float(sum(lowmid[i - 1:i + 3].max() for i in idx))
-    if at_beats(a + p / 2) > at_beats(a): a = a + p / 2
+    p = pb; a8 = (-ang / (2 * np.pi) * (p / 2)) % (p / 2)
+    # the beats: where the kicks and snares land (30-500 Hz), which is on the beat in house, techno, garage, breaks and drum
+    # and bass alike. The eighth-note phase of every hit cannot say this: loud hats on the e and the a of each beat pull
+    # it a sixteenth off (a tech house record read 80 ms early). Each candidate phase, a millisecond apart, scores the
+    # kick and snare rises within 12 ms of its beats
+    from scipy.ndimage import maximum_filter1d
+    M = maximum_filter1d(lowmid, size=5, mode="nearest")
+    cand = np.arange(0, p, 0.001)
+    k = np.arange(0, int(dur / p) + 1)
+    T = cand[:, None] + k[None, :] * p
+    idx = np.clip((T * fr).astype(int), 0, len(M) - 1); valid = (T * fr) < len(M)
+    E = (M[idx] * valid).sum(1)
+    sure = float(E.max() / (E.mean() + 1e-12))   # how much more the best phase finds on its beats than an average one
+    if sure > 1.25:
+        a = float(cand[int(np.argmax(E))])
+        # then a straight line through the kick and snare attacks at each beat: the strongest rise within a tenth of a
+        # beat of it (not the strongest rise anywhere, which on a loud hat would skip the kick after it), timed in the
+        # waveform
+        w = max(1, int(0.1 * p * fr)); pk, pv = [], []
+        for kb in range(0, int((dur - a) / p) + 1):
+            c0 = int((a + kb * p) * fr)
+            if c0 - w < 1 or c0 + w >= len(lowmid) - 1: continue
+            j = c0 - w + int(np.argmax(lowmid[c0 - w:c0 + w + 1])); pk.append(j); pv.append(lowmid[j])
+        if len(pk) >= 16:
+            pk, pv = np.asarray(pk), np.asarray(pv)
+            keep = pv >= 0.25 * np.percentile(pv, 90)
+            tp = _attack_times(y22, pk[keep] / fr, low=500)
+            kk = np.round((tp - a) / p); near = np.abs(tp - (a + kk * p)) < 0.1 * p
+            if near.sum() >= 8: a, p = _fit_line(tp[near], a, p, tol=0.1)
+    else:
+        # no kick or snare on the beats to go by: the eighth-note phase, and beats where the low band falls more often
+        a = a8
+        def at_beats(a_):
+            kk = np.arange(max(0, int(math.ceil(-a_ / p))), int((dur - a_) / p))
+            ii = ((a_ + kk * p) * fr).astype(int); ii = ii[(ii >= 1) & (ii < len(lowmid) - 3)]
+            return float(sum(lowmid[i - 1:i + 3].max() for i in ii))
+        if at_beats(a + p / 2) > at_beats(a): a = a + p / 2
     while 60 / p < 86: p /= 2
     while 60 / p >= 186: p *= 2
     a = a - math.floor(a / p) * p      # the first beat at or after zero
-    return float(a), float(p), float(best / (full.sum() + 1e-12))
+    return float(a), float(p), sure
 
 
 def bar_phase(stems, a, p, dur):

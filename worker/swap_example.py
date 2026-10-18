@@ -72,7 +72,7 @@ def main(out: str = "swap-example"):
     sha = hashlib.sha256(b["mp3"]).hexdigest()
     print("::notice title=swap example::" + json.dumps({"sha256": sha, "picks": {p: f"{x['name']} by {x['user']} (closeness {x['closeness']})" for p, x in b["picks"].items()}}))
     read = modal.Function.from_name("sonic-parts", "swap_read")
-    r = read.remote(b["mp3"], "Example: a tech house sketch from CC0 loops")
+    r = read.remote(b["mp3"], "Example: a sketch made from CC0 loops")
     if r.get("error"): print("::error title=swap example::" + r["error"]); raise SystemExit(1)
     audio = r.pop("audio")
     for k, v in audio.items(): open(os.path.join(out, f"{k}.mp3"), "wb").write(v)

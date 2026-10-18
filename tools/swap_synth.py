@@ -34,6 +34,10 @@ def track(bpm=124.0, offset=0.37, pickup_beats=1, bars=48, seed=1, style="four")
                 put(D, tb, kick)
                 if q in (1, 3): put(D, tb, clap)
                 put(D, tb + p / 2, hat)
+            elif drums_on and style == "sixteenths":   # four on the floor under loud hats on the e and the a of each beat
+                put(D, tb, kick)
+                if q in (1, 3): put(D, tb, clap)
+                for k16, amp in ((1, 1.6), (2, 0.5), (3, 1.6)): put(D, tb + k16 * p / 4, hat * amp)
             elif drums_on:   # a broken beat: kicks on one and the and of two, snares on two and four, hats on every eighth
                 if q == 0: put(D, tb, kick)
                 if q == 1: put(D, tb + p / 2, kick)
