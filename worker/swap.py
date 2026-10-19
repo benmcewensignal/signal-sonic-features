@@ -706,7 +706,11 @@ def loop_bars(d, lt):
         bars_f = d * lt * q / 240
         for N in (1, 2, 3, 4, 6, 8, 12, 16):
             r = bars_f / N
-            if 0.96 <= r <= 1.60 and (best is None or abs(math.log(r)) < abs(math.log(best[2]))): best = (N, q, r)
+            # the long tail is allowed at the stated tempo and a power-of-two bar count only: read at half or double tempo,
+            # or in threes, a loop must be within 20%, or almost any length would pass as something
+            hi = 1.60 if (q == 1.0 and N in (1, 2, 4, 8, 16)) else 1.20
+            if N in (3, 6, 12) and q != 1.0: continue   # threes only at the stated tempo
+            if 0.96 <= r <= hi and (best is None or abs(math.log(r)) < abs(math.log(best[2]))): best = (N, q, r)
     return best
 
 
@@ -749,6 +753,7 @@ def loop_shape(x, meta, tempo):
         if F > 1: x[-F:] *= np.linspace(1, 0, F, dtype=np.float32)[:, None]
     f = min((1.0, 2.0, 0.5), key=lambda k: abs(lt_eff * k - tempo))   # half or double time where that is nearer
     if abs(lt_eff * f / tempo - 1) > 0.15: raise NotALoop("too far from the track's tempo to stretch")
+    if abs(N * f - round(N * f)) > 1e-9: raise NotALoop("its cycle would not be whole bars of this track")   # a 3-bar loop at half time
     return x, N, lt_eff, f, fit, lead
 
 
