@@ -1,7 +1,7 @@
 {
  "base": "https://benmcewensignal--sonic-parts-swap.modal.run",
- "at": "2026-10-19T17:58:00Z",
- "seconds": 294,
+ "at": "2026-10-19T18:19:37Z",
+ "seconds": 535,
  "artists": [
   "Ertu\u011frul \u00c7elebi",
   "Sal'vino SA",
@@ -14,7 +14,7 @@
    "part": "drums",
    "kind": "nearest",
    "target": null,
-   "seconds": 6.9,
+   "seconds": 28.3,
    "loops": [
     {
      "rank": 1,
@@ -138,7 +138,7 @@
    "part": "drums",
    "kind": "artist",
    "target": "Ertu\u011frul \u00c7elebi",
-   "seconds": 13.6,
+   "seconds": 18.8,
    "loops": [
     {
      "rank": 1,
@@ -269,7 +269,7 @@
    "part": "drums",
    "kind": "artist",
    "target": "Sal'vino SA",
-   "seconds": 26.4,
+   "seconds": 33.4,
    "loops": [
     {
      "rank": 1,
@@ -400,7 +400,7 @@
    "part": "drums",
    "kind": "artist",
    "target": "DJ 3D",
-   "seconds": 23.3,
+   "seconds": 23.7,
    "loops": [
     {
      "rank": 1,
@@ -531,7 +531,7 @@
    "part": "drums",
    "kind": "artist",
    "target": "Groove Dilla",
-   "seconds": 26.6,
+   "seconds": 25.8,
    "loops": [
     {
      "rank": 1,
@@ -662,7 +662,7 @@
    "part": "drums",
    "kind": "artist",
    "target": "Bl4ze",
-   "seconds": 25.1,
+   "seconds": 26.9,
    "loops": [
     {
      "rank": 1,
@@ -793,7 +793,7 @@
    "part": "drums",
    "kind": "scene",
    "target": "uk-garage-speed-garage",
-   "seconds": 14.0,
+   "seconds": 13.7,
    "loops": [
     {
      "rank": 1,
@@ -924,7 +924,7 @@
    "part": "drums",
    "kind": "scene",
    "target": "tech-house",
-   "seconds": 31.8,
+   "seconds": 34.1,
    "loops": [
     {
      "rank": 1,
@@ -1055,7 +1055,7 @@
    "part": "drums",
    "kind": "scene",
    "target": "techno-peak-time",
-   "seconds": 39.3,
+   "seconds": 39.7,
    "loops": [
     {
      "rank": 1,
@@ -1186,7 +1186,7 @@
    "part": "bass",
    "kind": "nearest",
    "target": null,
-   "seconds": 15.9,
+   "seconds": 7.0,
    "loops": [
     {
      "rank": 1,
@@ -1310,33 +1310,10 @@
    "part": "bass",
    "kind": "artist",
    "target": "Ertu\u011frul \u00c7elebi",
-   "seconds": 9.0,
+   "seconds": 8.8,
    "loops": [
     {
      "rank": 1,
-     "id": 797552,
-     "name": "bass synth oneshot 93 by CVLTIV8R.wav",
-     "user": "CVLTIV8R",
-     "closer_than": 0.0,
-     "prep": {
-      "bars": 1,
-      "cycle_bars": 1.0,
-      "f": 1.0,
-      "loop_tempo": 117.5,
-      "rms_db": -120.0,
-      "tail_bars": 0.59,
-      "grid_fit": 0.0,
-      "lead_ms": 0.0
-     },
-     "seconds": 1.92,
-     "rms_db": -180.0,
-     "peak_db": -180.0,
-     "silent_share": 1.0,
-     "loudest_tenth_share": 0.0,
-     "under_your_part_db": 82.4
-    },
-    {
-     "rank": 2,
      "id": 348899,
      "name": "Techno Basslines_012.wav",
      "user": "jalastram",
@@ -1359,7 +1336,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 3,
+     "rank": 2,
      "id": 547434,
      "name": "Loop_SimulatedHeartbeat_Normal.wav",
      "user": "RavenWolfProds",
@@ -1382,7 +1359,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 4,
+     "rank": 3,
      "id": 348894,
      "name": "Techno Basslines_011.wav",
      "user": "jalastram",
@@ -1405,7 +1382,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 5,
+     "rank": 4,
      "id": 100270,
      "name": "Loop Bassline 122 bpm.wav",
      "user": "Uknow Dude",
@@ -1426,6 +1403,29 @@
      "silent_share": 0.124,
      "loudest_tenth_share": 0.181,
      "under_your_part_db": 0.0
+    },
+    {
+     "rank": 5,
+     "id": 591047,
+     "name": "fauenauge",
+     "user": "Paraplex",
+     "closer_than": 0.0,
+     "prep": {
+      "bars": 4,
+      "cycle_bars": 4.0,
+      "f": 1.0,
+      "loop_tempo": 128.929,
+      "rms_db": -26.69,
+      "tail_bars": 0.0,
+      "grid_fit": 0.239,
+      "lead_ms": 0.0
+     },
+     "seconds": 7.68,
+     "rms_db": -26.7,
+     "peak_db": -16.3,
+     "silent_share": 0.0,
+     "loudest_tenth_share": 0.232,
+     "under_your_part_db": 0.0
     }
    ],
    "artist": {
@@ -1441,7 +1441,7 @@
    "part": "bass",
    "kind": "artist",
    "target": "Sal'vino SA",
-   "seconds": 19.2,
+   "seconds": 20.3,
    "loops": [
     {
      "rank": 1,
@@ -1572,33 +1572,10 @@
    "part": "bass",
    "kind": "artist",
    "target": "DJ 3D",
-   "seconds": 15.3,
+   "seconds": 14.7,
    "loops": [
     {
      "rank": 1,
-     "id": 797552,
-     "name": "bass synth oneshot 93 by CVLTIV8R.wav",
-     "user": "CVLTIV8R",
-     "closer_than": 0.0,
-     "prep": {
-      "bars": 1,
-      "cycle_bars": 1.0,
-      "f": 1.0,
-      "loop_tempo": 117.5,
-      "rms_db": -120.0,
-      "tail_bars": 0.59,
-      "grid_fit": 0.0,
-      "lead_ms": 0.0
-     },
-     "seconds": 1.92,
-     "rms_db": -180.0,
-     "peak_db": -180.0,
-     "silent_share": 1.0,
-     "loudest_tenth_share": 0.0,
-     "under_your_part_db": 82.4
-    },
-    {
-     "rank": 2,
      "id": 269396,
      "name": "soft bass loop.wav",
      "user": "djfroyd",
@@ -1621,7 +1598,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 3,
+     "rank": 2,
      "id": 22321,
      "name": "bassgeneration8.wav",
      "user": "mikesh",
@@ -1644,7 +1621,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 4,
+     "rank": 3,
      "id": 505260,
      "name": "Solemn Monk",
      "user": "code_box",
@@ -1667,7 +1644,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 5,
+     "rank": 4,
      "id": 239741,
      "name": "BsGr(05f,2s)[43]~v01.wav",
      "user": "quartertone",
@@ -1688,6 +1665,29 @@
      "silent_share": 0.0,
      "loudest_tenth_share": 0.342,
      "under_your_part_db": 0.0
+    },
+    {
+     "rank": 5,
+     "id": 338786,
+     "name": "becop bass 11",
+     "user": "-zin-",
+     "closer_than": 0.0,
+     "prep": {
+      "bars": 4,
+      "cycle_bars": 4.0,
+      "f": 1.0,
+      "loop_tempo": 129.383,
+      "rms_db": -12.62,
+      "tail_bars": 0.0,
+      "grid_fit": 0.236,
+      "lead_ms": 0.0
+     },
+     "seconds": 7.68,
+     "rms_db": -12.6,
+     "peak_db": -1.6,
+     "silent_share": 0.046,
+     "loudest_tenth_share": 0.137,
+     "under_your_part_db": 0.0
     }
    ],
    "artist": {
@@ -1695,7 +1695,7 @@
     "kind": "artist",
     "records": 4,
     "w": 1.0,
-    "closer_than": 0.0,
+    "closer_than": 0.25,
     "own_median": 0.599
    }
   },
@@ -1703,33 +1703,10 @@
    "part": "bass",
    "kind": "artist",
    "target": "Groove Dilla",
-   "seconds": 18.3,
+   "seconds": 18.5,
    "loops": [
     {
      "rank": 1,
-     "id": 797552,
-     "name": "bass synth oneshot 93 by CVLTIV8R.wav",
-     "user": "CVLTIV8R",
-     "closer_than": 0.0,
-     "prep": {
-      "bars": 1,
-      "cycle_bars": 1.0,
-      "f": 1.0,
-      "loop_tempo": 117.5,
-      "rms_db": -120.0,
-      "tail_bars": 0.59,
-      "grid_fit": 0.0,
-      "lead_ms": 0.0
-     },
-     "seconds": 1.92,
-     "rms_db": -180.0,
-     "peak_db": -180.0,
-     "silent_share": 1.0,
-     "loudest_tenth_share": 0.0,
-     "under_your_part_db": 82.4
-    },
-    {
-     "rank": 2,
      "id": 348894,
      "name": "Techno Basslines_011.wav",
      "user": "jalastram",
@@ -1752,7 +1729,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 3,
+     "rank": 2,
      "id": 348899,
      "name": "Techno Basslines_012.wav",
      "user": "jalastram",
@@ -1775,7 +1752,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 4,
+     "rank": 3,
      "id": 78021,
      "name": "Bass Loop AM.wav",
      "user": "Spol",
@@ -1798,7 +1775,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 5,
+     "rank": 4,
      "id": 770561,
      "name": "MassiveLoop130bpm",
      "user": "Snapper4298",
@@ -1819,6 +1796,29 @@
      "silent_share": 0.0,
      "loudest_tenth_share": 0.381,
      "under_your_part_db": 0.0
+    },
+    {
+     "rank": 5,
+     "id": 330633,
+     "name": "BLINGTHING.wav",
+     "user": "troym1",
+     "closer_than": 0.0,
+     "prep": {
+      "bars": 8,
+      "cycle_bars": 8.0,
+      "f": 1.0,
+      "loop_tempo": 124.991,
+      "rms_db": -35.73,
+      "tail_bars": 0.0,
+      "grid_fit": 0.249,
+      "lead_ms": 0.0
+     },
+     "seconds": 15.36,
+     "rms_db": -35.7,
+     "peak_db": -18.6,
+     "silent_share": 0.0,
+     "loudest_tenth_share": 0.335,
+     "under_your_part_db": 0.0
     }
    ],
    "artist": {
@@ -1834,33 +1834,10 @@
    "part": "bass",
    "kind": "artist",
    "target": "Bl4ze",
-   "seconds": 2.8,
+   "seconds": 2.9,
    "loops": [
     {
      "rank": 1,
-     "id": 797552,
-     "name": "bass synth oneshot 93 by CVLTIV8R.wav",
-     "user": "CVLTIV8R",
-     "closer_than": 0.0,
-     "prep": {
-      "bars": 1,
-      "cycle_bars": 1.0,
-      "f": 1.0,
-      "loop_tempo": 117.5,
-      "rms_db": -120.0,
-      "tail_bars": 0.59,
-      "grid_fit": 0.0,
-      "lead_ms": 0.0
-     },
-     "seconds": 1.92,
-     "rms_db": -180.0,
-     "peak_db": -180.0,
-     "silent_share": 1.0,
-     "loudest_tenth_share": 0.0,
-     "under_your_part_db": 82.4
-    },
-    {
-     "rank": 2,
      "id": 797315,
      "name": "Bass Synth 180 by CVLTIV8R.wav",
      "user": "CVLTIV8R",
@@ -1883,7 +1860,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 3,
+     "rank": 2,
      "id": 538755,
      "name": "Wah Pulse Loop 110 BPM.wav",
      "user": "BaDoink",
@@ -1906,7 +1883,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 4,
+     "rank": 3,
      "id": 797354,
      "name": "bass synth 219 by CVLTIV8R.wav",
      "user": "CVLTIV8R",
@@ -1929,7 +1906,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 5,
+     "rank": 4,
      "id": 591359,
      "name": "sub bass loop 130bpm.wav",
      "user": "brewcitymike",
@@ -1950,6 +1927,29 @@
      "silent_share": 0.0,
      "loudest_tenth_share": 0.198,
      "under_your_part_db": 0.0
+    },
+    {
+     "rank": 5,
+     "id": 100270,
+     "name": "Loop Bassline 122 bpm.wav",
+     "user": "Uknow Dude",
+     "closer_than": 0.0,
+     "prep": {
+      "bars": 4,
+      "cycle_bars": 4.0,
+      "f": 1.0,
+      "loop_tempo": 121.672,
+      "rms_db": -8.41,
+      "tail_bars": 0.0,
+      "grid_fit": 0.236,
+      "lead_ms": 0.0
+     },
+     "seconds": 7.68,
+     "rms_db": -8.4,
+     "peak_db": -1.6,
+     "silent_share": 0.124,
+     "loudest_tenth_share": 0.181,
+     "under_your_part_db": 0.0
     }
    ],
    "artist": {
@@ -1965,7 +1965,7 @@
    "part": "bass",
    "kind": "scene",
    "target": "uk-garage-speed-garage",
-   "seconds": 18.4,
+   "seconds": 18.0,
    "loops": [
     {
      "rank": 1,
@@ -2096,7 +2096,7 @@
    "part": "bass",
    "kind": "scene",
    "target": "tech-house",
-   "seconds": 20.0,
+   "seconds": 19.2,
    "loops": [
     {
      "rank": 1,
@@ -2227,7 +2227,7 @@
    "part": "bass",
    "kind": "scene",
    "target": "techno-peak-time",
-   "seconds": 16.9,
+   "seconds": 17.3,
    "loops": [
     {
      "rank": 1,
@@ -2358,7 +2358,7 @@
    "part": "other",
    "kind": "nearest",
    "target": null,
-   "seconds": 19.2,
+   "seconds": 19.8,
    "loops": [
     {
      "rank": 1,
@@ -2482,7 +2482,7 @@
    "part": "other",
    "kind": "artist",
    "target": "Ertu\u011frul \u00c7elebi",
-   "seconds": 18.0,
+   "seconds": 18.4,
    "loops": [
     {
      "rank": 1,
@@ -2617,29 +2617,6 @@
    "loops": [
     {
      "rank": 1,
-     "id": 623636,
-     "name": "Kalimba melody 6",
-     "user": "quetzalcontla",
-     "closer_than": 0.25,
-     "prep": {
-      "bars": 4,
-      "cycle_bars": 4.0,
-      "f": 1.0,
-      "loop_tempo": 123.0,
-      "rms_db": -48.35,
-      "tail_bars": 0.23,
-      "grid_fit": 0.258,
-      "lead_ms": 0.0
-     },
-     "seconds": 7.68,
-     "rms_db": -48.3,
-     "peak_db": -27.9,
-     "silent_share": 0.824,
-     "loudest_tenth_share": 0.831,
-     "under_your_part_db": 6.3
-    },
-    {
-     "rank": 2,
      "id": 536427,
      "name": "lullaby 2.wav",
      "user": "Logicogonist",
@@ -2662,7 +2639,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 3,
+     "rank": 2,
      "id": 223835,
      "name": "[Synth] ambient key",
      "user": "waveplaySFX",
@@ -2685,7 +2662,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 4,
+     "rank": 3,
      "id": 686923,
      "name": "electric guitar melody #13",
      "user": "Garuda1982",
@@ -2708,7 +2685,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 5,
+     "rank": 4,
      "id": 462918,
      "name": "Dub Techno Loop",
      "user": "The-Sacha-Rush",
@@ -2729,6 +2706,29 @@
      "silent_share": 0.078,
      "loudest_tenth_share": 0.422,
      "under_your_part_db": 0.0
+    },
+    {
+     "rank": 5,
+     "id": 623632,
+     "name": "Kalimba melody 2",
+     "user": "quetzalcontla",
+     "closer_than": 0.25,
+     "prep": {
+      "bars": 12,
+      "cycle_bars": 12.0,
+      "f": 1.0,
+      "loop_tempo": 117.5,
+      "rms_db": -33.06,
+      "tail_bars": 1.42,
+      "grid_fit": 0.233,
+      "lead_ms": 0.0
+     },
+     "seconds": 23.04,
+     "rms_db": -33.1,
+     "peak_db": -17.0,
+     "silent_share": 0.17,
+     "loudest_tenth_share": 0.474,
+     "under_your_part_db": 0.0
     }
    ],
    "artist": {
@@ -2744,7 +2744,7 @@
    "part": "other",
    "kind": "artist",
    "target": "DJ 3D",
-   "seconds": 10.7,
+   "seconds": 10.2,
    "loops": [
     {
      "rank": 1,
@@ -2875,7 +2875,7 @@
    "part": "other",
    "kind": "artist",
    "target": "Groove Dilla",
-   "seconds": 20.2,
+   "seconds": 18.6,
    "loops": [
     {
      "rank": 1,
@@ -3006,7 +3006,7 @@
    "part": "other",
    "kind": "artist",
    "target": "Bl4ze",
-   "seconds": 27.3,
+   "seconds": 27.5,
    "loops": [
     {
      "rank": 1,
@@ -3137,7 +3137,7 @@
    "part": "other",
    "kind": "scene",
    "target": "uk-garage-speed-garage",
-   "seconds": 17.8,
+   "seconds": 23.9,
    "loops": [
     {
      "rank": 1,
@@ -3268,7 +3268,7 @@
    "part": "other",
    "kind": "scene",
    "target": "tech-house",
-   "seconds": 15.3,
+   "seconds": 15.5,
    "loops": [
     {
      "rank": 1,
@@ -3399,7 +3399,7 @@
    "part": "other",
    "kind": "scene",
    "target": "techno-peak-time",
-   "seconds": 25.9,
+   "seconds": 30.1,
    "loops": [
     {
      "rank": 1,
@@ -3530,7 +3530,7 @@
    "part": "vocals",
    "kind": "nearest",
    "target": null,
-   "seconds": 16.3,
+   "seconds": 13.0,
    "loops": [
     {
      "rank": 1,
@@ -3603,29 +3603,6 @@
     },
     {
      "rank": 4,
-     "id": 347356,
-     "name": "ambientvoice.mp3",
-     "user": "BC83",
-     "closer_than": null,
-     "prep": {
-      "bars": 6,
-      "cycle_bars": 6.0,
-      "f": 1.0,
-      "loop_tempo": 121.941,
-      "rms_db": -48.24,
-      "tail_bars": 0.0,
-      "grid_fit": 0.227,
-      "lead_ms": 0.0
-     },
-     "seconds": 11.52,
-     "rms_db": -48.2,
-     "peak_db": -24.9,
-     "silent_share": 0.539,
-     "loudest_tenth_share": 0.415,
-     "under_your_part_db": 2.0
-    },
-    {
-     "rank": 5,
      "id": 382225,
      "name": "Calamoty.wav",
      "user": "Xzyztent",
@@ -3646,6 +3623,29 @@
      "silent_share": 0.109,
      "loudest_tenth_share": 0.245,
      "under_your_part_db": 0.0
+    },
+    {
+     "rank": 5,
+     "id": 826636,
+     "name": "Pareidolia 7",
+     "user": "Thomas_Bey_William_Bailey",
+     "closer_than": null,
+     "prep": {
+      "bars": 4,
+      "cycle_bars": 4.0,
+      "f": 1.0,
+      "loop_tempo": 119.746,
+      "rms_db": -23.06,
+      "tail_bars": 0.0,
+      "grid_fit": 0.236,
+      "lead_ms": 0.0
+     },
+     "seconds": 7.68,
+     "rms_db": -23.1,
+     "peak_db": -2.2,
+     "silent_share": 0.0,
+     "loudest_tenth_share": 0.659,
+     "under_your_part_db": 0.0
     }
    ],
    "artist": null
@@ -3654,7 +3654,7 @@
    "part": "vocals",
    "kind": "artist",
    "target": "Ertu\u011frul \u00c7elebi",
-   "seconds": 19.0,
+   "seconds": 17.7,
    "loops": [
     {
      "rank": 1,
@@ -3785,7 +3785,7 @@
    "part": "vocals",
    "kind": "artist",
    "target": "Sal'vino SA",
-   "seconds": 20.4,
+   "seconds": 18.7,
    "loops": [
     {
      "rank": 1,
@@ -3916,7 +3916,7 @@
    "part": "vocals",
    "kind": "artist",
    "target": "DJ 3D",
-   "seconds": 13.1,
+   "seconds": 12.8,
    "loops": [
     {
      "rank": 1,
@@ -4047,7 +4047,7 @@
    "part": "vocals",
    "kind": "artist",
    "target": "Groove Dilla",
-   "seconds": 9.9,
+   "seconds": 9.3,
    "loops": [
     {
      "rank": 1,
@@ -4097,29 +4097,6 @@
     },
     {
      "rank": 3,
-     "id": 7283,
-     "name": "odd vocal.wav",
-     "user": "LS",
-     "closer_than": 0.0,
-     "prep": {
-      "bars": 1,
-      "cycle_bars": 1.0,
-      "f": 1.0,
-      "loop_tempo": 117.5,
-      "rms_db": -47.58,
-      "tail_bars": 0.32,
-      "grid_fit": 0.216,
-      "lead_ms": 0.0
-     },
-     "seconds": 1.92,
-     "rms_db": -47.6,
-     "peak_db": -23.7,
-     "silent_share": 0.842,
-     "loudest_tenth_share": 0.685,
-     "under_your_part_db": 1.3
-    },
-    {
-     "rank": 4,
      "id": 415602,
      "name": "Dubfire Exit Sample",
      "user": "Teacoma",
@@ -4142,7 +4119,7 @@
      "under_your_part_db": 0.0
     },
     {
-     "rank": 5,
+     "rank": 4,
      "id": 555916,
      "name": "vocal chop loop 1 [reverse reverbs only] [C Sharp Minor] [128bpm]",
      "user": "deadrobotmusic",
@@ -4163,6 +4140,29 @@
      "silent_share": 0.681,
      "loudest_tenth_share": 0.891,
      "under_your_part_db": 0.0
+    },
+    {
+     "rank": 5,
+     "id": 382225,
+     "name": "Calamoty.wav",
+     "user": "Xzyztent",
+     "closer_than": 0.0,
+     "prep": {
+      "bars": 6,
+      "cycle_bars": 6.0,
+      "f": 1.0,
+      "loop_tempo": 112.3,
+      "rms_db": -10.44,
+      "tail_bars": 0.5,
+      "grid_fit": 0.236,
+      "lead_ms": 0.0
+     },
+     "seconds": 11.52,
+     "rms_db": -10.4,
+     "peak_db": -0.1,
+     "silent_share": 0.109,
+     "loudest_tenth_share": 0.245,
+     "under_your_part_db": 0.0
     }
    ],
    "artist": {
@@ -4178,7 +4178,7 @@
    "part": "vocals",
    "kind": "artist",
    "target": "Bl4ze",
-   "seconds": 17.0,
+   "seconds": 287.3,
    "loops": [
     {
      "rank": 1,
@@ -4309,7 +4309,7 @@
    "part": "vocals",
    "kind": "scene",
    "target": "uk-garage-speed-garage",
-   "seconds": 13.6,
+   "seconds": 13.3,
    "loops": [
     {
      "rank": 1,
@@ -4440,7 +4440,7 @@
    "part": "vocals",
    "kind": "scene",
    "target": "tech-house",
-   "seconds": 12.7,
+   "seconds": 12.9,
    "loops": [
     {
      "rank": 1,
@@ -4571,7 +4571,7 @@
    "part": "vocals",
    "kind": "scene",
    "target": "techno-peak-time",
-   "seconds": 8.7,
+   "seconds": 17.5,
    "loops": [
     {
      "rank": 1,
