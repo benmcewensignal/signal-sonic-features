@@ -368,10 +368,12 @@ def _one(label, data, truth=None, keep_render=False):
                         mids = [n_ for n_ in names if n_.endswith(".mid")]
                         out["render"]["stems"].update({"names": names, "recipe_lines": rec.count("\n"), "recipe_has_loops": "freesound.org" in rec, "midi": len(mids),
                                                        "midi_ok": all(z.read(n_)[:4] == b"MThd" for n_ in mids),
-                                                       "sum_vs_mix_lufs_diff": (round(lufs_x(stems_sum) - lufs_x(x), 2) if stems_sum is not None else None)})
+                                                       "sum_vs_mix_lufs_diff": (round(lufs_x(stems_sum) - lufs_x(x), 2) if stems_sum is not None else None),
+                                                       "sum_peak_dbfs": (round(20 * math.log10(float(np.abs(stems_sum).max()) + 1e-12), 2) if stems_sum is not None else None)})
                     except Exception as e:
                         out["render"]["stems"]["error"] = type(e).__name__ + ": " + str(e)[:80]
                 res_ = st.get("result") or {}; out["render"]["level"] = res_.get("level"); out["render"]["groove"] = (res_.get("laid") or {}).get("groove")
+                out["render"]["stems_gain_db"] = res_.get("stems_gain_db"); out["render"]["stems_peak_dbfs"] = res_.get("stems_peak_dbfs"); out["render"]["result_status"] = st.get("status")
     print(json.dumps(out, indent=1)[:4000], flush=True)
     return out
 

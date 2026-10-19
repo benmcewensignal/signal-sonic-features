@@ -364,7 +364,8 @@ def swap():
             return {"status": "failed", "error": type(e).__name__}
         if r is None: return {"status": "running"}
         if r.get("error"): return {"status": "failed", "error": r["error"]}
-        return {"status": "done", "result": {k: v for k, v in r.items() if k not in ("audio", "mp3")}}
+        # the files come by /stem and /file; the status carries no bytes (a render with stems holds a zip)
+        return {"status": "done", "result": {k: v for k, v in r.items() if k not in ("audio", "mp3", "zip") and not isinstance(v, (bytes, bytearray))} | ({"stems": True} if r.get("zip") else {})}
 
     @api.get("/stem")
     async def stem(req: Request):

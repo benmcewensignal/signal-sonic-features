@@ -1385,7 +1385,7 @@ def midi_bytes(tempo, notes=None, kick=None, snare=None, name="line", ppq=96):
     return b"MThd" + (6).to_bytes(4, "big") + (0).to_bytes(2, "big") + (1).to_bytes(2, "big") + ppq.to_bytes(2, "big") + b"MTrk" + len(body).to_bytes(4, "big") + body
 
 
-def recipe_text(P, credits, laid, loud, lines):
+def recipe_text(P, credits, laid, loud, lines, stems_gain_db=None):
     """What the swapped track is made of, as text to keep beside the stems: every loop with its credit and bars, the
     share of your own part kept, levels, moves, groove and the loudness match."""
     g = P["grid"]; L = [f"{P['name']} (swapped) - made with Sonic Swap, earlysignal.live/track", "",
@@ -1406,7 +1406,8 @@ def recipe_text(P, credits, laid, loud, lines):
     L.append("")
     mv = P["moves"]; L.append(f"Phrases of {mv['phrase']} bars from bar {mv['offset'] + 1}" + (f"; cuts on {', '.join(mv['cut'])}" if mv["cut"] else "") + (f"; rolls on {', '.join(mv['roll'])}" if mv["roll"] else "") + ".")
     if P.get("groove"): L.append(f"Your drums re-timed to the feel of {P['groove']['scene']} (" + str((laid.get('groove') or {}).get('moved', 0)) + " hits moved).")
-    if loud: L.append(f"Loudness matched to the track: {loud.get('track_lufs')} LUFS, the swapped mix {loud.get('swapped_lufs_before')} before a gain of {loud.get('gain_db')} dB and a limiter at {loud.get('ceiling_dbfs')} dBFS. The stems carry the gain, not the limiter; their sum is louder at the peaks than the mix.")
+    if loud: L.append(f"The mixed track's loudness is matched to yours: {loud.get('track_lufs')} LUFS, the swapped mix {loud.get('swapped_lufs_before')} before a gain of {loud.get('gain_db')} dB and a limiter at {loud.get('ceiling_dbfs')} dBFS.")
+    if stems_gain_db is not None: L.append(f"The stems are the parts as laid, before that match and limiter, all lowered by the same {abs(stems_gain_db):.1f} dB so their sum peaks at -1 dBFS: together they are the mix before its mastering, with headroom.")
     L += ["", "The MIDI files are the lines Sonic read from your own parts (a note or a kick and a snare per sixteenth), not the loops'.", "", "Loops: " + ("; ".join(credits) if credits else "none") + ".",
           "No sound comes from another artist's record. A CC BY loop released in a track is credited as above."]
     return "\n".join(L)
@@ -1552,19 +1553,24 @@ def render(path, plan):
         res = {"name": P["name"], "seconds": round(n / SR, 1), "credits": credits, "mp3": data, "took": round(time.time() - t0, 1),
                "laid": laid, "moves": P["moves"], "loudness": loud, "level": P["level"], "groove": P.get("groove")}
         if P.get("stems"):
-            # each part as its own MP3 (the mix's gain, not its limiter), the lines read from your parts as MIDI, and the recipe
+            # each part as its own MP3, as laid before the loudness match and the limiter, all lowered by one gain so that
+            # their sum (and each alone) peaks at -1 dBFS: stems with headroom that sum to the mix before its mastering;
+            # the lines read from your parts as MIDI, and the recipe
             import zipfile, io
             PW = {"drums": "drums", "bass": "bass", "other": "melody", "vocals": "voice"}
             for p in PARTS: your_line(p)
+            ssum = sum(stems[p] for p in PARTS)
+            pk = max([float(np.abs(ssum).max())] + [float(np.abs(stems[p]).max()) for p in PARTS]) or 1.0
+            sg = min(1.0, 10 ** (-1 / 20) / pk); res["stems_gain_db"] = round(20 * math.log10(sg), 2); res["stems_peak_dbfs"] = round(20 * math.log10(pk * sg), 2)
             zb = io.BytesIO()
             with zipfile.ZipFile(zb, "w", zipfile.ZIP_DEFLATED) as z:
                 for p in PARTS:
-                    z.writestr(f"{PW[p]}.mp3", mp3_bytes(stems[p] * gain, kbps=320, meta={"title": f"{P['name']} (swapped) - {PW[p]}", "comment": meta["comment"]}))
+                    z.writestr(f"{PW[p]}.mp3", mp3_bytes(stems[p] * sg, kbps=320, meta={"title": f"{P['name']} (swapped) - {PW[p]}", "comment": meta["comment"]}))
                 for p in PARTS:
                     ln = lines.get(p) or {}
                     md = midi_bytes(tempo, notes=ln.get("notes"), name=f"your {PW[p]}") if p != "drums" else midi_bytes(tempo, kick=ln.get("kick"), snare=ln.get("snare"), name="your drums")
                     z.writestr(f"your {PW[p]} (as read).mid", md)
-                z.writestr("recipe.txt", recipe_text(P, credits, laid, loud, lines))
+                z.writestr("recipe.txt", recipe_text(P, credits, laid, loud, lines, res["stems_gain_db"]))
             res["zip"] = zb.getvalue()
         return res
     finally:
