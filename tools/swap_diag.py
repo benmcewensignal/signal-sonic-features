@@ -30,7 +30,8 @@ def one(meta):
             r = bf / N
             if best is None or abs(math.log(r)) < abs(math.log(best[0])): best = (r, N, q)
     r, N, q = best
-    out = {"id": meta.get("id"), "d": round(d, 2), "lt": lt, "ratio_to_bars": round(r, 3), "N": N}
+    out = {"id": meta.get("id"), "d": round(d, 2), "lt": lt, "ratio_to_bars": round(r, 3), "N": N,
+           "old_rule": bool(0.96 <= r <= 1.20), "new_rule": SW.loop_bars(d, lt) is not None}   # whole bars within 4% short and 20% long, 1/2/4/8/16 bars; the worker's opened rule (19 Oct: 60% long, 3/6/12 too)
     def flux_fit(y, tempo):
         m = y.mean(1); n = 1024; hop = 256
         if len(m) < n * 2: return 0.0
@@ -104,6 +105,8 @@ def main():
         kinds = {k: sum(1 for r in res if r.get("kind") == k) for k in ("clean", "tail", "other")}
         def share(kind, key, th): return round(sum(1 for r in res if r.get("kind") in kind and r.get(key, 0) >= th) / max(1, n), 3)
         summ = {"family": fam, "read": n, "kinds": kinds,
+                "eligible: old rule (whole bars within 4% short, 20% long)": round(sum(1 for r in res if r.get("old_rule")) / max(1, n), 3),
+                "eligible: opened rule (60% long, 3/6/12-bar too)": round(sum(1 for r in res if r.get("new_rule")) / max(1, n), 3),
                 "clean & level fit >= .45": share(("clean",), "fit", 0.45), "clean & level fit >= .3": share(("clean",), "fit", 0.3),
                 "clean or tail & level fit >= .45": share(("clean", "tail"), "fit", 0.45), "clean or tail & flux fit >= .45": share(("clean", "tail"), "flux", 0.45),
                 "clean or tail & flux fit >= .35": share(("clean", "tail"), "flux", 0.35),

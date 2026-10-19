@@ -272,7 +272,8 @@ async def recognise(request: Request):
 #   GET  /stem?id=&part=&t=                            -> MP3: one part over the listening window (part=probe: the click)
 #   POST /loop?t=          JSON {part, target, tempo, key, exclude} -> the licensed loop, prepared, as WAV in JSON
 #   POST /render?t=        form: file, plan            -> {"id"}       separates again and lays the plan's loops
-#   GET  /file?id=&t=                                  -> MP3 of the whole track, swapped (an attachment)
+#   GET  /file?id=&t=                                  -> MP3 of the whole track, swapped (an attachment); &kind=stems the zip of stems, MIDI and recipe
+#   POST /groove?t=        JSON {id, tempo, g0, nb, scene} -> your drums over the window re-timed to a scene's feel (MP3 in JSON)
 #   GET  /artists?t=                                   -> [[artist, separated records], ...] for the search
 # The track lives in memory and a temporary directory for the length of each call; nothing is written anywhere.
 # pyin's compiled code (numba) is made once, at build, so a fresh container does not spend half a minute a part on it
@@ -378,8 +379,9 @@ def swap():
         if not ok(req): return no()
         try:
             b = await req.json()
+            focus = [str(x) for x in (b.get("focus") or []) if str(x) in SW.FOCUS][:4] or None
             r = await asyncio.to_thread(SW.loop_for, str(b.get("part") or ""), b.get("target") or {}, b.get("tempo"), b.get("key"),
-                                        [str(x) for x in (b.get("exclude") or [])][:80], int(b.get("n") or 5) if 1 <= int(b.get("n") or 5) <= 8 else 5)
+                                        [str(x) for x in (b.get("exclude") or [])][:80], int(b.get("n") or 5) if 1 <= int(b.get("n") or 5) <= 8 else 5, focus)
         except Exception as e:
             return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:160]}, 400)
         return r if not r.get("error") else JSONResponse(r, 404)
@@ -404,7 +406,32 @@ def swap():
             b = await req.json(); bars = int(b.get("bars") or 0)
             if not (1 <= bars <= 128): return JSONResponse({"error": "bars"}, 400)
             your = {k: [(int(v) if v is not None else None) for v in (b.get("your") or {}).get(k) or []][: bars * 16] for k in ("notes", "kick", "snare")}
-            r = await asyncio.to_thread(SW.follow_audio, str(b.get("part") or ""), int(b.get("id")), b.get("f"), b.get("shift"), b.get("tempo"), bars, your)
+            kit = b.get("kit") if isinstance(b.get("kit"), dict) else None
+            if kit: kit = {nm: [int(kit[nm][0]), float(kit[nm][1] or 1)] for nm in ("kick", "snare") if isinstance(kit.get(nm), (list, tuple)) and len(kit[nm]) == 2} or None
+            pattern = "theirs" if b.get("pattern") == "theirs" else "yours"
+            r = await asyncio.to_thread(SW.follow_audio, str(b.get("part") or ""), int(b.get("id")), b.get("f"), b.get("shift"), b.get("tempo"), bars, your, kit, pattern)
+        except Exception as e:
+            return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:160]}, 400)
+        return r if not r.get("error") else JSONResponse(r, 404)
+
+    @api.post("/groove")
+    async def groove(req: Request):
+        """Your drums over the window re-timed to a scene's measured feel: from the finished reading's drums (id), or
+        the example's. JSON {id, tempo, g0, nb, scene}: g0 the first bar line in the window's audio (seconds), nb bars."""
+        sc = ok(req)
+        if not sc: return no()
+        try:
+            b = await req.json(); scene = str(b.get("scene") or "")[:60]
+            if sc == "e" or b.get("id") == "example":
+                import urllib.request as _u
+                data = await asyncio.to_thread(lambda: _u.urlopen(SW.EXAMPLE_URL.replace("source.mp3", "drums.mp3"), timeout=60).read())
+            else:
+                r0 = await finished(str(b.get("id") or ""))
+                if r0 is None: return JSONResponse({"status": "running"}, 202)
+                data = ((r0 or {}).get("audio") or {}).get("drums")
+                if not data: return JSONResponse({"error": "no drums to re-time"}, 404)
+            x = await asyncio.to_thread(SW.decode_bytes, data)
+            r = await asyncio.to_thread(SW.groove_audio, x, float(b.get("tempo") or 0), float(b.get("g0") or 0), int(b.get("nb") or 0), scene)
         except Exception as e:
             return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:160]}, 400)
         return r if not r.get("error") else JSONResponse(r, 404)
@@ -437,6 +464,10 @@ def swap():
         if r is None: return JSONResponse({"status": "running"}, 202)
         if not r.get("mp3"): return JSONResponse({"error": r.get("error") or "no file"}, 404)
         nm = _re.sub(r"[^A-Za-z0-9 ._()-]+", "", str(r.get("name") or "track"))[:80].strip() or "track"
+        if req.query_params.get("kind") == "stems":
+            if not r.get("zip"): return JSONResponse({"error": "no stems were asked for"}, 404)
+            return Response(content=r["zip"], media_type="application/zip",
+                            headers={"Content-Disposition": f'attachment; filename="{nm} (swapped stems).zip"', "Cache-Control": "private, max-age=3600"})
         return Response(content=r["mp3"], media_type="audio/mpeg",
                         headers={"Content-Disposition": f'attachment; filename="{nm} (swapped).mp3"', "Cache-Control": "private, max-age=3600"})
 

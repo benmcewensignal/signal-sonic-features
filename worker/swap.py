@@ -586,9 +586,33 @@ def key_shift(loop_key, track_key):
 
 
 # ---------------------------------------------------------------- one loop, chosen and prepared
-def choose(part, v, tempo, key=None, exclude=(), top=400):
+FOCUS = {"brightness": ("centroid_hz", 48), "busyness": ("onsets_per_s", 51), "noisiness": ("flatness", 50), "punch": ("crest", 46)}   # a plain measure: its name in a loop's meta, its index in the raw 53
+
+
+def focus_distance(L, v, focus):
+    """For a focus (names from FOCUS), a function of a loop's meta giving its distance from the raw target v on those
+    measures alone, each standardised by the library's spread; None when the loop lacks one of them."""
+    keep = list(L["keep"]); mu, sd = np.asarray(L["mu"], float), np.asarray(L["sd"], float)
+    cols = []
+    for f in focus:
+        nm, idx = FOCUS[f]
+        if idx not in keep: continue
+        k = keep.index(idx); cols.append((nm, (float(v[idx]) - mu[k]) / (sd[k] or 1.0), mu[k], sd[k] or 1.0))
+    if not cols: return None
+    def dist(m):
+        pl = m.get("plain") or {}; d = 0.0
+        for nm, tz, mu_, sd_ in cols:
+            x = pl.get(nm)
+            if not isinstance(x, (int, float)): return None
+            d += ((float(x) - mu_) / sd_ - tz) ** 2
+        return math.sqrt(d / len(cols))
+    return dist
+
+
+def choose(part, v, tempo, key=None, exclude=(), top=400, focus=None):
     """The licensed loop of this part's family nearest the raw vector v, among loops at a tempo within 12% (or half or
-    double) of the track's, preferring a small stretch and, for tonal parts, a small transposition."""
+    double) of the track's, preferring a small stretch and, for tonal parts, a small transposition. With a focus (names
+    from FOCUS), the 200 nearest in character are re-ranked by their distance on those plain measures alone."""
     L = loop_index()[FAM[part]]
     q, zname = _space(L, v)
     Zl = np.asarray(L[zname], np.float32); sim = Zl @ q
@@ -604,8 +628,14 @@ def choose(part, v, tempo, key=None, exclude=(), top=400):
         score = float(sim[i]) - 0.6 * abs(r - 1) - 0.012 * abs(s)
         cands.append((score, int(i), f, s))
     cands.sort(reverse=True)
-    return [{"i": i, "meta": L["meta"][i], "sim": float(sim[i]), "q": q, "f": f, "shift": s, "of": len(L["meta"]),
-             "rank": int(np.sum(sim > sim[i])) + 1} for sc, i, f, s in cands]
+    out = [{"i": i, "meta": L["meta"][i], "sim": float(sim[i]), "q": q, "f": f, "shift": s, "of": len(L["meta"]),
+            "rank": int(np.sum(sim > sim[i])) + 1} for sc, i, f, s in cands]
+    fd = focus_distance(L, v, [f for f in (focus or []) if f in FOCUS]) if focus else None
+    if fd is not None:
+        near = out[:200]; scored = [(fd(c["meta"]), c) for c in near]; scored = [(d, c) for d, c in scored if d is not None]
+        scored.sort(key=lambda t: (t[0], -t[1]["sim"]))
+        out = [dict(c, focus_distance=round(d, 3), focus_of=len(scored)) for d, c in scored]
+    return out
 
 
 def _rubberband(x, ratio, shift, w):
@@ -667,14 +697,16 @@ def prepare_cached(meta, f, shift, tempo, min_fit=None, keep=48):
 def loop_bars(d, lt):
     """How many bars a loop of d seconds holds at its stated tempo lt (or half or double it, for loops tagged at the
     other octave): (bars, the multiple of lt, length over that many bars), for lengths from 4% short to 20% long of a
-    whole 1, 2, 4, 8 or 16 bars (a tail after the last bar is common), or None. A loop that does not divide into whole
-    bars at its tempo drifts off the beat, so it is not used."""
+    whole 1, 2, 3, 4, 6, 8, 12 or 16 bars (a tail after the last bar is common: a reverb, a ringing note), or None.
+    A loop that does not divide into whole bars at its tempo drifts off the beat, so it is not used. Opened on 19
+    October from 20% long to 60% long (the tail is cut at the stated tempo and faded) and to 3-, 6- and 12-bar loops:
+    most of the bass loops nearest a track used to fail here."""
     best = None
     for q in (1.0, 2.0, 0.5):
         bars_f = d * lt * q / 240
-        for N in (1, 2, 4, 8, 16):
+        for N in (1, 2, 3, 4, 6, 8, 12, 16):
             r = bars_f / N
-            if 0.96 <= r <= 1.20 and (best is None or abs(math.log(r)) < abs(math.log(best[2]))): best = (N, q, r)
+            if 0.96 <= r <= 1.60 and (best is None or abs(math.log(r)) < abs(math.log(best[2]))): best = (N, q, r)
     return best
 
 
@@ -712,7 +744,9 @@ def loop_shape(x, meta, tempo):
     if r <= 1.04:
         lt_eff = N * 240 / (len(x) / SR)                  # a clean loop: its length says its exact tempo
     else:
-        lt_eff = lq; x = x[:int(round(N * 240 / lt_eff * SR))]   # a tail after the last bar: cut at its stated tempo
+        lt_eff = lq; x = x[:int(round(N * 240 / lt_eff * SR))].copy()   # a tail after the last bar: cut at its stated tempo, faded
+        F = min(len(x), int(0.012 * SR))
+        if F > 1: x[-F:] *= np.linspace(1, 0, F, dtype=np.float32)[:, None]
     f = min((1.0, 2.0, 0.5), key=lambda k: abs(lt_eff * k - tempo))   # half or double time where that is nearer
     if abs(lt_eff * f / tempo - 1) > 0.15: raise NotALoop("too far from the track's tempo to stretch")
     return x, N, lt_eff, f, fit, lead
@@ -772,7 +806,7 @@ def _licence(u):
 def _loop_entry(part, c, prep, info):
     m = c["meta"]
     e = {"loop": {"id": m.get("id"), "name": m.get("name"), "user": m.get("user"), "licence": _licence(m.get("license")),
-                  "licence_url": m.get("license"), "page": f"https://freesound.org/s/{m.get('id')}/", "tempo": m.get("tempo"), "key": m.get("key")},
+                  "licence_url": m.get("license"), "page": f"https://freesound.org/s/{m.get('id')}/", "tempo": m.get("tempo"), "key": m.get("key"), "plain": m.get("plain")},
          "prep": prep, "closeness": round(c["sim"], 3), "rank": c["rank"], "of": c["of"]}
     if info.get("cz") is not None:   # against the group's average itself (whatever the target was steered to), as its own records are
         L = loop_index()[FAM[part]]; z = np.asarray(L["Zp" if "Zp" in L else ("Zs" if "Zs" in L else "Z")][c["i"]], np.float32)
@@ -801,7 +835,7 @@ def _target_vector(part, target, info):
     return np.asarray(v, float) if isinstance(v, list) and len(v) == 53 else None
 
 
-def loop_for(part, target, tempo, key=None, exclude=(), n=5):
+def loop_for(part, target, tempo, key=None, exclude=(), n=5, focus=None):
     """The nearest clean licensed loops for one part: target {"kind": "yours", "vector": [53]}, {"kind": "artist",
     "name": ...} or {"kind": "artist", "name": ..., "vector": [53], "w": 0.5} (a point between your part and the
     artist's average). Returns up to n in rank order, the first with its prepared cycle as WAV (base64), the others
@@ -812,7 +846,7 @@ def loop_for(part, target, tempo, key=None, exclude=(), n=5):
     info = {}
     v = _target_vector(part, target, info)
     if v is None: return {"error": info.get("error") or "no part measures"}
-    cands = choose(part, v, tempo, key, exclude)
+    cands = choose(part, v, tempo, key, exclude, focus=focus)
     if not cands: return {"error": "no licensed loop at a tempo that stretches to this one"}
     gate = GRID_FIT_MIN.get(part); found = []; skipped = 0
     from concurrent.futures import ThreadPoolExecutor
@@ -834,6 +868,9 @@ def loop_for(part, target, tempo, key=None, exclude=(), n=5):
         own = info.get("own")
         out["artist"] = {"name": info["artist"], "kind": info.get("kind", "artist"), "records": info["records"], "w": info.get("w", 1.0),
                          "closer_than": out.get("closer_than"), "own_median": round(float(np.median(own)), 3) if own is not None else None}
+    if focus and c0.get("focus_of"):
+        out["focus"] = {"on": [f for f in focus if f in FOCUS], "of": c0["focus_of"], "distance": c0.get("focus_distance"),
+                        "others": [c.get("focus_distance") for c, _y, _p in found[1:]]}
     return out
 
 
@@ -854,7 +891,7 @@ def loop_audio(part, lid, f, shift, tempo):
     except Exception as e:
         return {"error": "that loop could not be prepared: " + str(e)[:120]}
     return {"part": part, "loop": {"id": m.get("id"), "name": m.get("name"), "user": m.get("user"), "licence": _licence(m.get("license")),
-                                   "licence_url": m.get("license"), "page": f"https://freesound.org/s/{m.get('id')}/", "tempo": m.get("tempo"), "key": m.get("key")},
+                                   "licence_url": m.get("license"), "page": f"https://freesound.org/s/{m.get('id')}/", "tempo": m.get("tempo"), "key": m.get("key"), "plain": m.get("plain")},
             "prep": prep, "wav": base64.b64encode(wav_bytes(y)).decode()}
 
 
@@ -1084,12 +1121,33 @@ def follow_drums(cycle, kit, kick, snare, tempo, bars):
     return out, {"placed": placed, "has": {"kick": kit.get("kick") is not None, "snare": kit.get("snare") is not None}}
 
 
-def follow_part(part, meta, f, shift, tempo, bars, your):
+def loop_pattern(cycle, tempo, cycle_bars, bars):
+    """A drum loop's own kick and snare flags per sixteenth (hits_of on its prepared cycle), tiled over bars bars."""
+    nbc = max(1, int(round(cycle_bars))); kk, ss = hits_of(cycle, 0.0, 240 / tempo, nbc)
+    kk, ss = list(kk)[: nbc * 16], list(ss)[: nbc * 16]
+    if not kk: return [0] * (bars * 16), [0] * (bars * 16)
+    reps = bars * 16 // len(kk) + 1
+    return (kk * reps)[: bars * 16], (ss * reps)[: bars * 16]
+
+
+def follow_part(part, meta, f, shift, tempo, bars, your, kit=None, pattern="yours"):
     """A listed loop following your notes (bass, melody, voice: notes per sixteenth) or your pattern (drums: kick and
-    snare flags per sixteenth) over bars whole bars from a bar line. Returns (audio, prep, info)."""
+    snare flags per sixteenth) over bars whole bars from a bar line. For drums a kit may name other listed loops for
+    the kick and the snare ({"kick": [id, f], "snare": [id, f]}: each one's own kick or snare sample), and the pattern
+    may be yours or the loop's own ("theirs"). Returns (audio, prep, info)."""
     y, prep = prepare_cached(meta, float(f or 1.0), int(shift or 0) if part != "drums" else 0, float(tempo))
     if part == "drums":
-        kit = loop_kit(y, tempo); out, info = follow_drums(y, kit, your.get("kick") or [], your.get("snare") or [], tempo, bars)
+        kit_ = loop_kit(y, tempo); src = {"kick": meta.get("id"), "snare": meta.get("id"), "top": meta.get("id")}
+        for nm in ("kick", "snare"):
+            k = (kit or {}).get(nm)
+            if not k: continue
+            m2 = loop_by_id("drums", int(k[0]))
+            if not m2: continue
+            y2, _ = prepare_cached(m2, float(k[1] or 1.0), 0, float(tempo)); smp = loop_kit(y2, tempo).get(nm)
+            if smp is not None and len(smp): kit_[nm] = smp; src[nm] = m2.get("id")
+        if pattern == "theirs": kk, ss = loop_pattern(y, tempo, prep["cycle_bars"], bars)
+        else: kk, ss = your.get("kick") or [], your.get("snare") or []
+        out, info = follow_drums(y, kit_, kk, ss, tempo, bars); info["kit"] = src; info["pattern"] = pattern
     else:
         ln = loop_notes(y, part, tempo, prep["cycle_bars"]); out, info = follow_tonal(y, prep["cycle_bars"], ln, your.get("notes") or [], tempo, bars, part)
         info["loop_notes"] = sum(1 for v in ln if v is not None); info["loop_steps"] = len(ln)
@@ -1098,18 +1156,139 @@ def follow_part(part, meta, f, shift, tempo, bars, your):
     return out, prep, info
 
 
-def follow_audio(part, lid, f, shift, tempo, bars, your):
+def follow_audio(part, lid, f, shift, tempo, bars, your, kit=None, pattern="yours"):
     """The /follow endpoint: a listed loop following your notes or pattern over bars whole bars, as MP3 (base64) with
-    the loop's preparation and what was followed."""
+    the loop's preparation and what was followed; for drums, with a kit of other loops' kick and snare and whose
+    pattern."""
     if part not in PARTS: return {"error": "unknown part"}
     m = loop_by_id(part, lid)
     if not m: return {"error": "no such loop"}
     try:
-        out, prep, info = follow_part(part, m, f, shift, float(tempo), int(bars), your or {})
+        out, prep, info = follow_part(part, m, f, shift, float(tempo), int(bars), your or {}, kit=kit, pattern=pattern)
     except Exception as e:
         return {"error": "could not follow: " + type(e).__name__ + ": " + str(e)[:120]}
     return {"part": part, "loop": {"id": m.get("id"), "name": m.get("name"), "user": m.get("user")}, "prep": prep, "info": info,
             "bars": int(bars), "mp3": base64.b64encode(mp3_bytes(out)).decode()}
+
+
+# ---------------------------------------------------------------- their groove on your drums
+_GF = None
+
+
+def groove_feel(slug):
+    """A scene's feel as the Groove page measured it (worker/groove_feel.json from signalgood/data/groove-scenes.json):
+    how late the non-kick hits on each of a bar's 16 steps fall, as a fraction of a sixteenth."""
+    global _GF
+    if _GF is None: _GF = json.load(open(os.path.join(HERE, "groove_feel.json")))["scenes"]
+    return _GF.get(str(slug or "").strip().lower())
+
+
+def hit_times(x, sr_in=SR):
+    """Every drum hit's time (seconds) and the sharpness of its rise, read as hits_of reads them: peaks in the rise of
+    the level, a softer rise within 150 ms after a sharper one being that hit's swell (a long kick's own movement), not
+    a hit of its own."""
+    m = x.mean(1).astype(np.float32); hop = 64; fr = sr_in / hop
+    e = np.abs(m); eh = e[: len(e) // hop * hop].reshape(-1, hop).max(1); rise = np.maximum(0, np.diff(eh, prepend=eh[:1]))
+    pk = _rise_peaks(rise, fr, 0.04, 0.08)
+    from scipy.signal import butter, sosfiltfilt
+    def band(lo, hi): return np.abs(sosfiltfilt(butter(4, [lo, hi], "band", fs=sr_in, output="sos"), m))
+    Lb, Mb, Hb = band(30, 120), band(150, 800), band(2000, 8000); W = int(0.04 * sr_in)
+    T = [i / fr for i in pk]; R = [float(rise[i]) for i in pk]
+    low = [float(Lb[int(i * hop): int(i * hop) + W].mean()) > 0.5 * float(Mb[int(i * hop): int(i * hop) + W].mean() + Hb[int(i * hop): int(i * hop) + W].mean()) for i in pk]   # a kick-like hit: its low band dominates
+    keep = []
+    for q in range(len(T)):
+        swell = False
+        if low[q]:
+            for q2 in range(q - 1, -1, -1):
+                if T[q] - T[q2] > 0.15: break
+                if low[q2] and R[q] < 0.6 * R[q2]: swell = True; break
+        if not swell: keep.append(q)
+    return np.array([T[q] for q in keep]), np.array([R[q] for q in keep])
+
+
+def your_feel(times, g0, bar, nb):
+    """How late your hits fall on each of the 16 steps, as a fraction of a sixteenth: the median offset of the hits
+    nearest each step, and how many hits each step had."""
+    step = bar / 16; rel = [[] for _ in range(16)]
+    for t in times:
+        k = (t - g0) / step; ki = int(round(k))
+        if not (0 <= ki < nb * 16): continue
+        d = k - ki
+        if abs(d) <= 0.3: rel[ki % 16].append(d)
+    return [round(float(np.median(r)), 4) if r else 0.0 for r in rel], [len(r) for r in rel]
+
+
+def regroove(x, g0, bar, nb, target_rel, sr_in=SR, max_step=0.25):
+    """Your drums re-timed to a target feel: each hit moved from where it falls on its step to where the target's hits
+    on that step fall (the difference between the target's lateness and yours, per step, at most a quarter of a
+    sixteenth). Rubber Band's time map pins every hit to its new time and stretches the audio between hits by the
+    small amount that needs (no cuts, no gaps); the length is unchanged. Beats (steps 0, 4, 8, 12) stay where they
+    are: the feel is in the steps between. Returns (audio, info)."""
+    import soundfile as sf
+    times, sharp = hit_times(x, sr_in); step = bar / 16; n = len(x)
+    yours, counts = your_feel(times, g0, bar, nb)
+    shift = []
+    for k in range(16):
+        d = 0.0 if k % 4 == 0 else float(target_rel[k]) - yours[k]
+        shift.append(max(-max_step, min(max_step, d)))
+    info = {"hits": int(len(times)), "moved": 0, "yours": yours, "counts": counts, "target": [round(float(v), 4) for v in target_rel],
+            "shift": [round(v, 4) for v in shift], "max_move_ms": 0.0, "step_ms": round(step * 1000, 1)}
+    if not len(times) or not any(shift): return x.copy(), info
+    pairs = [(0, 0)]; last = 0; mx = 0.0
+    for t in times:
+        k = (t - g0) / step; ki = int(round(k))
+        if not (0 <= ki < nb * 16) or abs(k - ki) > 0.3: continue
+        d = shift[ki % 16] * step; src = int(round(t * sr_in)); dst = int(round((t + d) * sr_in))
+        if src <= pairs[-1][0] + 64 or dst <= pairs[-1][1] + 64 or src >= n - 64 or dst >= n - 64: continue   # pins must advance
+        pairs.append((src, dst))
+        if d: info["moved"] += 1; mx = max(mx, abs(d))
+    pairs.append((n, n)); info["max_move_ms"] = round(mx * 1000, 1)
+    if len(pairs) < 3: return x.copy(), info
+    w = tempfile.mkdtemp()
+    try:
+        a, b, mp = os.path.join(w, "g_in.wav"), os.path.join(w, "g_out.wav"), os.path.join(w, "map.txt")
+        pk = float(np.abs(x).max()) or 1.0; g = 0.9 / pk if pk > 0.9 else 1.0   # the stretcher's file is not allowed past full scale
+        sf.write(a, x * g, sr_in, subtype="FLOAT"); open(mp, "w").write("\n".join(f"{s_} {d_}" for s_, d_ in pairs) + "\n")
+        # the R2 engine at its crispest: with the time map it keeps a moved hit within 4 ms of where it was sent (R3 does
+        # not take a time map; R2 at its default smears a big move by up to 10 ms)
+        subprocess.run(["rubberband", "-q", "-2", "--crisp", "6", "--timemap", mp, "-t", "1.0", a, b], check=True, timeout=300, capture_output=True)
+        y, _ = read_wav(b); y = y / g
+    finally:
+        shutil.rmtree(w, ignore_errors=True)
+    out = np.zeros_like(x); m = min(n, len(y)); out[:m] = y[:m]
+    # the stretcher's own small lag, measured on the beats (which were not moved) and taken back off
+    beats = [t for t in times if abs(((t - g0) / step + 0.5) % 4 - 0.5) <= 0.3 and 0 <= (t - g0) / step < nb * 16]
+    if beats:
+        t2, _ = hit_times(out, sr_in); dl = []
+        for t in beats:
+            j = int(np.argmin(np.abs(t2 - t))) if len(t2) else -1
+            if j >= 0 and abs(t2[j] - t) <= 0.02: dl.append(t2[j] - t)
+        if len(dl) >= 3:
+            lag = int(round(float(np.median(dl)) * sr_in)); info["lag_ms"] = round(1000 * lag / sr_in, 2)
+            if lag > 0: out = np.concatenate([out[lag:], np.zeros((lag, 2), np.float32)])
+            elif lag < 0: out = np.concatenate([np.zeros((-lag, 2), np.float32), out[:n + lag]])
+    return out, info
+
+
+def decoder_lead(sr=SR):
+    """How far this worker's MP3 decoding puts audio late (the encoder's delay, when the decoder does not strip it):
+    the probe's click, encoded as the parts are, decoded back."""
+    y = decode_bytes(probe_mp3()); m = np.abs(y.mean(1)); i = int(np.argmax(m))
+    return max(0, i - int(0.5 * sr))
+
+
+def groove_audio(x, tempo, g0, nb, scene):
+    """The /groove endpoint's work: the drums x (the window the page plays, decoded here) re-timed to the scene's feel,
+    as MP3 (base64) with what was read and moved. g0 is the first bar line in the window as the page times it."""
+    gf = groove_feel(scene)
+    if not gf: return {"error": "no measured feel for that scene"}
+    bar = 240 / float(tempo); nb = int(nb)
+    if not (0.5 < bar < 6 and 0 < nb < 2000): return {"error": "bad grid"}
+    lead = decoder_lead()
+    if lead: x = x[lead:]   # the window as it was before encoding, so the page's bar lines hold
+    y, info = regroove(x, float(g0), bar, nb, gf["rel"]); info["decoder_lead"] = lead
+    info["scene"] = {"slug": scene, "name": gf.get("name"), "records": gf.get("records"), "swing": gf.get("swing")}
+    return {"info": info, "mp3": base64.b64encode(mp3_bytes(y)).decode()}
 
 
 # ---------------------------------------------------------------- the whole track, by the plan the page played
@@ -1134,18 +1313,29 @@ def clean_plan(plan, nb_max=10000):
             for r in (lay_.get("runs") or [])[:2000]:
                 r0, r1 = int(r[0]), int(r[1])
                 if 0 <= r0 < r1 <= grid["nb"]: runs.append((r0, r1))
-            if runs and any(gains): L.append({"loop": int(lay_["loop"]), "f": float(lay_.get("f") or 1), "shift": int(lay_.get("shift") or 0), "gains": gains, "runs": runs, "follow": bool(lay_.get("follow"))})
+            if runs and any(gains):
+                ent = {"loop": int(lay_["loop"]), "f": float(lay_.get("f") or 1), "shift": int(lay_.get("shift") or 0), "gains": gains, "runs": runs, "follow": bool(lay_.get("follow"))}
+                if p == "drums":
+                    kit = lay_.get("kit") if isinstance(lay_.get("kit"), dict) else None
+                    if kit:
+                        ent["kit"] = {nm: [int(kit[nm][0]), float(kit[nm][1] or 1)] for nm in ("kick", "snare") if isinstance(kit.get(nm), (list, tuple)) and len(kit[nm]) == 2}
+                        if not ent["kit"]: del ent["kit"]
+                L.append(ent)
         if L: parts[p] = L
-    keep = {}
+    keep = {}; level = {}
     for p in PARTS:
         k = (plan.get("keep") or {}).get(p)
         keep[p] = min(1.0, max(0.0, float(k))) if k is not None else 0.0
+        lv = (plan.get("level") or {}).get(p)
+        level[p] = round(min(12.0, max(-12.0, float(lv))), 2) if lv is not None else 0.0
+    gr = plan.get("groove") if isinstance(plan.get("groove"), dict) else None
+    groove = {"scene": str(gr.get("scene"))[:60]} if gr and gr.get("scene") and groove_feel(gr.get("scene")) else None
     mv = plan.get("moves") or {}
     phrase = int(mv.get("phrase") or 8); phrase = phrase if phrase in (4, 8, 16) else 8
     moves = {"phrase": phrase, "offset": int(mv.get("offset") or 0) % phrase,
              "cut": [p for p in PARTS if p in (mv.get("cut") or [])], "roll": [p for p in PARTS if p in (mv.get("roll") or [])]}
-    return {"grid": grid, "parts": parts, "keep": keep, "moves": moves, "master": bool(plan.get("master", True)),
-            "tempo": float(plan.get("tempo") or 0), "name": str(plan.get("name") or "track")[:100]}
+    return {"grid": grid, "parts": parts, "keep": keep, "level": level, "groove": groove, "moves": moves, "master": bool(plan.get("master", True)),
+            "stems": bool(plan.get("stems")), "tempo": float(plan.get("tempo") or 0), "name": str(plan.get("name") or "track")[:100]}
 
 
 def loop_by_id(part, lid):
@@ -1153,6 +1343,64 @@ def loop_by_id(part, lid):
     for m in L["meta"]:
         if int(m.get("id") or -1) == int(lid): return m
     return None
+
+
+def _vlq(n):
+    out = [n & 0x7F]; n >>= 7
+    while n: out.append((n & 0x7F) | 0x80); n >>= 7
+    return bytes(reversed(out))
+
+
+def midi_bytes(tempo, notes=None, kick=None, snare=None, name="line", ppq=96):
+    """A type-0 Standard MIDI File of a line read per sixteenth: notes (MIDI numbers or None; a run of the same note is
+    one note) or a drum pattern (kick on C1, snare on D1, a sixteenth each), at the track's tempo from its first bar."""
+    ev = []   # (tick, bytes)
+    q = ppq // 4
+    if notes is not None:
+        k = 0; n = len(notes)
+        while k < n:
+            v = notes[k]
+            if v is None: k += 1; continue
+            j = k + 1
+            while j < n and notes[j] == v: j += 1
+            ev.append((k * q, bytes([0x90, int(v) & 0x7F, 96]))); ev.append((j * q, bytes([0x80, int(v) & 0x7F, 0]))); k = j
+    for flags, num in ((kick, 36), (snare, 38)):
+        for k, f in enumerate(flags or []):
+            if f: ev.append((k * q, bytes([0x99, num, 110]))); ev.append((k * q + q - 1, bytes([0x89, num, 0])))
+    ev.sort(key=lambda e: e[0])
+    us = int(round(60_000_000 / max(20.0, float(tempo))))
+    body = b"\x00\xff\x03" + _vlq(len(name.encode())) + name.encode() + b"\x00\xff\x51\x03" + us.to_bytes(3, "big") + b"\x00\xff\x58\x04\x04\x02\x18\x08"
+    t = 0
+    for tick, msg in ev: body += _vlq(tick - t) + msg; t = tick
+    body += b"\x00\xff\x2f\x00"
+    return b"MThd" + (6).to_bytes(4, "big") + (0).to_bytes(2, "big") + (1).to_bytes(2, "big") + ppq.to_bytes(2, "big") + b"MTrk" + len(body).to_bytes(4, "big") + body
+
+
+def recipe_text(P, credits, laid, loud, lines):
+    """What the swapped track is made of, as text to keep beside the stems: every loop with its credit and bars, the
+    share of your own part kept, levels, moves, groove and the loudness match."""
+    g = P["grid"]; L = [f"{P['name']} (swapped) - made with Sonic Swap, earlysignal.live/track", "",
+         f"Tempo {P['tempo']:.1f} bpm; a bar is {g['bar']:.4f} s; bar 1 starts {g['g0']:.3f} s into the track; {g['nb']} bars.", ""]
+    PW = {"drums": "Drums", "bass": "Bass", "other": "Melody", "vocals": "Voice"}
+    for p in PARTS:
+        layers = P["parts"].get(p) or []
+        if not layers: L.append(f"{PW[p]}: yours" + (f", {P['level'][p]:+.1f} dB" if P["level"][p] else "")); continue
+        L.append(f"{PW[p]}: swapped; yours kept at {int(round(P['keep'][p] * 100))}% under it" + (f", {P['level'][p]:+.1f} dB" if P["level"][p] else ""))
+        for c in layers:
+            m = loop_by_id(p, c["loop"]) or {}
+            bars = ", ".join(f"bars {a + 1}-{b}" for a, b in c["runs"])
+            how = []
+            if c.get("follow"): how.append("following your " + ("pattern" if p == "drums" else "notes"))
+            if c.get("kit") and not c.get("follow") and p == "drums": how.append("its own pattern")
+            if c.get("kit"): how.append("kit: " + ", ".join(f"{nm} from loop {v[0]}" for nm, v in c["kit"].items()))
+            L.append(f"  {m.get('name')} by {m.get('user')} (freesound.org/s/{m.get('id')}), {_licence(m.get('license'))}; {bars}" + ("; " + "; ".join(how) if how else ""))
+    L.append("")
+    mv = P["moves"]; L.append(f"Phrases of {mv['phrase']} bars from bar {mv['offset'] + 1}" + (f"; cuts on {', '.join(mv['cut'])}" if mv["cut"] else "") + (f"; rolls on {', '.join(mv['roll'])}" if mv["roll"] else "") + ".")
+    if P.get("groove"): L.append(f"Your drums re-timed to the feel of {P['groove']['scene']} (" + str((laid.get('groove') or {}).get('moved', 0)) + " hits moved).")
+    if loud: L.append(f"Loudness matched to the track: {loud.get('track_lufs')} LUFS, the swapped mix {loud.get('swapped_lufs_before')} before a gain of {loud.get('gain_db')} dB and a limiter at {loud.get('ceiling_dbfs')} dBFS. The stems carry the gain, not the limiter; their sum is louder at the peaks than the mix.")
+    L += ["", "The MIDI files are the lines Sonic read from your own parts (a note or a kick and a snare per sixteenth), not the loops'.", "", "Loops: " + ("; ".join(credits) if credits else "none") + ".",
+          "No sound comes from another artist's record. A CC BY loop released in a track is credited as above."]
+    return "\n".join(L)
 
 
 def phrase_ends(nb, phrase, offset):
@@ -1236,49 +1484,78 @@ def render(path, plan):
         X = {k: read_wav(st[k])[0] for k in PARTS if k in st}
         n = min(len(v) for v in X.values()); X = {k: v[:n] for k, v in X.items()}
         original = read_wav(wav)[0][:n]   # the track itself: its separated parts sum to a little less
-        out = np.zeros((n, 2), np.float32); credits = []; laid = {}; lines = {}
+        out = np.zeros((n, 2), np.float32); credits = []; laid = {}; lines = {}; stems = {}
         def your_line(p):   # what your part plays, read once from the fresh separation on the plan's bar lines
             if p not in lines:
                 if p == "drums": kk, ss = hits_of(X[p], g0, bar, nb); lines[p] = {"kick": kk, "snare": ss}
                 else: nts, _on = notes_of(X[p], p, g0, bar, nb); lines[p] = {"notes": nts}
             return lines[p]
+        if P.get("groove"):   # your drums re-timed to a scene's feel, before anything is laid on them or read from them
+            gf = groove_feel(P["groove"]["scene"])
+            if gf:
+                X["drums"], ginfo = regroove(X["drums"], g0, bar, nb, gf["rel"]); ginfo["scene"] = P["groove"]["scene"]; laid["groove"] = ginfo
         for p in PARTS:
             layers = P["parts"].get(p) or []
-            swapped = np.zeros(nb, bool)
+            swapped = np.zeros(nb, bool); part_out = np.zeros((n, 2), np.float32)
             for c in layers:
                 m = loop_by_id(p, c["loop"])
                 if not m: continue
                 try:
-                    if c.get("follow"):
-                        y, prep, finfo = follow_part(p, m, c["f"], c["shift"], tempo, nb, your_line(p))
-                        out += lay(None, n, g0, bar, c["gains"], c["runs"], moves=P["moves"], part=p, timed=y)
+                    if c.get("follow") or (p == "drums" and c.get("kit")):   # drums: your pattern (follow) or the loop's own, with a kit of other loops' kick and snare
+                        your = your_line(p) if c.get("follow") else {}
+                        y, prep, finfo = follow_part(p, m, c["f"], c["shift"], tempo, nb, your, kit=c.get("kit"), pattern="yours" if c.get("follow") else "theirs")
+                        part_out += lay(None, n, g0, bar, c["gains"], c["runs"], moves=P["moves"], part=p, timed=y)
                         laid.setdefault(p + "_follow", []).append(finfo)
                     else:
                         y, prep = prepare_cached(m, c["f"], c["shift"] if p != "drums" else 0, tempo)
-                        out += lay(y, n, g0, bar, c["gains"], c["runs"], moves=P["moves"], part=p)
+                        part_out += lay(y, n, g0, bar, c["gains"], c["runs"], moves=P["moves"], part=p)
                 except Exception as e:
                     laid.setdefault("errors", []).append(f"{p} {c['loop']}: {type(e).__name__}: {str(e)[:80]}"); continue
                 swapped |= np.asarray(c["gains"]) > 0
                 cr = f"{m.get('name')} by {m.get('user')} (freesound.org/s/{m.get('id')}), {_licence(m.get('license'))}"
                 if cr not in credits: credits.append(cr)
-            # your own part: whole where nothing is swapped in the bar, at the kept share under a swap
+                for nm, kv in (c.get("kit") or {}).items():   # a kit's other loops are credited too
+                    m2 = loop_by_id("drums", kv[0]); cr2 = f"{m2.get('name')} by {m2.get('user')} (freesound.org/s/{m2.get('id')}), {_licence(m2.get('license'))}" if m2 else None
+                    if cr2 and cr2 not in credits: credits.append(cr2)
+            # your own part: whole where nothing is swapped in the bar, at the kept share under a swap, at its level
+            lv = 10 ** (P["level"][p] / 20)
             if swapped.any():
                 yours = np.where(swapped, P["keep"][p], 1.0).tolist()
-                out += X[p] * bar_envelope(n, g0, bar, yours)[:, None]
-                laid[p] = {"layers": len(layers), "bars_swapped": int(swapped.sum()), "keep": P["keep"][p]}
+                part_out += X[p] * lv * bar_envelope(n, g0, bar, yours)[:, None]
+                laid[p] = {"layers": len(layers), "bars_swapped": int(swapped.sum()), "keep": P["keep"][p], "level_db": P["level"][p]}
             else:
-                out += X[p]
-        loud = None
+                part_out += X[p] * lv
+                if P["level"][p]: laid[p] = {"layers": 0, "bars_swapped": 0, "keep": 1.0, "level_db": P["level"][p]}
+            out += part_out
+            if P.get("stems"): stems[p] = part_out
+        loud = None; gain = 1.0
         if P["master"] and laid:
             # loudness matched to the original after a lookahead limiter at -1.9 dBFS (MP3 coding adds up to a decibel
             # of overshoot, so the file stays under full scale)
             out, loud = master(out, original)
+            if loud and loud.get("gain_db") is not None: gain = 10 ** (float(loud["gain_db"]) / 20)
         else:
             pk = float(np.abs(out).max()) or 1.0
-            if pk > 0.98: out *= 0.98 / pk
+            if pk > 0.98: gain = 0.98 / pk; out *= gain
         meta = {"title": f"{P['name']} (swapped)", "comment": "Loops: " + "; ".join(credits) if credits else "No parts swapped"}
         data = mp3_bytes(out, kbps=320, meta=meta)
-        return {"name": P["name"], "seconds": round(n / SR, 1), "credits": credits, "mp3": data, "took": round(time.time() - t0, 1),
-                "laid": laid, "moves": P["moves"], "loudness": loud}
+        res = {"name": P["name"], "seconds": round(n / SR, 1), "credits": credits, "mp3": data, "took": round(time.time() - t0, 1),
+               "laid": laid, "moves": P["moves"], "loudness": loud, "level": P["level"], "groove": P.get("groove")}
+        if P.get("stems"):
+            # each part as its own MP3 (the mix's gain, not its limiter), the lines read from your parts as MIDI, and the recipe
+            import zipfile, io
+            PW = {"drums": "drums", "bass": "bass", "other": "melody", "vocals": "voice"}
+            for p in PARTS: your_line(p)
+            zb = io.BytesIO()
+            with zipfile.ZipFile(zb, "w", zipfile.ZIP_DEFLATED) as z:
+                for p in PARTS:
+                    z.writestr(f"{PW[p]}.mp3", mp3_bytes(stems[p] * gain, kbps=320, meta={"title": f"{P['name']} (swapped) - {PW[p]}", "comment": meta["comment"]}))
+                for p in PARTS:
+                    ln = lines.get(p) or {}
+                    md = midi_bytes(tempo, notes=ln.get("notes"), name=f"your {PW[p]}") if p != "drums" else midi_bytes(tempo, kick=ln.get("kick"), snare=ln.get("snare"), name="your drums")
+                    z.writestr(f"your {PW[p]} (as read).mid", md)
+                z.writestr("recipe.txt", recipe_text(P, credits, laid, loud, lines))
+            res["zip"] = zb.getvalue()
+        return res
     finally:
         shutil.rmtree(w, ignore_errors=True)

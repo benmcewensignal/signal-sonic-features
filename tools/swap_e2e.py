@@ -80,7 +80,7 @@ def runs_of(act):
     return j
 
 
-def plan_for(res, loops, second=None, moves=None, keep=None, master=True, follow=None):
+def plan_for(res, loops, second=None, moves=None, keep=None, master=True, follow=None, level=None, groove=None, stems=False, kit=None):
     """The page's rule (swap.html), mirrored: a bar plays the loop where your part's level is within 14 dB of its loud
     bars (and above -50 dB), at your part's level in that bar, at most 12 dB up. With second {part: entry}, that part
     gets two layers: the first loop in the first half of the bars and the second in the rest (a section's own choice).
@@ -100,9 +100,14 @@ def plan_for(res, loops, second=None, moves=None, keep=None, master=True, follow
             parts[p] = [layer(L, np.ones(nb, bool))]
         if follow and p in follow:
             for lay_ in parts[p]: lay_["follow"] = True
+        if kit and p == "drums":
+            for lay_ in parts[p]: lay_["kit"] = kit
     out = {"grid": {"g0": g["g0"], "bar": g["bar"], "nb": nb}, "tempo": res["tempo"], "name": res["name"], "parts": parts, "master": master}
     if keep: out["keep"] = keep
     if moves: out["moves"] = moves
+    if level: out["level"] = level
+    if groove: out["groove"] = groove
+    if stems: out["stems"] = True
     return out
 
 
@@ -112,6 +117,12 @@ def lufs(data):
     p = subprocess.run(["ffmpeg", "-loglevel", "info", "-i", "pipe:0", "-af", "ebur128=framelog=quiet", "-f", "null", "-"], input=data, capture_output=True, timeout=600)
     m = re.search(r"I:\s*(-?[\d.]+) LUFS", p.stderr.decode("utf-8", "replace"))
     return float(m.group(1)) if m else None
+
+
+def lufs_x(x):
+    """Integrated loudness of decoded audio: encoded to WAV for ffmpeg."""
+    import io, soundfile as sf
+    b = io.BytesIO(); sf.write(b, x, SR, format="WAV", subtype="FLOAT"); return lufs(b.getvalue())
 
 
 def last_beat_share(x, g0, bar, phrase=8, offset=0, band=150):
@@ -258,6 +269,27 @@ def _one(label, data, truth=None, keep_render=False):
             y = decode(_b64.b64decode(j["wav"]))
             out["loopaudio"] = {"s": round(time.time() - t1, 1), "samples": len(y), "listed_samples": o["prep"]["samples"], "same_prep": j["prep"]["samples"] == o["prep"]["samples"] and j["loop"]["id"] == o["loop"]["id"]}
             if out["loopaudio"]["same_prep"]: second_drums = dict(o)
+    # nearest in brightness alone, among the 200 nearest in character: the bass
+    if "bass" in loops and R.get("vectors", {}).get("bass"):
+        t1 = time.time()
+        Lf = again(lambda: http("post", f"{BASE}/loop", params={"t": tok()}, json={"part": "bass", "target": {"kind": "yours", "vector": R["vectors"]["bass"]}, "tempo": R["tempo"], "key": out["key"], "focus": ["brightness"]}, timeout=600), f"{label} focus loop")
+        jf = Lf.json() if Lf.headers.get("content-type", "").startswith("application/json") else {"error": Lf.text[:120]}
+        out["focus"] = {"error": jf["error"]} if jf.get("error") else {"loop": f"{jf['loop']['name']} by {jf['loop']['user']}", "focus": jf.get("focus"), "same_as_nearest": jf["loop"]["id"] == loops["bass"]["loop"]["id"],
+                        "centroid_loop": (jf["loop"].get("plain") or {}).get("centroid_hz"), "s": round(time.time() - t1, 1)}
+    # the drums' kit from two loops on the loop's own pattern, over the window's bars
+    if "drums" in loops and second_drums:
+        t1 = time.time(); Lp = loops["drums"]; wbars = int(R["window"]["bars"])
+        Fk = again(lambda: http("post", f"{BASE}/follow", params={"t": tok()}, json={"part": "drums", "id": Lp["loop"]["id"], "f": Lp["prep"]["f"], "shift": 0, "tempo": R["tempo"], "bars": wbars, "your": {}, "pattern": "theirs",
+                                                                                        "kit": {"kick": [second_drums["loop"]["id"], second_drums["prep"]["f"]]}}, timeout=600), f"{label} kit")
+        jk = Fk.json() if Fk.headers.get("content-type", "").startswith("application/json") else {"error": Fk.text[:120]}
+        out["kit"] = {"error": jk["error"]} if jk.get("error") else {"info": jk.get("info"), "s": round(time.time() - t1, 1), "mp3_bytes": len(jk.get("mp3") or "")}
+    # your drums over the window re-timed to a scene's feel
+    if jid:
+        t1 = time.time(); G_ = R["grid"]; W_ = R["window"]
+        first_bar = (G_["g0"] - W_["start_s"]) % G_["bar"]
+        Gr = again(lambda: http("post", f"{BASE}/groove", params={"t": tok()}, json={"id": jid, "tempo": R["tempo"], "g0": first_bar, "nb": int(W_["bars"]), "scene": "uk-garage-speed-garage"}, timeout=600), f"{label} groove")
+        jg = Gr.json() if Gr.headers.get("content-type", "").startswith("application/json") else {"error": Gr.text[:120]}
+        out["groove"] = {"error": jg["error"]} if jg.get("error") else {"info": {k: v for k, v in (jg.get("info") or {}).items() if k not in ("target", "counts")}, "s": round(time.time() - t1, 1), "mp3_bytes": len(jg.get("mp3") or "")}
     art = (out["like"] or [[None]])[0][0]
     if art:
         ap = {}
@@ -273,7 +305,8 @@ def _one(label, data, truth=None, keep_render=False):
     if sw:
         plan = plan_for(R, sw, second={"drums": second_drums} if (second_drums and "drums" in sw) else None, keep={"bass": 0.5},
                         moves={"phrase": 8, "offset": 0, "cut": list(sw), "roll": ["drums"] if "drums" in sw else []}, master=True,
-                        follow=["bass"] if ("bass" in sw and (out.get("follow") or {}).get("bass", {}).get("info")) else None)
+                        follow=["bass"] if ("bass" in sw and (out.get("follow") or {}).get("bass", {}).get("info")) else None,
+                        level={"other": 2.0}, groove={"scene": "house"}, stems=True, kit={"kick": [second_drums["loop"]["id"], second_drums["prep"]["f"]]} if second_drums else None)
         t1 = time.time()
         rr = again(lambda: http("post", f"{BASE}/render", params={"t": tok()}, files={"file": ("track", data), "plan": (None, json.dumps(plan))}, timeout=600), f"{label} render")
         if rr.status_code != 200: out["render_error"] = rr.text[:200]
@@ -296,6 +329,25 @@ def _one(label, data, truth=None, keep_render=False):
                 except Exception as e: out["render"]["low_lag_vs_original_ms"] = str(e)[:60]
                 if keep_render:
                     open(os.path.join(OUT, f"{label}-swapped.mp3"), "wb").write(f.content)
+                # the stems: a zip of four MP3s, four MIDI files and the recipe
+                fz = again(lambda: http("get", f"{BASE}/file", params={"id": rid, "t": tok(), "kind": "stems"}, timeout=300), f"{label} stems")
+                out["render"]["stems"] = {"file": fz.status_code, "bytes": len(fz.content)}
+                if fz.status_code == 200:
+                    import zipfile, io
+                    try:
+                        z = zipfile.ZipFile(io.BytesIO(fz.content)); names = z.namelist()
+                        stems_sum = None
+                        for nm_ in ("drums.mp3", "bass.mp3", "melody.mp3", "voice.mp3"):
+                            if nm_ in names:
+                                xs = decode(z.read(nm_)); stems_sum = xs if stems_sum is None else stems_sum[: len(xs)] + xs[: len(stems_sum)]
+                        rec = z.read("recipe.txt").decode("utf-8", "replace") if "recipe.txt" in names else ""
+                        mids = [n_ for n_ in names if n_.endswith(".mid")]
+                        out["render"]["stems"].update({"names": names, "recipe_lines": rec.count("\n"), "recipe_has_loops": "freesound.org" in rec, "midi": len(mids),
+                                                       "midi_ok": all(z.read(n_)[:4] == b"MThd" for n_ in mids),
+                                                       "sum_vs_mix_lufs_diff": (round(lufs_x(stems_sum) - lufs_x(x), 2) if stems_sum is not None else None)})
+                    except Exception as e:
+                        out["render"]["stems"]["error"] = type(e).__name__ + ": " + str(e)[:80]
+                res_ = st.get("result") or {}; out["render"]["level"] = res_.get("level"); out["render"]["groove"] = (res_.get("laid") or {}).get("groove")
     print(json.dumps(out, indent=1)[:4000], flush=True)
     return out
 
