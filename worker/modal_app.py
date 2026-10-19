@@ -448,4 +448,10 @@ def swap():
         if "list" not in _ART: _ART["list"] = await asyncio.to_thread(SW.artists_separated)
         return {"artists": _ART["list"]}
 
+    @api.get("/scenes")
+    async def scenes(req: Request):
+        if not ok(req): return no()
+        if "scenes" not in _ART: _ART["scenes"] = await asyncio.to_thread(SW.scenes_separated)
+        return {"scenes": _ART["scenes"]}
+
     return api

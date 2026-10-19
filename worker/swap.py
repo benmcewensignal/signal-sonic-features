@@ -507,20 +507,55 @@ def _space(L, v):
     return z.astype(np.float32), ("Zs" if "Zs" in L else "Z")
 
 
-def artist_target(part, name):
-    """The average of an artist's separated records' same part, and how close each of those records sits to it in the
-    matcher's space (to say how close a loop is, against the artist's own records)."""
-    hit = artist_ids().get(str(name or "").strip().lower())
-    if not hit: return None, {"error": "Sonic has no separated records by that artist"}
-    nm, ids = hit; RP = record_parts(); j = PARTS.index(part)
-    rows = [RP["at"][t] for t in ids if t in RP["at"]]
-    if len(rows) < 3: return None, {"error": f"Sonic has separated {len(rows)} of {nm}'s records; it needs three"}
+_SI = None
+
+
+def scene_ids():
+    """Scene slug -> {"name", "ids"}: the Listen page's map's records by scene (tools/build_scene_ids.py)."""
+    global _SI
+    if _SI is None: _SI = json.load(open(os.path.join(HERE, "scene_ids.json")))["scenes"]
+    return _SI
+
+
+def group_target(part, rows, label, kind, min_n=3):
+    """The average of a group of separated records' same part (rows into record_parts), and how close each of those
+    records sits to it in the matcher's space (to say how close a loop is, against the group's own records)."""
+    RP = record_parts(); j = PARTS.index(part)
+    if len(rows) < min_n: return None, {"error": f"Sonic has separated {len(rows)} of those records; it needs {min_n}"}
     V = RP["V"][rows, j].astype(np.float64)
     c = V.mean(0)
     L = loop_index()[FAM[part]]
     cz, _ = _space(L, c)
     own = np.array([float(_space(L, v)[0] @ cz) for v in V])
-    return c, {"artist": nm, "records": len(rows), "own": own, "cz": cz}
+    return c, {"artist": label, "kind": kind, "records": len(rows), "own": own, "cz": cz}
+
+
+def artist_target(part, name):
+    """The average of an artist's separated records' same part."""
+    hit = artist_ids().get(str(name or "").strip().lower())
+    if not hit: return None, {"error": "Sonic has no separated records by that artist"}
+    nm, ids = hit; RP = record_parts()
+    rows = [RP["at"][t] for t in ids if t in RP["at"]]
+    if len(rows) < 3: return None, {"error": f"Sonic has separated {len(rows)} of {nm}'s records; it needs three"}
+    return group_target(part, rows, nm, "artist")
+
+
+def scene_target(part, slug):
+    """The average of a scene's separated records' same part, the scene as the Listen page's map draws it."""
+    sc = scene_ids().get(str(slug or "").strip().lower())
+    if not sc: return None, {"error": "Sonic's map has no scene by that name"}
+    RP = record_parts(); rows = [RP["at"][t] for t in sc["ids"] if t in RP["at"]]
+    return group_target(part, rows, sc["name"], "scene")
+
+
+def records_target(part, ids, label):
+    """The average of some records' same part (a point on the map: the records nearest it), or one record's part."""
+    RP = record_parts(); rows = [RP["at"][str(t)] for t in (ids or [])[:200] if str(t) in RP["at"]]
+    if not rows: return None, {"error": "Sonic has not separated " + ("that record" if len(ids or []) == 1 else "any of those records")}
+    if len(rows) == 1:
+        j = PARTS.index(part); c = RP["V"][rows[0], j].astype(np.float64); L = loop_index()[FAM[part]]; cz, _ = _space(L, c)
+        return c, {"artist": label or str(ids[0]), "kind": "record", "records": 1, "own": None, "cz": cz}
+    return group_target(part, rows, label or f"{len(rows)} records", "records", min_n=1)
 
 
 # ---------------------------------------------------------------- keys
@@ -739,9 +774,10 @@ def _loop_entry(part, c, prep, info):
     e = {"loop": {"id": m.get("id"), "name": m.get("name"), "user": m.get("user"), "licence": _licence(m.get("license")),
                   "licence_url": m.get("license"), "page": f"https://freesound.org/s/{m.get('id')}/", "tempo": m.get("tempo"), "key": m.get("key")},
          "prep": prep, "closeness": round(c["sim"], 3), "rank": c["rank"], "of": c["of"]}
-    if info.get("cz") is not None:   # against the artist's average itself (whatever the target was steered to), as their own records are
+    if info.get("cz") is not None:   # against the group's average itself (whatever the target was steered to), as its own records are
         L = loop_index()[FAM[part]]; z = np.asarray(L["Zp" if "Zp" in L else ("Zs" if "Zs" in L else "Z")][c["i"]], np.float32)
-        sim_art = float(z @ info["cz"]); e["closer_than"] = round(float(np.mean(info["own"] < sim_art)), 3); e["closeness_to_artist"] = round(sim_art, 3)
+        sim_art = float(z @ info["cz"]); e["closeness_to_artist"] = round(sim_art, 3)
+        if info.get("own") is not None: e["closer_than"] = round(float(np.mean(info["own"] < sim_art)), 3)
     return e
 
 
@@ -749,8 +785,11 @@ def _target_vector(part, target, info):
     """The raw part vector the loops are ranked against: your part, an artist's average, or a point between the two
     (w: 1 is their average, 0 is yours)."""
     t = target or {}
-    if t.get("kind") == "artist":
-        v, info_ = artist_target(part, t.get("name")); info.update(info_)
+    if t.get("kind") in ("artist", "scene", "record", "records"):
+        if t.get("kind") == "artist": v, info_ = artist_target(part, t.get("name"))
+        elif t.get("kind") == "scene": v, info_ = scene_target(part, t.get("name"))
+        else: v, info_ = records_target(part, t.get("ids") or ([t.get("id")] if t.get("id") else []), t.get("label"))
+        info.update(info_)
         if v is None: return None
         y = t.get("vector"); w = t.get("w")
         if w is not None and isinstance(y, list) and len(y) == 53:
@@ -792,10 +831,16 @@ def loop_for(part, target, tempo, key=None, exclude=(), n=5):
     out = {"part": part, **_loop_entry(part, c0, p0, info), "skipped": skipped, "wav": base64.b64encode(wav_bytes(y0)).decode(),
            "others": [_loop_entry(part, c, prep, info) for c, _y, prep in found[1:]]}
     if info.get("artist"):
-        own = info["own"]
-        out["artist"] = {"name": info["artist"], "records": info["records"], "w": info.get("w", 1.0),
-                         "closer_than": out.get("closer_than"), "own_median": round(float(np.median(own)), 3)}
+        own = info.get("own")
+        out["artist"] = {"name": info["artist"], "kind": info.get("kind", "artist"), "records": info["records"], "w": info.get("w", 1.0),
+                         "closer_than": out.get("closer_than"), "own_median": round(float(np.median(own)), 3) if own is not None else None}
     return out
+
+
+def scenes_separated():
+    """The map's scenes with how many of their records Sonic has separated, for the page: [[slug, name, n], ...]."""
+    RP = record_parts()
+    return [[slug, sc["name"], sum(1 for t in sc["ids"] if t in RP["at"])] for slug, sc in scene_ids().items()]
 
 
 def loop_audio(part, lid, f, shift, tempo):
