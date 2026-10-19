@@ -1129,7 +1129,9 @@ def follow_drums(cycle, kit, kick, snare, tempo, bars):
 
 
 def loop_pattern(cycle, tempo, cycle_bars, bars):
-    """A drum loop's own kick and snare flags per sixteenth (hits_of on its prepared cycle), tiled over bars bars."""
+    """A drum loop's own kick and snare flags per sixteenth (hits_of on its prepared cycle), tiled over bars bars. A
+    cycle shorter than a bar (a loop at half its tagged tempo) is repeated to a whole bar first."""
+    if cycle_bars < 1: cycle = np.concatenate([cycle] * int(math.ceil(1 / max(cycle_bars, 0.125)))); cycle_bars = 1.0
     nbc = max(1, int(round(cycle_bars))); kk, ss = hits_of(cycle, 0.0, 240 / tempo, nbc)
     kk, ss = list(kk)[: nbc * 16], list(ss)[: nbc * 16]
     if not kk: return [0] * (bars * 16), [0] * (bars * 16)
@@ -1524,15 +1526,16 @@ def render(path, plan):
                 for nm, kv in (c.get("kit") or {}).items():   # a kit's other loops are credited too
                     m2 = loop_by_id("drums", kv[0]); cr2 = f"{m2.get('name')} by {m2.get('user')} (freesound.org/s/{m2.get('id')}), {_licence(m2.get('license'))}" if m2 else None
                     if cr2 and cr2 not in credits: credits.append(cr2)
-            # your own part: whole where nothing is swapped in the bar, at the kept share under a swap, at its level
-            lv = 10 ** (P["level"][p] / 20)
+            # your own part: whole where nothing is swapped in the bar, at the kept share under a swap; then the part's
+            # level in the mix (the reading's ask is about a part's share of the mix, loop and yours together)
             if swapped.any():
                 yours = np.where(swapped, P["keep"][p], 1.0).tolist()
-                part_out += X[p] * lv * bar_envelope(n, g0, bar, yours)[:, None]
+                part_out += X[p] * bar_envelope(n, g0, bar, yours)[:, None]
                 laid[p] = {"layers": len(layers), "bars_swapped": int(swapped.sum()), "keep": P["keep"][p], "level_db": P["level"][p]}
             else:
-                part_out += X[p] * lv
+                part_out += X[p]
                 if P["level"][p]: laid[p] = {"layers": 0, "bars_swapped": 0, "keep": 1.0, "level_db": P["level"][p]}
+            if P["level"][p]: part_out *= 10 ** (P["level"][p] / 20)
             out += part_out
             if P.get("stems"): stems[p] = part_out
         loud = None; gain = 1.0

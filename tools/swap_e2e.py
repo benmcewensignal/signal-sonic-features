@@ -229,6 +229,7 @@ def _one(label, data, truth=None, keep_render=False):
     for p in PARTS + ("probe",):
         s = again(lambda: http("get", f"{BASE}/stem", params={"id": jid, "part": p, "t": tok()}, timeout=120), f"{label} part {p}")
         sizes[p] = len(s.content) if s.status_code == 200 else f"{s.status_code}"
+        if p == "drums" and s.status_code == 200: out["_drums_stem"] = s.content
         if p == "probe" and s.status_code == 200: out["probe_ms"] = probe_offset(s.content)
     out["stem_bytes"] = sizes
     # a loop for every part against your own part, and drums and bass against the nearest artist
@@ -290,6 +291,29 @@ def _one(label, data, truth=None, keep_render=False):
         Gr = again(lambda: http("post", f"{BASE}/groove", params={"t": tok()}, json={"id": jid, "tempo": R["tempo"], "g0": first_bar, "nb": int(W_["bars"]), "scene": "uk-garage-speed-garage"}, timeout=600), f"{label} groove")
         jg = Gr.json() if Gr.headers.get("content-type", "").startswith("application/json") else {"error": Gr.text[:120]}
         out["groove"] = {"error": jg["error"]} if jg.get("error") else {"info": {k: v for k, v in (jg.get("info") or {}).items() if k not in ("target", "counts")}, "s": round(time.time() - t1, 1), "mp3_bytes": len(jg.get("mp3") or "")}
+        # read back: the window's drums as they were and as re-timed, both decoded here the same way, through the same
+        # hit reader: the beats should not move (the re-timed audio keeps the stem's timeline) and the offbeats should
+        # move toward the scene's feel
+        if not jg.get("error") and out.get("_drums_stem"):
+            try:
+                import base64 as _b64
+                sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                from worker import swap as SW
+                xa = decode(out["_drums_stem"]); xb = decode(_b64.b64decode(jg["mp3"])); nbw = int(W_["bars"]); stp = G_["bar"] / 16
+                ta, _ = SW.hit_times(xa); tb, _ = SW.hit_times(xb)
+                fa, ca = SW.your_feel(ta, first_bar, G_["bar"], nbw); fb, cb = SW.your_feel(tb, first_bar, G_["bar"], nbw)
+                tgt = SW.groove_feel("uk-garage-speed-garage")["rel"]
+                ms = lambda v: round(v * stp * 1000, 1)
+                read = [k for k in range(16) if ca[k] >= max(2, nbw // 4) and cb[k] >= max(2, nbw // 4)]
+                beats = [k for k in read if k % 4 == 0]; offs = [k for k in read if k % 4 != 0]
+                out["groove"]["read_back"] = {"steps_read": len(read), "beats_ms_before": [ms(fa[k]) for k in beats], "beats_ms_after": [ms(fb[k]) for k in beats],
+                                              "beat_shift_ms_max": max([abs(ms(fb[k] - fa[k])) for k in beats] or [None]),
+                                              "offbeats_ms_before": [ms(fa[k]) for k in offs], "offbeats_ms_after": [ms(fb[k]) for k in offs], "target_ms": [ms(tgt[k]) for k in offs],
+                                              "offbeat_error_ms_before": round(float(np.mean([abs(ms(fa[k] - tgt[k])) for k in offs])), 1) if offs else None,
+                                              "offbeat_error_ms_after": round(float(np.mean([abs(ms(fb[k] - tgt[k])) for k in offs])), 1) if offs else None}
+            except Exception as e:
+                out["groove"]["read_back"] = {"error": type(e).__name__ + ": " + str(e)[:100]}
+    out.pop("_drums_stem", None)
     art = (out["like"] or [[None]])[0][0]
     if art:
         ap = {}
@@ -373,6 +397,7 @@ def main():
         with ThreadPoolExecutor(2) as ex: runs = list(ex.map(rec_run1, recs))
         results["runs"] = runs; results["dropped"] = DROPS; json.dump(results, open(os.path.join(OUT, "swap-test.json"), "w"), indent=1)
         (warn if DROPS else note)("swap dropped calls", f"{len(DROPS)} failed and were tried again" + ((": " + " || ".join(DROPS))[:1500] if DROPS else ""))
+        for o in runs: note(f"swap deeper {o['label']}"[:60], json.dumps({"focus": o.get("focus"), "kit": o.get("kit"), "groove": o.get("groove"), "stems": (o.get("render") or {}).get("stems"), "level": (o.get("render") or {}).get("level"), "render_groove": {k: v for k, v in ((o.get("render") or {}).get("groove") or {}).items() if k not in ("yours", "counts", "target", "shift")}, "render_s": (o.get("render") or {}).get("s"), "lufs": (o.get("render") or {}).get("lufs"), "error": o.get("error") or (o.get("render") or {}).get("error") or o.get("render_error")})[:1900])
         for o in runs: note(f"swap {o['label']}"[:60], json.dumps({k: o.get(k) for k in ("tempo", "catalogue_tempo", "error")} | {"grid": {k: (o.get("grid") or {}).get(k) for k in ("strength", "tracker_offset_ms", "phase_margin")}})[:900])
         return
     # a synthetic track, six minutes, 63 MB as WAV: known tempo and bars, and the size of a producer's bounce
@@ -412,6 +437,8 @@ def main():
         msg["artist_bass_halfway"] = ((o.get("artist") or {}).get("parts") or {}).get("bass")
         msg["lines"] = o.get("lines"); msg["follow"] = o.get("follow"); msg["timing"] = (o.get("timing") or {}).get("lines")
         note(f"swap {o['label']}"[:60], json.dumps(msg)[:900])
+        deep = {"focus": o.get("focus"), "kit": o.get("kit"), "groove": o.get("groove"), "stems": (o.get("render") or {}).get("stems"), "level": (o.get("render") or {}).get("level"), "render_groove": (o.get("render") or {}).get("groove")}
+        note(f"swap deeper {o['label']}"[:60], json.dumps(deep)[:1800])
 
 
 main()
