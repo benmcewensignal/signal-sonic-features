@@ -1,0 +1,27 @@
+name: swap loop audit
+# Do the loops Swap lays sound (tools/swap_loop_audit.py)? On the page's example: every part x Nearest, the five
+# suggested artists and three scenes, five loops each, against the deployed worker. Annotations; loop-audit.json on the
+# swap-test-results branch.
+on:
+  workflow_dispatch:
+permissions: { contents: write }
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q requests numpy
+      - name: every part, every target
+        env: { PARTS_KEY: "${{ secrets.PARTS_KEY }}" }
+        run: python tools/swap_loop_audit.py "$RUNNER_TEMP/out"
+      - name: keep the results
+        if: always()
+        run: |
+          set +e
+          cd "$RUNNER_TEMP" && git clone -q --depth 1 -b swap-test-results "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" kb || { mkdir -p kb && cd kb && git init -q && git checkout -q -b swap-test-results && cd ..; }
+          cp "$RUNNER_TEMP"/out/loop-audit.json kb/
+          cd kb && git config user.name sonic-bot && git config user.email sonic@earlysignal.live && git add -A && git commit -qm "loop audit ${{ github.run_id }}"
+          git push -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" swap-test-results:swap-test-results || echo "not kept"
