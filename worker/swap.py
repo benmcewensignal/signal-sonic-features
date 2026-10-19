@@ -745,20 +745,22 @@ def loop_shape(x, meta, tempo):
     lead, fit, fit0 = _lead(x, lq)
     if fit < 0.3 or fit < fit0 - 0.02: lead, fit = 0.0, fit0   # trim only where the hits show a grid, and never to its cost
     x = x[int(round(lead * SR)):]
+    tail = 0.0
     if r <= 1.04:
         lt_eff = N * 240 / (len(x) / SR)                  # a clean loop: its length says its exact tempo
     else:
+        tail = round((r - 1) * N, 2)                      # how much of a bar (or bars) followed the last whole bar
         lt_eff = lq; x = x[:int(round(N * 240 / lt_eff * SR))].copy()   # a tail after the last bar: cut at its stated tempo, faded
         F = min(len(x), int(0.012 * SR))
         if F > 1: x[-F:] *= np.linspace(1, 0, F, dtype=np.float32)[:, None]
     f = min((1.0, 2.0, 0.5), key=lambda k: abs(lt_eff * k - tempo))   # half or double time where that is nearer
     if abs(lt_eff * f / tempo - 1) > 0.15: raise NotALoop("too far from the track's tempo to stretch")
     if abs(N * f - round(N * f)) > 1e-9: raise NotALoop("its cycle would not be whole bars of this track")   # a 3-bar loop at half time
-    return x, N, lt_eff, f, fit, lead
+    return x, N, lt_eff, f, fit, lead, tail
 
 
 def prepare_audio(x, meta, f, shift, tempo, min_fit=None):
-    x, N, lt_eff, f, fit, lead = loop_shape(x, meta, tempo)
+    x, N, lt_eff, f, fit, lead, tail = loop_shape(x, meta, tempo)
     if min_fit is not None and fit < min_fit: raise NotALoop("its hits do not sit on a straight grid")
     cb = N * f                                    # the track's bars in one cycle
     C = int(round(cb * 240 / tempo * SR))         # the cycle in samples at the track's tempo
@@ -779,7 +781,7 @@ def prepare_audio(x, meta, f, shift, tempo, min_fit=None):
     m = out.mean(1); rms = float(np.sqrt(np.mean(m ** 2)))
     return out.astype(np.float32), {"bars": N, "f": f, "cycle_bars": cb, "ratio": round(ratio, 6), "shift": shift, "loop_tempo": round(lt_eff, 3),
                                     "samples": C, "rms_db": round(20 * math.log10(rms), 2) if rms > 1e-6 else -120.0, "grid_fit": round(fit, 3),
-                                    "lead_ms": round(1000 * lead, 1)}
+                                    "lead_ms": round(1000 * lead, 1), "tail_bars": tail}
 
 
 GRID_FIT_MIN = {"drums": 0.3}   # drums only: their hits are sharp enough to judge (about three in five clean drum loops pass)
