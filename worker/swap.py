@@ -620,7 +620,7 @@ def choose(part, v, tempo, key=None, exclude=(), top=400, focus=None):
     cands = []
     for i in np.argsort(-sim)[:top]:
         m = L["meta"][int(i)]; lt = float(m.get("tempo") or 0)
-        if not m.get("preview") or not lt or str(m.get("id")) in ex: continue
+        if not m.get("preview") or not lt or str(m.get("id")) in ex or str(m.get("id")) in _SILENT: continue
         f = min((1.0, 2.0, 0.5), key=lambda x: abs(lt * x - tempo))
         r = lt * f / tempo
         if abs(r - 1) > 0.12: continue
@@ -672,6 +672,12 @@ def prepare(meta, f, shift, tempo, min_fit=None):
 
 class NotALoop(ValueError):
     pass
+
+
+# loops whose prepared cycle came out silent, or cancelling in mono: refused once, then never ranked again in this
+# container (a silent file's measures sit near the middle of the space, so it is the nearest loop to many averages)
+_SILENT = set()
+QUIET_DB = -45.0
 
 
 _PREP = {}; _PREP_LOCK = threading.Lock()
@@ -779,8 +785,19 @@ def prepare_audio(x, meta, f, shift, tempo, min_fit=None):
     pk = float(np.abs(out).max()) or 1.0
     if pk > 0.99: out *= 0.99 / pk
     m = out.mean(1); rms = float(np.sqrt(np.mean(m ** 2)))
+    # a loop that is silent, or nearly all silence, or whose two channels cancel when summed (a phone's speaker, a club's
+    # subs) is no loop: refused, and remembered (on 19 October one silent bass file was the first loop listed for four of
+    # the example's five suggested artists, so their bass swapped for nothing)
+    fr = int(0.05 * SR); E = (m[: len(m) // fr * fr].reshape(-1, fr) ** 2).mean(1)
+    silent = float(np.mean(E < 1e-5)) if len(E) else 1.0      # 50 ms frames under -50 dBFS
+    both = float(np.sqrt(np.mean(out ** 2)))                  # the channels' own level, before they are summed
+    rms_db = 20 * math.log10(rms) if rms > 1e-6 else -120.0
+    cancels = both > 1e-4 and rms / both < 10 ** (-12 / 20)
+    if cancels or rms_db < QUIET_DB or silent >= 0.9:
+        _SILENT.add(str(meta.get("id")))
+        raise NotALoop("its two channels cancel when summed" if cancels else "it is nearly silent")
     return out.astype(np.float32), {"bars": N, "f": f, "cycle_bars": cb, "ratio": round(ratio, 6), "shift": shift, "loop_tempo": round(lt_eff, 3),
-                                    "samples": C, "rms_db": round(20 * math.log10(rms), 2) if rms > 1e-6 else -120.0, "grid_fit": round(fit, 3),
+                                    "samples": C, "rms_db": round(rms_db, 2), "silent_share": round(silent, 3), "grid_fit": round(fit, 3),
                                     "lead_ms": round(1000 * lead, 1), "tail_bars": tail}
 
 
