@@ -1,29 +1,21 @@
-remeasure: 4757 records added after 0 new ones, 51527 more to do after
-shard 18 of 35: 136 records
-stems: 233189 done, 136 this run, 51527 left after
-2026-10-19 01:11:27.678529: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
-2026-10-19 01:11:27.678559: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+remeasure: 4591 records added after 0 new ones, 49288 more to do after
+shard 18 of 34: 135 records
+stems: 233189 done, 135 this run, 49288 left after
+2026-10-19 03:12:32.194770: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-19 03:12:32.194796: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
-2026-10-19 01:11:28.202930: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+2026-10-19 03:12:32.651082: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2026-10-19 01:11:28.203686: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
-2026-10-19 01:11:28.203707: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
-2026-10-19 01:11:28.203727: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (runnervm8k3b6): /proc/driver/nvidia/version does not exist
-/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/numba/np/ufunc/dufunc.py:303: RuntimeWarning: invalid value encountered in cast
-  return super().__call__(*args, **kws)
-  bp:28582023: HTTPError: HTTP Error 404: Not Found
-  10/136, 1 failed
-  20/136, 1 failed
-  30/136, 1 failed
-/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/numba/np/ufunc/dufunc.py:303: RuntimeWarning: invalid value encountered in cast
-  return super().__call__(*args, **kws)
-  40/136, 1 failed
-/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/numba/np/ufunc/dufunc.py:303: RuntimeWarning: invalid value encountered in cast
-  return super().__call__(*args, **kws)
-/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/numba/np/ufunc/dufunc.py:303: RuntimeWarning: invalid value encountered in cast
-  return super().__call__(*args, **kws)
-/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/numba/np/ufunc/dufunc.py:303: RuntimeWarning: invalid value encountered in cast
-  return super().__call__(*args, **kws)
-  50/136, 1 failed
+2026-10-19 03:12:32.651966: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-19 03:12:32.651989: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 03:12:32.652011: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (runnervm8k3b6): /proc/driver/nvidia/version does not exist
+  10/135, 0 failed
+  20/135, 0 failed
+  30/135, 0 failed
+  bp:29857364: HTTPError: HTTP Error 404: Not Found
+  40/135, 1 failed
+  50/135, 1 failed
+  bp:28392295: HTTPError: HTTP Error 404: Not Found
+  60/135, 2 failed
 budget reached
-stems: 59 separated, 1 failed, written to out/stems-14711-s18.jsonl
+stems: 62 separated, 2 failed, written to out/stems-14746-s18.jsonl
