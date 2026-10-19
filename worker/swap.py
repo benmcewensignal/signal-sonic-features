@@ -1227,25 +1227,46 @@ def your_feel(times, g0, bar, nb):
     return [round(float(np.median(r)), 4) if r else 0.0 for r in rel], [len(r) for r in rel]
 
 
+def feel_from_beats(times, g0, bar, nb):
+    """How late hits fall on each of the 16 steps, counted from where the beats (steps 0, 4, 8, 12) actually read, not
+    from the reading's grid: a first pass finds the beats against the grid, and the steps are then laid from there, so
+    a hit is given to its step by its distance from the beats. Returns (lateness per step as a fraction of a sixteenth,
+    hits per step, where the beats read against the grid, the beat-aligned first bar line)."""
+    step = bar / 16
+    y0, c0 = your_feel(times, g0, bar, nb)
+    bst = [k for k in (0, 4, 8, 12) if c0[k]]
+    b = float(np.median([y0[k] for k in bst])) if bst else 0.0
+    gb = g0 + b * step
+    y1, c1 = your_feel(times, gb, bar, nb)
+    bst = [k for k in (0, 4, 8, 12) if c1[k]]
+    b2 = float(np.median([y1[k] for k in bst])) if bst else 0.0   # what is left after the first pass (small)
+    gb += b2 * step; y, c = your_feel(times, gb, bar, nb)
+    return y, c, b + b2, gb
+
+
 def regroove(x, g0, bar, nb, target_rel, sr_in=SR, max_step=0.25):
     """Your drums re-timed to a target feel: each hit moved from where it falls on its step to where the target's hits
-    on that step fall (the difference between the target's lateness and yours, per step, at most a quarter of a
-    sixteenth). Rubber Band's time map pins every hit to its new time and stretches the audio between hits by the
-    small amount that needs (no cuts, no gaps); the length is unchanged. Beats (steps 0, 4, 8, 12) stay where they
-    are: the feel is in the steps between. Returns (audio, info)."""
+    on that step fall, both measured from the beats (at most a quarter of a sixteenth). Lateness is taken from where
+    your own beats read, not from the reading's grid: the grid and this hit reader disagree by a steady few
+    milliseconds on real records (twelve on one tech house record), and the scenes' feel was measured from each
+    record's own beats. Rubber Band's time map pins every hit to its new time and stretches the audio between hits by
+    the small amount that needs (no cuts, no gaps); the length is unchanged. Beats (steps 0, 4, 8, 12) stay where
+    they are: the feel is in the steps between. Returns (audio, info); yours and target in info are from the beats."""
     import soundfile as sf
     times, sharp = hit_times(x, sr_in); step = bar / 16; n = len(x)
-    yours, counts = your_feel(times, g0, bar, nb)
+    yours, counts, b, gb = feel_from_beats(times, g0, bar, nb)                 # from your own beats
+    tb = float(np.mean([float(target_rel[k]) for k in (0, 4, 8, 12)]))        # and the scene's from its own
+    yours = [round(v, 4) for v in yours]; target = [round(float(v) - tb, 4) for v in target_rel]
     shift = []
     for k in range(16):
-        d = 0.0 if k % 4 == 0 else float(target_rel[k]) - yours[k]
+        d = 0.0 if k % 4 == 0 else target[k] - yours[k]
         shift.append(max(-max_step, min(max_step, d)))
-    info = {"hits": int(len(times)), "moved": 0, "yours": yours, "counts": counts, "target": [round(float(v), 4) for v in target_rel],
+    info = {"hits": int(len(times)), "moved": 0, "yours": yours, "counts": counts, "target": target, "beats_vs_grid_ms": round(b * step * 1000, 1),
             "shift": [round(v, 4) for v in shift], "max_move_ms": 0.0, "step_ms": round(step * 1000, 1)}
     if not len(times) or not any(shift): return x.copy(), info
     pairs = [(0, 0)]; last = 0; mx = 0.0
     for t in times:
-        k = (t - g0) / step; ki = int(round(k))
+        k = (t - gb) / step; ki = int(round(k))
         if not (0 <= ki < nb * 16) or abs(k - ki) > 0.3: continue
         d = shift[ki % 16] * step; src = int(round(t * sr_in)); dst = int(round((t + d) * sr_in))
         if src <= pairs[-1][0] + 64 or dst <= pairs[-1][1] + 64 or src >= n - 64 or dst >= n - 64: continue   # pins must advance
@@ -1266,7 +1287,7 @@ def regroove(x, g0, bar, nb, target_rel, sr_in=SR, max_step=0.25):
         shutil.rmtree(w, ignore_errors=True)
     out = np.zeros_like(x); m = min(n, len(y)); out[:m] = y[:m]
     # the stretcher's own small lag, measured on the beats (which were not moved) and taken back off
-    beats = [t for t in times if abs(((t - g0) / step + 0.5) % 4 - 0.5) <= 0.3 and 0 <= (t - g0) / step < nb * 16]
+    beats = [t for t in times if abs(((t - gb) / step + 0.5) % 4 - 0.5) <= 0.3 and 0 <= (t - gb) / step < nb * 16]
     if beats:
         t2, _ = hit_times(out, sr_in); dl = []
         for t in beats:

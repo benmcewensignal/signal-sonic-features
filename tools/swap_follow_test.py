@@ -80,19 +80,26 @@ check(rs == ys, f"follow_drums: snares read back as written: {''.join(map(str, r
 kk2, ss2 = SW.loop_pattern(d, TEMPO, 1.0, 2)
 check(kk2 == K * 2 and ss2 == S_ * 2, f"loop_pattern reads the loop's own pattern over two bars: kicks {''.join(map(str, kk2))}")
 
-# --- their groove on your drums: a straight pattern re-timed to each measured scene feel, read back
+# --- their groove on your drums: a straight pattern re-timed to each measured scene feel, read back. The loop sits a
+# steady 10 ms late against the reading's grid, as real records do (the grid and the hit reader disagree by a few
+# milliseconds): lateness is measured from the beats, so the result must be judged from the beats too
+LATE = 0.010
 straight = drum_loop([1, 0, 0, 0] * 32, [0, 0, 0, 0, 1, 0, 0, 0] * 16, 8, seed=3, hat_amp=0.3, hat_every=1)   # a hat on every sixteenth, loud enough to read under the kick
-worst = 0.0; rms_all = []; beats_off = 0.0; scenes = ["house", "uk-garage-speed-garage", "techno-peak-time", "amapiano", "drum-and-bass"]
-t_in, _ = SW.hit_times(straight); _yf, cnt_in = SW.your_feel(t_in, 0.0, BAR, 8)   # a hat right after the kick sits under its tail and is not read: those stay
+straight = np.concatenate([np.zeros((int(LATE * SR), 2), np.float32), straight[: len(straight) - int(LATE * SR)]])
+t_in, _ = SW.hit_times(straight); yf_in, cnt_in, b_in, _gb = SW.feel_from_beats(t_in, 0.0, BAR, 8)   # a hat right after the kick sits under its tail and is not read: those stay
 read_steps = [k for k in range(16) if cnt_in[k] >= 4]
 check(len(read_steps) >= 12, f"groove: the reader hears the straight loop's hats on {len(read_steps)} of 16 steps (those under the kick's tail are not read, and stay)")
+check(abs(b_in * STEP * 1000 - LATE * 1000) <= 2.5, f"groove: the loop's beats read {b_in * STEP * 1000:.1f} ms against the grid (placed {LATE * 1000:.0f} ms late)")
+worst = 0.0; rms_all = []; beats_off = 0.0; scenes = ["house", "uk-garage-speed-garage", "techno-peak-time", "amapiano", "drum-and-bass"]
 for sc in scenes:
     gf = SW.groove_feel(sc); y, ginfo = SW.regroove(straight, 0.0, BAR, 8, gf["rel"])
-    t2, _ = SW.hit_times(y); yf, cnt = SW.your_feel(t2, 0.0, BAR, 8)
-    err = [abs(yf[k] - (0 if k % 4 == 0 else gf["rel"][k])) * STEP * 1000 for k in read_steps]
-    worst = max(worst, max(err)); rms_all.append(float(np.sqrt(np.mean(np.square(err))))); beats_off = max(beats_off, max(abs(yf[k]) * STEP * 1000 for k in (0, 4, 8, 12)))
-    check(max(err) <= 6.0 and len(y) == len(straight), f"groove {sc}: hits read back within {max(err):.1f} ms of the scene's feel (rms {rms_all[-1]:.1f} ms; {ginfo['moved']} moved, up to {ginfo['max_move_ms']} ms; beats within {max(abs(yf[k]) * STEP * 1000 for k in (0, 4, 8, 12)):.1f} ms)")
-check(beats_off <= 3.0, f"groove: the beats stay put (within {beats_off:.1f} ms) across {len(scenes)} scenes")
+    t2, _ = SW.hit_times(y); yf, cnt, b_out, _gb2 = SW.feel_from_beats(t2, 0.0, BAR, 8); tb = float(np.mean([gf["rel"][k] for k in (0, 4, 8, 12)]))
+    judged = [k for k in read_steps if k % 4 and cnt[k] >= 4]   # offbeat steps the reader hears before and after (a hat moved under a kick's tail is not read after)
+    err = [abs(yf[k] - (gf["rel"][k] - tb)) * STEP * 1000 for k in judged]
+    bmove = abs(b_out - b_in) * STEP * 1000
+    worst = max(worst, max(err or [0])); rms_all.append(float(np.sqrt(np.mean(np.square(err)))) if err else 0.0); beats_off = max(beats_off, bmove)
+    check(len(judged) >= 6 and max(err or [99]) <= 6.0 and len(y) == len(straight), f"groove {sc}: from the beats, hits on {len(judged)} offbeat steps read back within {max(err or [0]):.1f} ms of the scene's feel (rms {rms_all[-1]:.1f} ms; {ginfo['moved']} moved, up to {ginfo['max_move_ms']} ms; beats {ginfo.get('beats_vs_grid_ms')} ms against the grid, moved at most {bmove:.1f} ms)")
+check(beats_off <= 3.0, f"groove: the beats stay put (moved at most {beats_off:.1f} ms) across {len(scenes)} scenes")
 
 print("::notice title=follow::" + json.dumps({"tonal": info, "drums": dinfo}))
 sys.exit(1 if fails else 0)

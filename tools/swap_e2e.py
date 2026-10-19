@@ -300,17 +300,20 @@ def _one(label, data, truth=None, keep_render=False):
                 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                 from worker import swap as SW
                 xa = decode(out["_drums_stem"]); xb = decode(_b64.b64decode(jg["mp3"])); nbw = int(W_["bars"]); stp = G_["bar"] / 16
-                ta, _ = SW.hit_times(xa); tb, _ = SW.hit_times(xb)
-                fa, ca = SW.your_feel(ta, first_bar, G_["bar"], nbw); fb, cb = SW.your_feel(tb, first_bar, G_["bar"], nbw)
-                tgt = SW.groove_feel("uk-garage-speed-garage")["rel"]
-                ms = lambda v: round(v * stp * 1000, 1)
+                lag = (out.get("probe_ms") or 0) / 1000   # this decoder's delay, read from the reading's own probe click: both files carry it
+                ta, _ = SW.hit_times(xa); tb, _ = SW.hit_times(xb); ta = ta - lag; tb = tb - lag
+                # lateness from the beats (steps counted from where the beats read), before and after, against the scene's from its own beats
+                fa, ca, ba, _ga = SW.feel_from_beats(ta, first_bar, G_["bar"], nbw); fb, cb, bb, _gb = SW.feel_from_beats(tb, first_bar, G_["bar"], nbw)
+                gf_ = SW.groove_feel("uk-garage-speed-garage")["rel"]; tbm = float(np.mean([gf_[k] for k in (0, 4, 8, 12)])); tgt = [v - tbm for v in gf_]
                 read = [k for k in range(16) if ca[k] >= max(2, nbw // 4) and cb[k] >= max(2, nbw // 4)]
                 beats = [k for k in read if k % 4 == 0]; offs = [k for k in read if k % 4 != 0]
-                out["groove"]["read_back"] = {"steps_read": len(read), "beats_ms_before": [ms(fa[k]) for k in beats], "beats_ms_after": [ms(fb[k]) for k in beats],
-                                              "beat_shift_ms_max": max([abs(ms(fb[k] - fa[k])) for k in beats] or [None]),
-                                              "offbeats_ms_before": [ms(fa[k]) for k in offs], "offbeats_ms_after": [ms(fb[k]) for k in offs], "target_ms": [ms(tgt[k]) for k in offs],
-                                              "offbeat_error_ms_before": round(float(np.mean([abs(ms(fa[k] - tgt[k])) for k in offs])), 1) if offs else None,
-                                              "offbeat_error_ms_after": round(float(np.mean([abs(ms(fb[k] - tgt[k])) for k in offs])), 1) if offs else None}
+                ms = lambda v: round(v * stp * 1000, 1)
+                ra = {k: fa[k] for k in offs}; rb_ = {k: fb[k] for k in offs}
+                out["groove"]["read_back"] = {"steps_read": len(read), "decoder_lag_ms": round(1000 * lag, 1), "beats_vs_grid_ms_before": ms(ba), "beats_vs_grid_ms_after": ms(bb),
+                                              "beat_shift_ms_max": abs(ms(bb - ba)),
+                                              "steps": offs, "from_beats_ms_before": [ms(ra[k]) for k in offs], "from_beats_ms_after": [ms(rb_[k]) for k in offs], "target_ms": [ms(tgt[k]) for k in offs],
+                                              "error_ms_before": round(float(np.mean([abs(ms(ra[k] - tgt[k])) for k in offs])), 1) if offs else None,
+                                              "error_ms_after": round(float(np.mean([abs(ms(rb_[k] - tgt[k])) for k in offs])), 1) if offs else None}
             except Exception as e:
                 out["groove"]["read_back"] = {"error": type(e).__name__ + ": " + str(e)[:100]}
     out.pop("_drums_stem", None)
