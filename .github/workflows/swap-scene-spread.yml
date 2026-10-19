@@ -1,0 +1,26 @@
+name: swap scene spread
+# How often the nearest licensed loop lands inside a scene's spread (tools/swap_scene_spread.py), against the deployed
+# worker: every map scene x every part, five loops each. Annotations; scene-spread.json on the swap-test-results branch.
+on:
+  workflow_dispatch:
+permissions: { contents: write }
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q requests
+      - name: every scene, every part
+        env: { PARTS_KEY: "${{ secrets.PARTS_KEY }}" }
+        run: python tools/swap_scene_spread.py "$RUNNER_TEMP/out"
+      - name: keep the results
+        if: always()
+        run: |
+          set +e
+          cd "$RUNNER_TEMP" && git clone -q --depth 1 -b swap-test-results "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" kb || { mkdir -p kb && cd kb && git init -q && git checkout -q -b swap-test-results && cd ..; }
+          cp "$RUNNER_TEMP"/out/scene-spread.json kb/
+          cd kb && git config user.name sonic-bot && git config user.email sonic@earlysignal.live && git add -A && git commit -qm "scene spread ${{ github.run_id }}"
+          git push -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" swap-test-results:swap-test-results || echo "not kept"
