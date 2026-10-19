@@ -1,0 +1,1430 @@
+{
+ "base": "https://benmcewensignal--sonic-parts-swap.modal.run",
+ "at": "2026-10-19T11:38:22Z",
+ "preflight": {
+  "status": 200,
+  "allow_origin": "*"
+ },
+ "no_token": 401,
+ "example_token_cannot_split": 401,
+ "artists": 14416,
+ "runs": [
+  {
+   "label": "tech-house: Last Night",
+   "bytes": 1440705,
+   "upload_s": 0.8,
+   "read_s": 176.9,
+   "tempo": 129.0,
+   "key": "D#",
+   "grid": {
+    "first_beat": 0.19881,
+    "beat": 0.465111,
+    "bar": 1.860445,
+    "g0": 1.12903,
+    "nb": 63,
+    "phase": 2,
+    "phase_margin": 4.948,
+    "nbeats": 257,
+    "rough_tempo": 129.03,
+    "strength": 6.4076,
+    "tracker_offset_ms": -5.4
+   },
+   "window": {
+    "b0": 12,
+    "bars": 48,
+    "start_s": 23.45438,
+    "end_s": 112.75574
+   },
+   "timing": {
+    "decode": 0.4,
+    "separate": 16.2,
+    "rough_tempo": 45.5,
+    "grid": 46.6,
+    "bars": 48.2,
+    "lines": 75.5,
+    "measure": 124.3,
+    "total": 134.7
+   },
+   "like": [
+    [
+     "Brainrack",
+     0.702
+    ],
+    [
+     "Athanor",
+     0.673
+    ],
+    [
+     "YT",
+     0.605
+    ]
+   ],
+   "duration": 120.0,
+   "beat_levels": true,
+   "original_vs_grid_ms": {
+    "beats": [
+     72.5,
+     0.152
+    ],
+    "sixteenths": [
+     0.9,
+     0.053
+    ]
+   },
+   "probe_ms": 25.06,
+   "stem_bytes": {
+    "drums": 1786821,
+    "bass": 1786821,
+    "other": 1786821,
+    "vocals": 1786821,
+    "probe": 20943
+   },
+   "yours": {
+    "drums": {
+     "loop": "alotf_loop_drum2.wav by sdotlyre (CC BY 4.0)",
+     "closeness": 0.655,
+     "rank": 2,
+     "of": 9384,
+     "prep": {
+      "bars": 12,
+      "f": 1.0,
+      "cycle_bars": 12.0,
+      "ratio": 1.007107,
+      "shift": 0,
+      "loop_tempo": 129.917,
+      "samples": 984558,
+      "rms_db": -20.41,
+      "grid_fit": 0.409,
+      "lead_ms": 11.0,
+      "tail_bars": 0.0
+     },
+     "skipped": 3,
+     "s": 19.4,
+     "others": 4
+    },
+    "bass": {
+     "loop": "8bit_loop.wav by wouter.hisschemoller (CC0)",
+     "closeness": 0.568,
+     "rank": 3,
+     "of": 2237,
+     "prep": {
+      "bars": 2,
+      "f": 1.0,
+      "cycle_bars": 2.0,
+      "ratio": 1.113182,
+      "shift": -5,
+      "loop_tempo": 143.6,
+      "samples": 164093,
+      "rms_db": -32.91,
+      "grid_fit": 0.379,
+      "lead_ms": 57.0,
+      "tail_bars": 0.3
+     },
+     "skipped": 0,
+     "s": 21.8,
+     "others": 4
+    },
+    "other": {
+     "loop": "Lead 128 Bpm by deleted_user_4397472 (CC0)",
+     "closeness": 0.494,
+     "rank": 3,
+     "of": 3430,
+     "prep": {
+      "bars": 12,
+      "f": 1.0,
+      "cycle_bars": 12.0,
+      "ratio": 0.989741,
+      "shift": 0,
+      "loop_tempo": 127.677,
+      "samples": 984558,
+      "rms_db": -24.86,
+      "grid_fit": 0.438,
+      "lead_ms": 40.0,
+      "tail_bars": 0.0
+     },
+     "skipped": 0,
+     "s": 24.0,
+     "others": 4
+    },
+    "vocals": {
+     "loop": "where am I? (male vocal) by scotcampbell (CC0)",
+     "closeness": 0.354,
+     "rank": 3,
+     "of": 637,
+     "prep": {
+      "bars": 8,
+      "f": 1.0,
+      "cycle_bars": 8.0,
+      "ratio": 1.00155,
+      "shift": 1,
+      "loop_tempo": 129.2,
+      "samples": 656372,
+      "rms_db": -26.85,
+      "grid_fit": 0.237,
+      "lead_ms": 0.0,
+      "tail_bars": 1.44
+     },
+     "skipped": 1,
+     "s": 17.8,
+     "others": 4
+    }
+   },
+   "lines": {
+    "drums": {
+     "kicks": 276,
+     "snares": 78
+    },
+    "bass": {
+     "steps_with_notes": 692,
+     "of": 1008
+    },
+    "other": {
+     "steps_with_notes": 560,
+     "of": 1008
+    },
+    "vocals": {
+     "steps_with_notes": 562,
+     "of": 1008
+    }
+   },
+   "follow": {
+    "bass": {
+     "s": 2.5,
+     "seconds": 89.34,
+     "want_seconds": 89.3,
+     "info": {
+      "followed": 0,
+      "why": "no notes read in the loop",
+      "loop_notes": 0,
+      "loop_steps": 32,
+      "rms_db": -32.91
+     }
+    },
+    "drums": {
+     "s": 16.2,
+     "seconds": 89.34,
+     "want_seconds": 89.3,
+     "info": {
+      "placed": {
+       "kick": 171,
+       "snare": 47
+      },
+      "has": {
+       "kick": true,
+       "snare": true
+      },
+      "kit": {
+       "kick": 462342,
+       "snare": 462342,
+       "top": 462342
+      },
+      "pattern": "yours",
+      "rms_db": -21.29
+     }
+    }
+   },
+   "loopaudio": {
+    "s": 12.1,
+    "samples": 656372,
+    "listed_samples": 656372,
+    "same_prep": true
+   },
+   "focus": {
+    "loop": "B13 Dubstep Loops9 by Ongitak",
+    "focus": {
+     "on": [
+      "brightness"
+     ],
+     "of": 200,
+     "distance": 0.059,
+     "others": [
+      0.1,
+      0.118,
+      0.162,
+      0.17
+     ]
+    },
+    "same_as_nearest": false,
+    "centroid_loop": 3986.9,
+    "s": 35.1
+   },
+   "kit": {
+    "info": {
+     "placed": {
+      "kick": 80,
+      "snare": 24
+     },
+     "has": {
+      "kick": true,
+      "snare": true
+     },
+     "kit": {
+      "kick": 751106,
+      "snare": 462342,
+      "top": 462342
+     },
+     "pattern": "theirs",
+     "rms_db": -29.16
+    },
+    "s": 2.2,
+    "mp3_bytes": 2382428
+   },
+   "groove": {
+    "info": {
+     "hits": 345,
+     "moved": 139,
+     "yours": [
+      0.0002,
+      -0.0597,
+      0.0103,
+      -0.042,
+      0.0053,
+      -0.0085,
+      0.1255,
+      0.0853,
+      -0.0001,
+      -0.0136,
+      -0.0012,
+      -0.0036,
+      -0.0003,
+      -0.1097,
+      0.0359,
+      0.1406
+     ],
+     "beats_vs_grid_ms": -11.7,
+     "shift": [
+      0.0,
+      0.25,
+      -0.0011,
+      0.25,
+      0.0,
+      0.25,
+      -0.1193,
+      0.154,
+      0.0,
+      0.2359,
+      0.0114,
+      0.2449,
+      0.0,
+      0.25,
+      -0.0276,
+      0.1066
+     ],
+     "max_move_ms": 29.1,
+     "step_ms": 116.3,
+     "lag_ms": 1.45,
+     "decoder_lead": 1105,
+     "scene": {
+      "slug": "uk-garage-speed-garage",
+      "name": "UK garage",
+      "records": 1821,
+      "swing": 0.6161
+     }
+    },
+    "s": 4.8,
+    "mp3_bytes": 2383124,
+    "read_back": {
+     "steps_read": 9,
+     "decoder_lag_ms": 25.1,
+     "beats_vs_grid_ms_before": -10.8,
+     "beats_vs_grid_ms_after": -9.9,
+     "beat_shift_ms_max": 1.0,
+     "steps": [
+      2,
+      6,
+      10,
+      14,
+      15
+     ],
+     "from_beats_ms_before": [
+      0.8,
+      3.7,
+      0.8,
+      3.7,
+      14.6
+     ],
+     "from_beats_ms_after": [
+      1.5,
+      1.2,
+      3.8,
+      1.5,
+      21.9
+     ],
+     "target_ms": [
+      1.1,
+      0.7,
+      1.2,
+      1.0,
+      28.7
+     ],
+     "error_ms_before": 4.1,
+     "error_ms_after": 2.2
+    }
+   },
+   "artist": {
+    "name": "Brainrack",
+    "parts": {
+     "drums": {
+      "loop": "On The Run Drums [128bpm D min] by deadrobotmusic",
+      "artist": {
+       "name": "Brainrack",
+       "kind": "artist",
+       "records": 4,
+       "w": 1.0,
+       "closer_than": 0.0,
+       "own_median": 0.734
+      },
+      "closer_than": 0.0,
+      "others": 4,
+      "s": 29.5
+     },
+     "bass": {
+      "loop": "B2 Dubstep Bass 3.wav by Ongitak",
+      "artist": {
+       "name": "Brainrack",
+       "kind": "artist",
+       "records": 4,
+       "w": 0.5,
+       "closer_than": 0.0,
+       "own_median": 0.613
+      },
+      "closer_than": 0.0,
+      "others": 4,
+      "s": 14.9
+     }
+    }
+   },
+   "render": {
+    "s": 139.1,
+    "status": "done",
+    "credits": [
+     "alotf_loop_drum2.wav by sdotlyre (freesound.org/s/462342), CC BY 4.0",
+     "Hiphop - Sledge Snare Drum Loop by kontraamusic (freesound.org/s/751106), CC BY 4.0",
+     "8bit_loop.wav by wouter.hisschemoller (freesound.org/s/101260), CC0"
+    ],
+    "file": 200,
+    "bytes": 4801644,
+    "disposition": "attachment; filename=\"tech-house Last Night (swapped).mp3\"",
+    "seconds": 120.0,
+    "laid": {
+     "groove": {
+      "hits": 596,
+      "moved": 249,
+      "yours": [
+       0.0033,
+       -0.1096,
+       0.0002,
+       -0.0461,
+       0.0009,
+       -0.1067,
+       0.0085,
+       -0.1193,
+       -0.002,
+       -0.1047,
+       0.0224,
+       0.0024,
+       -0.0009,
+       -0.0785,
+       0.0004,
+       0.0943
+      ],
+      "counts": [
+       35,
+       24,
+       34,
+       15,
+       37,
+       8,
+       22,
+       1,
+       34,
+       30,
+       36,
+       14,
+       38,
+       11,
+       28,
+       26
+      ],
+      "target": [
+       0.0153,
+       0.1152,
+       0.0243,
+       0.0953,
+       -0.0117,
+       0.1152,
+       0.0243,
+       0.1033,
+       0.0083,
+       0.1102,
+       0.0232,
+       0.0953,
+       -0.0117,
+       0.1212,
+       0.0243,
+       0.1073
+      ],
+      "beats_vs_grid_ms": -11.1,
+      "shift": [
+       0.0,
+       0.2248,
+       0.0241,
+       0.1414,
+       0.0,
+       0.2219,
+       0.0158,
+       0.2226,
+       0.0,
+       0.2149,
+       0.0008,
+       0.0929,
+       0.0,
+       0.1997,
+       0.0239,
+       0.013
+      ],
+      "max_move_ms": 26.1,
+      "step_ms": 116.3,
+      "lag_ms": 2.9,
+      "scene": "house"
+     },
+     "drums_follow": [
+      {
+       "placed": {
+        "kick": 106,
+        "snare": 32
+       },
+       "has": {
+        "kick": true,
+        "snare": true
+       },
+       "kit": {
+        "kick": 751106,
+        "snare": 462342,
+        "top": 462342
+       },
+       "pattern": "theirs",
+       "rms_db": -29.11
+      },
+      {
+       "placed": {
+        "kick": 142,
+        "snare": 142
+       },
+       "has": {
+        "kick": true,
+        "snare": true
+       },
+       "kit": {
+        "kick": 751106,
+        "snare": 751106,
+        "top": 751106
+       },
+       "pattern": "theirs",
+       "rms_db": -23.51
+      }
+     ],
+     "drums": {
+      "layers": 2,
+      "bars_swapped": 37,
+      "keep": 0.0,
+      "level_db": 0.0
+     },
+     "bass_follow": [
+      {
+       "followed": 0,
+       "why": "no notes read in the loop",
+       "loop_notes": 0,
+       "loop_steps": 32,
+       "rms_db": -32.92
+      }
+     ],
+     "bass": {
+      "layers": 1,
+      "bars_swapped": 34,
+      "keep": 0.5,
+      "level_db": 0.0
+     },
+     "other": {
+      "layers": 0,
+      "bars_swapped": 0,
+      "keep": 1.0,
+      "level_db": 2.0
+     }
+    },
+    "loudness": {
+     "track_lufs": -10.43,
+     "swapped_lufs_before": -10.19,
+     "peak_before_dbfs": 12.17,
+     "ceiling_dbfs": -1.9,
+     "gain_db": 6.38,
+     "swapped_lufs": -10.82,
+     "passes": 4
+    },
+    "lufs": {
+     "original": -10.4,
+     "swapped": -10.8,
+     "diff": -0.4
+    },
+    "last_beat_share": {
+     "swapped": 0.227,
+     "original": 0.235
+    },
+    "vs_grid_ms": {
+     "beats": [
+      -115.1,
+      0.108
+     ],
+     "sixteenths": [
+      29.7,
+      0.027
+     ]
+    },
+    "low_lag_vs_original_ms": 30.5,
+    "stems": {
+     "file": 200,
+     "bytes": 18609930,
+     "names": [
+      "drums.mp3",
+      "bass.mp3",
+      "melody.mp3",
+      "voice.mp3",
+      "your drums (as read).mid",
+      "your bass (as read).mid",
+      "your melody (as read).mid",
+      "your voice (as read).mid",
+      "recipe.txt"
+     ],
+     "recipe_lines": 20,
+     "recipe_has_loops": true,
+     "midi": 4,
+     "midi_ok": true,
+     "sum_vs_mix_lufs_diff": -12.5,
+     "sum_peak_dbfs": -0.96
+    },
+    "level": {
+     "drums": 0.0,
+     "bass": 0.0,
+     "other": 2.0,
+     "vocals": 0.0
+    },
+    "groove": {
+     "hits": 596,
+     "moved": 249,
+     "yours": [
+      0.0033,
+      -0.1096,
+      0.0002,
+      -0.0461,
+      0.0009,
+      -0.1067,
+      0.0085,
+      -0.1193,
+      -0.002,
+      -0.1047,
+      0.0224,
+      0.0024,
+      -0.0009,
+      -0.0785,
+      0.0004,
+      0.0943
+     ],
+     "counts": [
+      35,
+      24,
+      34,
+      15,
+      37,
+      8,
+      22,
+      1,
+      34,
+      30,
+      36,
+      14,
+      38,
+      11,
+      28,
+      26
+     ],
+     "target": [
+      0.0153,
+      0.1152,
+      0.0243,
+      0.0953,
+      -0.0117,
+      0.1152,
+      0.0243,
+      0.1033,
+      0.0083,
+      0.1102,
+      0.0232,
+      0.0953,
+      -0.0117,
+      0.1212,
+      0.0243,
+      0.1073
+     ],
+     "beats_vs_grid_ms": -11.1,
+     "shift": [
+      0.0,
+      0.2248,
+      0.0241,
+      0.1414,
+      0.0,
+      0.2219,
+      0.0158,
+      0.2226,
+      0.0,
+      0.2149,
+      0.0008,
+      0.0929,
+      0.0,
+      0.1997,
+      0.0239,
+      0.013
+     ],
+     "max_move_ms": 26.1,
+     "step_ms": 116.3,
+     "lag_ms": 2.9,
+     "scene": "house"
+    },
+    "stems_gain_db": -13.17,
+    "stems_peak_dbfs": -1.0,
+    "result_status": "done"
+   },
+   "catalogue_tempo": [
+    129.12,
+    129.5
+   ]
+  },
+  {
+   "label": "tech-house: Jealous",
+   "bytes": 1440705,
+   "upload_s": 0.7,
+   "read_s": 147.3,
+   "tempo": 128.0,
+   "key": "Am",
+   "grid": {
+    "first_beat": 0.28715,
+    "beat": 0.468758,
+    "bar": 1.875031,
+    "g0": 0.75591,
+    "nb": 63,
+    "phase": 1,
+    "phase_margin": 5.747,
+    "nbeats": 255,
+    "rough_tempo": 128.02,
+    "strength": 6.6722,
+    "tracker_offset_ms": -12.8
+   },
+   "window": {
+    "b0": 0,
+    "bars": 48,
+    "start_s": 0.7559,
+    "end_s": 90.75737
+   },
+   "timing": {
+    "decode": 0.4,
+    "separate": 16.4,
+    "rough_tempo": 46.2,
+    "grid": 47.3,
+    "bars": 49.0,
+    "lines": 71.8,
+    "measure": 120.9,
+    "total": 131.3
+   },
+   "like": [
+    [
+     "Electro Couture",
+     0.603
+    ],
+    [
+     "Diego Romero",
+     0.598
+    ],
+    [
+     "Tony Mafia",
+     0.593
+    ]
+   ],
+   "duration": 120.0,
+   "beat_levels": true,
+   "original_vs_grid_ms": {
+    "beats": [
+     109.9,
+     0.154
+    ],
+    "sixteenths": [
+     24.0,
+     0.099
+    ]
+   },
+   "probe_ms": 25.06,
+   "stem_bytes": {
+    "drums": 1800927,
+    "bass": 1800927,
+    "other": 1800927,
+    "vocals": 1800927,
+    "probe": 20943
+   },
+   "yours": {
+    "drums": {
+     "loop": "House Drums by JerichoDesigns (CC BY 4.0)",
+     "closeness": 0.646,
+     "rank": 1,
+     "of": 9384,
+     "prep": {
+      "bars": 8,
+      "f": 1.0,
+      "cycle_bars": 8.0,
+      "ratio": 1.02543,
+      "shift": 0,
+      "loop_tempo": 131.255,
+      "samples": 661500,
+      "rms_db": -21.16,
+      "grid_fit": 0.477,
+      "lead_ms": 13.0,
+      "tail_bars": 0.0
+     },
+     "skipped": 1,
+     "s": 36.3,
+     "others": 4
+    },
+    "bass": {
+     "loop": "alotf_loop_bass.wav by sdotlyre (CC BY 4.0)",
+     "closeness": 0.564,
+     "rank": 1,
+     "of": 2237,
+     "prep": {
+      "bars": 12,
+      "f": 1.0,
+      "cycle_bars": 12.0,
+      "ratio": 1.014472,
+      "shift": -1,
+      "loop_tempo": 129.852,
+      "samples": 992250,
+      "rms_db": -13.41,
+      "grid_fit": 0.258,
+      "lead_ms": 0.0,
+      "tail_bars": 0.0
+     },
+     "skipped": 0,
+     "s": 15.5,
+     "others": 4
+    },
+    "other": {
+     "loop": "Acid 25 by AcidKekkonen (CC0)",
+     "closeness": 0.469,
+     "rank": 1,
+     "of": 3430,
+     "prep": {
+      "bars": 6,
+      "f": 1.0,
+      "cycle_bars": 6.0,
+      "ratio": 1.003783,
+      "shift": 3,
+      "loop_tempo": 128.484,
+      "samples": 496125,
+      "rms_db": -29.49,
+      "grid_fit": 0.237,
+      "lead_ms": 0.0,
+      "tail_bars": 0.0
+     },
+     "skipped": 0,
+     "s": 15.0,
+     "others": 4
+    },
+    "vocals": {
+     "loop": "Karate chop fighting sounds by AmeAngelofSin (CC BY 4.0)",
+     "closeness": 0.544,
+     "rank": 1,
+     "of": 637,
+     "prep": {
+      "bars": 6,
+      "f": 1.0,
+      "cycle_bars": 6.0,
+      "ratio": 1.0625,
+      "shift": -3,
+      "loop_tempo": 136.0,
+      "samples": 496125,
+      "rms_db": -23.9,
+      "grid_fit": 0.321,
+      "lead_ms": 1.0,
+      "tail_bars": 0.85
+     },
+     "skipped": 0,
+     "s": 13.9,
+     "others": 4
+    }
+   },
+   "lines": {
+    "drums": {
+     "kicks": 262,
+     "snares": 268
+    },
+    "bass": {
+     "steps_with_notes": 911,
+     "of": 1008
+    },
+    "other": {
+     "steps_with_notes": 70,
+     "of": 1008
+    },
+    "vocals": {
+     "steps_with_notes": 347,
+     "of": 1008
+    }
+   },
+   "follow": {
+    "bass": {
+     "s": 35.9,
+     "seconds": 90.04,
+     "want_seconds": 90.0,
+     "info": {
+      "followed": 766,
+      "of": 768,
+      "shift_semitones": [
+       -10,
+       9
+      ],
+      "octave": 0,
+      "loop_notes": 166,
+      "loop_steps": 192,
+      "rms_db": -13.47
+     }
+    },
+    "drums": {
+     "s": 11.6,
+     "seconds": 90.04,
+     "want_seconds": 90.0,
+     "info": {
+      "placed": {
+       "kick": 190,
+       "snare": 159
+      },
+      "has": {
+       "kick": true,
+       "snare": true
+      },
+      "kit": {
+       "kick": 625478,
+       "snare": 625478,
+       "top": 625478
+      },
+      "pattern": "yours",
+      "rms_db": -21.06
+     }
+    }
+   },
+   "loopaudio": {
+    "s": 2.6,
+    "samples": 165375,
+    "listed_samples": 165375,
+    "same_prep": true
+   },
+   "focus": {
+    "loop": "70-Acid Modulation Bass - SpankMyFilth.wav by SpankMyFilth",
+    "focus": {
+     "on": [
+      "brightness"
+     ],
+     "of": 200,
+     "distance": 0.003,
+     "others": [
+      0.006,
+      0.036,
+      0.044,
+      0.046
+     ]
+    },
+    "same_as_nearest": false,
+    "centroid_loop": 1122.5,
+    "s": 17.3
+   },
+   "kit": {
+    "info": {
+     "placed": {
+      "kick": 258,
+      "snare": 60
+     },
+     "has": {
+      "kick": true,
+      "snare": true
+     },
+     "kit": {
+      "kick": 69256,
+      "snare": 625478,
+      "top": 625478
+     },
+     "pattern": "theirs",
+     "rms_db": -15.08
+    },
+    "s": 2.6,
+    "mp3_bytes": 2401236
+   },
+   "groove": {
+    "info": {
+     "hits": 795,
+     "moved": 314,
+     "yours": [
+      -0.0077,
+      0.169,
+      0.0107,
+      0.1747,
+      0.0911,
+      0.1553,
+      0.0106,
+      0.2139,
+      -0.0075,
+      0.2424,
+      0.0108,
+      0.1779,
+      0.0075,
+      0.1071,
+      0.011,
+      0.1011
+     ],
+     "beats_vs_grid_ms": -4.7,
+     "shift": [
+      0.0,
+      0.0723,
+      -0.0015,
+      0.0466,
+      0.0,
+      0.0919,
+      -0.0044,
+      0.0254,
+      0.0,
+      -0.0201,
+      -0.0006,
+      0.0634,
+      0.0,
+      0.1401,
+      -0.0027,
+      0.1461
+     ],
+     "max_move_ms": 17.1,
+     "step_ms": 117.2,
+     "lag_ms": 2.9,
+     "decoder_lead": 1105,
+     "scene": {
+      "slug": "uk-garage-speed-garage",
+      "name": "UK garage",
+      "records": 1821,
+      "swing": 0.6161
+     }
+    },
+    "s": 4.9,
+    "mp3_bytes": 2401932,
+    "read_back": {
+     "steps_read": 16,
+     "decoder_lag_ms": 25.1,
+     "beats_vs_grid_ms_before": 7.7,
+     "beats_vs_grid_ms_after": 1.4,
+     "beat_shift_ms_max": 6.3,
+     "steps": [
+      1,
+      2,
+      3,
+      5,
+      6,
+      7,
+      9,
+      10,
+      11,
+      13,
+      14,
+      15
+     ],
+     "from_beats_ms_before": [
+      -0.9,
+      -12.0,
+      16.0,
+      -13.7,
+      -11.8,
+      21.1,
+      7.8,
+      -11.8,
+      10.3,
+      6.7,
+      -11.5,
+      11.0
+     ],
+     "from_beats_ms_after": [
+      21.6,
+      -5.8,
+      13.5,
+      11.5,
+      -5.6,
+      25.3,
+      21.6,
+      -4.8,
+      6.2,
+      14.4,
+      -2.4,
+      18.0
+     ],
+     "target_ms": [
+      28.3,
+      1.1,
+      25.9,
+      29.0,
+      0.7,
+      28.0,
+      26.0,
+      1.2,
+      28.3,
+      29.0,
+      1.0,
+      29.0
+     ],
+     "error_ms_before": 18.0,
+     "error_ms_after": 9.5
+    }
+   },
+   "artist": {
+    "name": "Electro Couture",
+    "parts": {
+     "drums": {
+      "loop": "abstract-electrofunkbreakbeats_128bpm-teqnoqratiq.wav by suonho",
+      "artist": {
+       "name": "Electro Couture",
+       "kind": "artist",
+       "records": 7,
+       "w": 1.0,
+       "closer_than": 0.286,
+       "own_median": 0.638
+      },
+      "closer_than": 0.286,
+      "others": 4,
+      "s": 11.8
+     },
+     "bass": {
+      "loop": "BaseSupportB40.wav by visual",
+      "artist": {
+       "name": "Electro Couture",
+       "kind": "artist",
+       "records": 7,
+       "w": 0.5,
+       "closer_than": 0.0,
+       "own_median": 0.58
+      },
+      "closer_than": 0.0,
+      "others": 4,
+      "s": 26.1
+     }
+    }
+   },
+   "render": {
+    "s": 158.4,
+    "status": "done",
+    "credits": [
+     "House Drums by JerichoDesigns (freesound.org/s/625478), CC BY 4.0",
+     "drum sequence kick chh and low tom.wav by alveg (freesound.org/s/69256), CC0",
+     "alotf_loop_bass.wav by sdotlyre (freesound.org/s/462345), CC BY 4.0"
+    ],
+    "file": 200,
+    "bytes": 4801631,
+    "disposition": "attachment; filename=\"tech-house Jealous (swapped).mp3\"",
+    "seconds": 120.0,
+    "laid": {
+     "groove": {
+      "hits": 1138,
+      "moved": 469,
+      "yours": [
+       0.0017,
+       0.1539,
+       0.0162,
+       0.1236,
+       -0.002,
+       0.159,
+       0.0157,
+       0.2158,
+       0.0078,
+       0.1724,
+       0.0153,
+       0.1533,
+       -0.0017,
+       0.1106,
+       0.0149,
+       0.1135
+      ],
+      "counts": [
+       51,
+       19,
+       43,
+       48,
+       55,
+       25,
+       45,
+       44,
+       53,
+       21,
+       47,
+       52,
+       54,
+       23,
+       46,
+       56
+      ],
+      "target": [
+       0.0153,
+       0.1152,
+       0.0243,
+       0.0953,
+       -0.0117,
+       0.1152,
+       0.0243,
+       0.1033,
+       0.0083,
+       0.1102,
+       0.0232,
+       0.0953,
+       -0.0117,
+       0.1212,
+       0.0243,
+       0.1073
+      ],
+      "beats_vs_grid_ms": -5.5,
+      "shift": [
+       0.0,
+       -0.0387,
+       0.0081,
+       -0.0283,
+       0.0,
+       -0.0438,
+       0.0086,
+       -0.1125,
+       0.0,
+       -0.0622,
+       0.0079,
+       -0.058,
+       0.0,
+       0.0106,
+       0.0094,
+       -0.0062
+      ],
+      "max_move_ms": 13.2,
+      "step_ms": 117.2,
+      "lag_ms": 1.45,
+      "scene": "house"
+     },
+     "drums_follow": [
+      {
+       "placed": {
+        "kick": 339,
+        "snare": 78
+       },
+       "has": {
+        "kick": true,
+        "snare": true
+       },
+       "kit": {
+        "kick": 69256,
+        "snare": 625478,
+        "top": 625478
+       },
+       "pattern": "theirs",
+       "rms_db": -15.07
+      },
+      {
+       "placed": {
+        "kick": 630,
+        "snare": 126
+       },
+       "has": {
+        "kick": true,
+        "snare": true
+       },
+       "kit": {
+        "kick": 69256,
+        "snare": 69256,
+        "top": 69256
+       },
+       "pattern": "theirs",
+       "rms_db": -15.43
+      }
+     ],
+     "drums": {
+      "layers": 2,
+      "bars_swapped": 63,
+      "keep": 0.0,
+      "level_db": 0.0
+     },
+     "bass_follow": [
+      {
+       "followed": 994,
+       "of": 1008,
+       "shift_semitones": [
+        -11,
+        9
+       ],
+       "octave": 0,
+       "loop_notes": 166,
+       "loop_steps": 192,
+       "rms_db": -13.38
+      }
+     ],
+     "bass": {
+      "layers": 1,
+      "bars_swapped": 61,
+      "keep": 0.5,
+      "level_db": 0.0
+     },
+     "other": {
+      "layers": 0,
+      "bars_swapped": 0,
+      "keep": 1.0,
+      "level_db": 2.0
+     }
+    },
+    "loudness": {
+     "track_lufs": -8.35,
+     "swapped_lufs_before": -8.79,
+     "peak_before_dbfs": 10.18,
+     "ceiling_dbfs": -1.9,
+     "gain_db": 5.46,
+     "swapped_lufs": -8.93,
+     "passes": 4
+    },
+    "lufs": {
+     "original": -8.3,
+     "swapped": -8.9,
+     "diff": -0.6
+    },
+    "last_beat_share": {
+     "swapped": 0.141,
+     "original": 0.279
+    },
+    "vs_grid_ms": {
+     "beats": [
+      178.8,
+      0.074
+     ],
+     "sixteenths": [
+      46.4,
+      0.047
+     ]
+    },
+    "low_lag_vs_original_ms": 45.0,
+    "stems": {
+     "file": 200,
+     "bytes": 18557399,
+     "names": [
+      "drums.mp3",
+      "bass.mp3",
+      "melody.mp3",
+      "voice.mp3",
+      "your drums (as read).mid",
+      "your bass (as read).mid",
+      "your melody (as read).mid",
+      "your voice (as read).mid",
+      "recipe.txt"
+     ],
+     "recipe_lines": 20,
+     "recipe_has_loops": true,
+     "midi": 4,
+     "midi_ok": true,
+     "sum_vs_mix_lufs_diff": -11.1,
+     "sum_peak_dbfs": -1.1
+    },
+    "level": {
+     "drums": 0.0,
+     "bass": 0.0,
+     "other": 2.0,
+     "vocals": 0.0
+    },
+    "groove": {
+     "hits": 1138,
+     "moved": 469,
+     "yours": [
+      0.0017,
+      0.1539,
+      0.0162,
+      0.1236,
+      -0.002,
+      0.159,
+      0.0157,
+      0.2158,
+      0.0078,
+      0.1724,
+      0.0153,
+      0.1533,
+      -0.0017,
+      0.1106,
+      0.0149,
+      0.1135
+     ],
+     "counts": [
+      51,
+      19,
+      43,
+      48,
+      55,
+      25,
+      45,
+      44,
+      53,
+      21,
+      47,
+      52,
+      54,
+      23,
+      46,
+      56
+     ],
+     "target": [
+      0.0153,
+      0.1152,
+      0.0243,
+      0.0953,
+      -0.0117,
+      0.1152,
+      0.0243,
+      0.1033,
+      0.0083,
+      0.1102,
+      0.0232,
+      0.0953,
+      -0.0117,
+      0.1212,
+      0.0243,
+      0.1073
+     ],
+     "beats_vs_grid_ms": -5.5,
+     "shift": [
+      0.0,
+      -0.0387,
+      0.0081,
+      -0.0283,
+      0.0,
+      -0.0438,
+      0.0086,
+      -0.1125,
+      0.0,
+      -0.0622,
+      0.0079,
+      -0.058,
+      0.0,
+      0.0106,
+      0.0094,
+      -0.0062
+     ],
+     "max_move_ms": 13.2,
+     "step_ms": 117.2,
+     "lag_ms": 1.45,
+     "scene": "house"
+    },
+    "stems_gain_db": -11.27,
+    "stems_peak_dbfs": -1.0,
+    "result_status": "done"
+   },
+   "catalogue_tempo": [
+    null,
+    null
+   ]
+  }
+ ],
+ "dropped": []
+}

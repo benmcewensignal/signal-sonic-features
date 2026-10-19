@@ -1,0 +1,134 @@
+2026-10-19 11:36:50+00:00 2026-10-19 11:36:50.304115: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:36:50+00:00 2026-10-19 11:36:50.304186: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:36:50+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:36:50+00:00 2026-10-19 11:36:50.492445: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 AVX512F FMA
+2026-10-19 11:36:50+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:36:50+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:36:50+00:00 2026-10-19 11:36:50.495829: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:36:50+00:00 2026-10-19 11:36:50.495900: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:36:50+00:00 2026-10-19 11:36:50.495945: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:36:50+00:00 2026-10-19 11:36:50.526799: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 AVX512F FMA
+2026-10-19 11:36:50+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:36:50+00:00 2026-10-19 11:36:50.529642: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:36:50+00:00 2026-10-19 11:36:50.529694: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:36:50+00:00 2026-10-19 11:36:50.529734: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:36:52+00:00 2026-10-19 11:36:52.061490: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:36:52+00:00 2026-10-19 11:36:52.061628: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:36:52+00:00 2026-10-19 11:36:52.210571: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:36:52+00:00 2026-10-19 11:36:52.210726: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:36:52+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:36:52+00:00 2026-10-19 11:36:52.459681: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 AVX512F FMA
+2026-10-19 11:36:52+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:36:52+00:00 2026-10-19 11:36:52.462512: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:36:52+00:00 2026-10-19 11:36:52.462547: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:36:52+00:00 2026-10-19 11:36:52.462586: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:36:52+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:36:52+00:00 2026-10-19 11:36:52.656424: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+2026-10-19 11:36:52+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:36:52+00:00 2026-10-19 11:36:52.660213: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:36:52+00:00 2026-10-19 11:36:52.660275: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:36:52+00:00 2026-10-19 11:36:52.660332: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:36:52+00:00 /usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+2026-10-19 11:36:52+00:00   return pitch_tuning(
+2026-10-19 11:36:53+00:00 /usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+2026-10-19 11:36:53+00:00   return pitch_tuning(
+2026-10-19 11:36:53+00:00 /usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+2026-10-19 11:36:53+00:00   return pitch_tuning(
+2026-10-19 11:36:54+00:00 2026-10-19 11:36:54.942705: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:36:54+00:00 2026-10-19 11:36:54.942845: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:36:55+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:36:55+00:00 2026-10-19 11:36:55.331816: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 AVX512F FMA
+2026-10-19 11:36:55+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:36:55+00:00 2026-10-19 11:36:55.339863: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:36:55+00:00 2026-10-19 11:36:55.339910: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:36:55+00:00 2026-10-19 11:36:55.339947: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:36:56+00:00 /usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+2026-10-19 11:36:56+00:00   return pitch_tuning(
+2026-10-19 11:36:56+00:00 /usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+2026-10-19 11:36:56+00:00   return pitch_tuning(
+2026-10-19 11:36:56+00:00 2026-10-19 11:36:56.493635: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:36:56+00:00 2026-10-19 11:36:56.493793: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:36:56+00:00 2026-10-19 11:36:56.860905: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:36:56+00:00 2026-10-19 11:36:56.861079: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:36:56+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:36:56+00:00 2026-10-19 11:36:56.920698: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 AVX512F FMA
+2026-10-19 11:36:56+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:36:56+00:00 2026-10-19 11:36:56.923809: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:36:56+00:00 2026-10-19 11:36:56.923870: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:36:56+00:00 2026-10-19 11:36:56.923950: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:36:57+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:36:57+00:00 2026-10-19 11:36:57.324681: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+2026-10-19 11:36:57+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:36:57+00:00 2026-10-19 11:36:57.328586: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:36:57+00:00 2026-10-19 11:36:57.328625: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:36:57+00:00 2026-10-19 11:36:57.328672: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:36:58+00:00 /usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+2026-10-19 11:36:58+00:00   return pitch_tuning(
+2026-10-19 11:36:58+00:00 2026-10-19 11:36:58.247533: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:36:58+00:00 2026-10-19 11:36:58.247672: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:36:58+00:00 2026-10-19 11:36:58.650809: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:36:58+00:00 2026-10-19 11:36:58.650961: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:36:58+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:36:58+00:00 2026-10-19 11:36:58.714316: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+2026-10-19 11:36:58+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:36:58+00:00 2026-10-19 11:36:58.718224: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:36:58+00:00 2026-10-19 11:36:58.718262: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:36:58+00:00 2026-10-19 11:36:58.718305: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:36:59+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:36:59+00:00 2026-10-19 11:36:59.110077: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+2026-10-19 11:36:59+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:36:59+00:00 2026-10-19 11:36:59.114214: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:36:59+00:00 2026-10-19 11:36:59.114276: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:36:59+00:00 2026-10-19 11:36:59.114329: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:36:59+00:00 2026-10-19 11:36:59.366936: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:36:59+00:00 2026-10-19 11:36:59.367110: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:36:59+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:36:59+00:00 2026-10-19 11:36:59.845884: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+2026-10-19 11:36:59+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:36:59+00:00 2026-10-19 11:36:59.850232: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:36:59+00:00 2026-10-19 11:36:59.850331: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:36:59+00:00 2026-10-19 11:36:59.850407: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:37:00+00:00 2026-10-19 11:37:00.333981: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:37:00+00:00 2026-10-19 11:37:00.334128: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:37:00+00:00 2026-10-19 11:37:00.577079: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:37:00+00:00 2026-10-19 11:37:00.577236: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:37:00+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:37:00+00:00 2026-10-19 11:37:00.814554: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+2026-10-19 11:37:00+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:37:00+00:00 2026-10-19 11:37:00.817929: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:37:00+00:00 2026-10-19 11:37:00.817983: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:37:00+00:00 2026-10-19 11:37:00.818041: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:37:01+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:37:01+00:00 2026-10-19 11:37:01.115365: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+2026-10-19 11:37:01+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:37:01+00:00 2026-10-19 11:37:01.119238: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:37:01+00:00 2026-10-19 11:37:01.119318: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:37:01+00:00 2026-10-19 11:37:01.119378: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:37:04+00:00 2026-10-19 11:37:04.678891: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:37:04+00:00 2026-10-19 11:37:04.679066: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:37:04+00:00 2026-10-19 11:37:04.735893: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:37:04+00:00 2026-10-19 11:37:04.736087: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:37:05+00:00 /usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+2026-10-19 11:37:05+00:00   return pitch_tuning(
+2026-10-19 11:37:05+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:37:05+00:00 2026-10-19 11:37:05.166217: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+2026-10-19 11:37:05+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:37:05+00:00 2026-10-19 11:37:05.170882: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:37:05+00:00 2026-10-19 11:37:05.170955: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:37:05+00:00 2026-10-19 11:37:05.171032: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:37:05+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:37:05+00:00 2026-10-19 11:37:05.254069: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+2026-10-19 11:37:05+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:37:05+00:00 2026-10-19 11:37:05.258157: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:37:05+00:00 2026-10-19 11:37:05.258226: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:37:05+00:00 2026-10-19 11:37:05.258287: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
+2026-10-19 11:37:06+00:00 /usr/local/lib/python3.12/site-packages/librosa/core/pitch.py:101: UserWarning: Trying to estimate tuning from empty frequency set.
+2026-10-19 11:37:06+00:00   return pitch_tuning(
+2026-10-19 11:37:09+00:00 2026-10-19 11:37:09.878852: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2026-10-19 11:37:09+00:00 2026-10-19 11:37:09.879938: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-19 11:37:10+00:00 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
+2026-10-19 11:37:10+00:00 2026-10-19 11:37:10.442505: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+2026-10-19 11:37:10+00:00 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-10-19 11:37:10+00:00 2026-10-19 11:37:10.448999: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2026-10-19 11:37:10+00:00 2026-10-19 11:37:10.449136: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-19 11:37:10+00:00 2026-10-19 11:37:10.449248: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (modal): /proc/driver/nvidia/version does not exist
