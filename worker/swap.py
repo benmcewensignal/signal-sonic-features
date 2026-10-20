@@ -673,16 +673,17 @@ def focus_distance(L, v, focus):
 
 def choose(part, v, tempo, key=None, exclude=(), top=400, focus=None):
     """The licensed loop of this part's family nearest the raw vector v, among loops at a tempo within 12% (or half or
-    double) of the track's, preferring a small stretch and, for tonal parts, a small transposition. With a focus (names
-    from FOCUS), the 200 nearest in character are re-ranked by their distance on those plain measures alone."""
+    double) of the track's, preferring a small stretch and, for tonal parts, a small transposition; never one that
+    loop_flags names. With a focus (names from FOCUS), the 200 nearest in character are re-ranked by their distance on
+    those plain measures alone."""
     L = loop_index()[FAM[part]]
     q, zname = _space(L, v)
     Zl = np.asarray(L[zname], np.float32); sim = Zl @ q
-    ex = {str(x) for x in (exclude or ())}
+    ex = {str(x) for x in (exclude or ())}; FL = loop_flags()
     cands = []
     for i in np.argsort(-sim)[:top]:
-        m = L["meta"][int(i)]; lt = float(m.get("tempo") or 0)
-        if not m.get("preview") or not lt or str(m.get("id")) in ex or str(m.get("id")) in _SILENT: continue
+        m = L["meta"][int(i)]; lt = float(m.get("tempo") or 0); mid = str(m.get("id"))
+        if not m.get("preview") or not lt or mid in ex or mid in _SILENT or mid in FL: continue
         f = min((1.0, 2.0, 0.5), key=lambda x: abs(lt * x - tempo))
         r = lt * f / tempo
         if abs(r - 1) > 0.12: continue
@@ -740,6 +741,20 @@ class NotALoop(ValueError):
 # container (a silent file's measures sit near the middle of the space, so it is the nearest loop to many averages)
 _SILENT = set()
 QUIET_DB = -45.0
+_FLAGS = None
+
+
+def loop_flags():
+    """Licensed loops that are not loops, found by hearing every one once ahead of any request (tools/swap_loop_flags.py,
+    under the rule in tools/swap_loop_flags_apply.py): silent, cancelling in mono, a single hit, or not whole bars at
+    their tempo. id -> reason. choose() never ranks them, so a part's five loops, and /reach, come from loops that lay."""
+    global _FLAGS
+    if _FLAGS is None:
+        try:
+            with open(os.path.join(HERE, "loop_flags.json")) as f: _FLAGS = json.load(f)["flags"]
+        except Exception:
+            _FLAGS = {}
+    return _FLAGS
 
 
 _PREP = {}; _PREP_LOCK = threading.Lock()

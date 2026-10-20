@@ -3,7 +3,8 @@ sits in its loudest tenth, how many hits it has, and whether its two channels ca
 loop_for refuses a prepared loop that is silent (19 October); this finds, ahead of any request, the files that are not
 loops at all (a single hit decaying into silence, an empty file), so the matcher never ranks them. Writes the measures
 for every loop (out/loop-audio-measures.json) and prints the shares by family; tools/swap_loop_flags_apply.py turns them
-into worker/loop_flags.json under a stated rule.
+into worker/loop_flags.json under a stated rule. A loop already in out/loop-audio-measures.json (the last run's, which
+the workflow fetches from the results branch) is not heard again: only loops added since.
   modal run tools/swap_loop_flags.py"""
 import json, modal
 
@@ -53,8 +54,17 @@ def main():
     for fam, L in LI.items():
         for m in L["meta"]:
             if m.get("preview"): metas.append(dict(m, _fam=fam))
-    print(f"{len(metas):,} loops to hear", flush=True)
-    res = [r for r in one.map(metas, return_exceptions=True, order_outputs=False) if isinstance(r, dict)]
+    known = {}
+    try:
+        for r in json.load(open("out/loop-audio-measures.json"))["loops"]:
+            if not r.get("error"): known[str(r["id"])] = r
+    except Exception:
+        pass
+    now = {str(m.get("id")) for m in metas}
+    todo = [m for m in metas if str(m.get("id")) not in known]
+    print(f"{len(metas):,} loops in the library; {len(todo):,} not heard before", flush=True)
+    res = [r for r in one.map(todo, return_exceptions=True, order_outputs=False) if isinstance(r, dict)] if todo else []
+    res += [r for k, r in known.items() if k in now]
     os.makedirs("out", exist_ok=True)
     json.dump({"note": "every licensed loop heard once (tools/swap_loop_flags.py): d seconds; rms_db of the summed channels; silent: share of "
                        "50 ms frames under -50 dBFS; top_tenth: share of the energy in the loudest tenth of those frames; hits: rises in level "
