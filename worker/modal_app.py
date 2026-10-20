@@ -480,6 +480,18 @@ def swap():
         if "list" not in _ART: _ART["list"] = await asyncio.to_thread(SW.artists_separated)
         return {"artists": _ART["list"]}
 
+    @api.get("/labels")
+    async def labels(req: Request):
+        if not ok(req): return no()
+        if "labels" not in _ART: _ART["labels"] = await asyncio.to_thread(SW.labels_separated)
+        return {"labels": _ART["labels"]}
+
+    @api.get("/djs")
+    async def djs(req: Request):
+        if not ok(req): return no()
+        if "djs" not in _ART: _ART["djs"] = await asyncio.to_thread(SW.djs_separated)
+        return {"djs": _ART["djs"]}
+
     @api.post("/reach")
     async def reach(req: Request):
         """How close the library gets to each target, part by part, at the track's tempo (no audio): JSON {targets:

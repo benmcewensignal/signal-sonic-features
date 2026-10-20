@@ -488,6 +488,50 @@ def artist_ids():
     return _AI
 
 
+_LB = None; _DJ = None
+
+
+def label_ids():
+    """Label name (any case) -> (name as written, record ids), for labels with five or more records (tools/build_label_ids.py)."""
+    global _LB
+    if _LB is None:
+        d = json.load(open(os.path.join(HERE, "label_ids.json")))["labels"]
+        _LB = {k.lower(): (k, v) for k, v in d.items()}
+    return _LB
+
+
+def dj_ids():
+    """DJ name (any case) -> (name as written, the records they have played in published tracklists) (tools/build_dj_ids.py)."""
+    global _DJ
+    if _DJ is None:
+        d = json.load(open(os.path.join(HERE, "dj_ids.json")))["djs"]
+        _DJ = {k.lower(): (k, v) for k, v in d.items()}
+    return _DJ
+
+
+def _named_separated(table, min_n):
+    RP = record_parts(); out = []
+    for k, (nm, ids) in table.items():
+        c = sum(1 for t in ids if t in RP["at"])
+        if c >= min_n: out.append([nm, c])
+    out.sort(key=lambda r: (-r[1], r[0].lower()))
+    return out
+
+
+DISTRIBUTORS = {"distrokid", "tunecore", "cd baby", "amuse", "ditto music", "routenote", "unitedmasters", "spinnup", "soundrop", "landr", "recordjet",
+                "imusician", "records dk", "self-released", "independent", "believe", "awal", "symphonic distribution"}   # a distributor's records have no shared sound
+
+
+def labels_separated(min_n=5):
+    """The labels with at least min_n separated records, for the page's search: [[name, records], ...] (not distributors)."""
+    return [r for r in _named_separated(label_ids(), min_n) if r[0].strip().lower() not in DISTRIBUTORS]
+
+
+def djs_separated(min_n=10):
+    """The DJs with at least min_n separated records played, for the page's search: [[name, records], ...]."""
+    return _named_separated(dj_ids(), min_n)
+
+
 def artists_separated(min_n=3):
     """The artists with at least min_n separated records, for the page's search: [[name, records], ...]."""
     RP = record_parts(); out = []
@@ -538,6 +582,24 @@ def artist_target(part, name):
     rows = [RP["at"][t] for t in ids if t in RP["at"]]
     if len(rows) < 3: return None, {"error": f"Sonic has separated {len(rows)} of {nm}'s records; it needs three"}
     return group_target(part, rows, nm, "artist")
+
+
+def label_target(part, name):
+    """The average of a label's separated records' same part."""
+    hit = label_ids().get(str(name or "").strip().lower())
+    if not hit: return None, {"error": "Sonic has no separated records on that label"}
+    nm, ids = hit; RP = record_parts(); rows = [RP["at"][t] for t in ids if t in RP["at"]]
+    if len(rows) < 5: return None, {"error": f"Sonic has separated {len(rows)} of {nm}'s records; it needs five"}
+    return group_target(part, rows, nm, "label")
+
+
+def dj_target(part, name):
+    """The average of the separated records a DJ has played (published tracklists), same part."""
+    hit = dj_ids().get(str(name or "").strip().lower())
+    if not hit: return None, {"error": "Sonic has no tracklists for that DJ"}
+    nm, ids = hit; RP = record_parts(); rows = [RP["at"][t] for t in ids if t in RP["at"]]
+    if len(rows) < 10: return None, {"error": f"Sonic has separated {len(rows)} of the records {nm} has played; it needs ten"}
+    return group_target(part, rows, nm, "dj")
 
 
 def scene_target(part, slug):
@@ -843,9 +905,11 @@ def _target_vector(part, target, info):
     """The raw part vector the loops are ranked against: your part, an artist's average, or a point between the two
     (w: 1 is their average, 0 is yours)."""
     t = target or {}
-    if t.get("kind") in ("artist", "scene", "record", "records"):
+    if t.get("kind") in ("artist", "scene", "record", "records", "label", "dj"):
         if t.get("kind") == "artist": v, info_ = artist_target(part, t.get("name"))
         elif t.get("kind") == "scene": v, info_ = scene_target(part, t.get("name"))
+        elif t.get("kind") == "label": v, info_ = label_target(part, t.get("name"))
+        elif t.get("kind") == "dj": v, info_ = dj_target(part, t.get("name"))
         else: v, info_ = records_target(part, t.get("ids") or ([t.get("id")] if t.get("id") else []), t.get("label"))
         info.update(info_)
         if v is None: return None

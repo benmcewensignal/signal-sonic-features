@@ -24,6 +24,7 @@ jobs:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
           PARTS_KEY: ${{ secrets.PARTS_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ -z "$MODAL_TOKEN_ID" ]; then echo "::notice::no Modal token yet; the worker is not deployed"; exit 0; fi
           pip install -q modal "fastapi[standard]"
@@ -33,6 +34,14 @@ jobs:
           if [ -n "$PARTS_KEY" ]; then modal secret create sonic-parts PARTS_KEY="$PARTS_KEY" --force >/dev/null && echo "worker password synced"; fi
           # every separated record's part measures, for the loops endpoint (kept privately with the model weights)
           python -m pip install -q numpy >/dev/null 2>&1; python tools/build_record_parts.py --out /tmp/record-parts.npz && modal volume put sonic-embed /tmp/record-parts.npz /record-parts.npz --force || echo "::warning title=record parts::not built"
+          # the names Swap can point at (artists and labels from the pipeline's latest database, DJs from its tracklists), so a
+          # name new to the catalogue can be a target the next day; the committed lists stand in when a source cannot be fetched
+          if gh release download deepened --repo benmcewensignal/signal-sonic --pattern sonic.db --dir /tmp --clobber; then
+            python tools/build_artist_ids.py --db /tmp/sonic.db --out worker/artist_ids.json; python tools/build_label_ids.py --db /tmp/sonic.db --out worker/label_ids.json
+          else echo "::warning title=names::artists and labels not rebuilt (no database)"; fi
+          if git clone -q --filter=blob:none --no-checkout https://github.com/benmcewensignal/signal-sonic /tmp/ss && cd /tmp/ss && git sparse-checkout init --no-cone && git sparse-checkout set '/data/tracklists/*.json' '!/data/tracklists/curves.json' && git checkout -q main; then
+            cd "$GITHUB_WORKSPACE"; python tools/build_dj_ids.py --tracklists /tmp/ss/data/tracklists --out worker/dj_ids.json
+          else cd "$GITHUB_WORKSPACE"; echo "::warning title=names::DJs not rebuilt (no tracklists)"; fi
           modal deploy worker/modal_app.py 2>&1 | tee /tmp/deploy.log
           rc=${PIPESTATUS[0]}
           if [ "$rc" -ne 0 ]; then

@@ -110,7 +110,9 @@ def main():
                   open(os.path.join(D, "ear-centres.json"), "w"), separators=(",", ":")); ok("ear-centres.json", True)
     except Exception as e: print("examples/centres:", e); ok("scene-examples.json", False); ok("ear-centres.json", False)
     # 2b each scene's artists Swap can point at, by records in the scene's Beatport top 100 (Swap's Scenes)
-    ok("scene-artists.json", run([os.path.join(F, "tools", "scene_artists.py"), "--db", a.db, "--parts", a.parts, "--artists", os.path.join(F, "worker", "artist_ids.json"),
+    AIDS = os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "artist_ids.json")   # the names the worker can point at, from today's database as the deploy builds them
+    if not run([os.path.join(F, "tools", "build_artist_ids.py"), "--db", a.db, "--out", AIDS]): AIDS = os.path.join(F, "worker", "artist_ids.json")
+    ok("scene-artists.json", run([os.path.join(F, "tools", "scene_artists.py"), "--db", a.db, "--parts", a.parts, "--artists", AIDS,
                                   "--out", os.path.join(D, "scene-artists.json")]))
     ok("dj-ranker.json", run([os.path.join(F, "tools", "dj_ranker.py"), "--tracklists", os.path.join(a.sonic, "data", "tracklists"), "--djindex", os.path.join(D, "dj-index.json"),
                               "--djnames", os.path.join(D, "dj-names.json"), "--charts", os.path.join(a.sonic, "data", "djcharts", "charts.jsonl"), "--out", os.path.join(D, "dj-ranker.json")]))
