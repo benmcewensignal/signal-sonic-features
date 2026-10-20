@@ -6,6 +6,7 @@ Run daily by signalgood's site-data workflow, so nothing built from the pipeline
 
   1 dj-index.json          the DJ tool's index (tools/dj_index.py), with Beatport's keys where the keys job has them
   2 from it                record-parts-lite.json, dj-names.json, scene-examples.json, ear-centres.json
+  2b scene-artists.json    each scene's most-charted artists Swap can point at (tools/scene_artists.py)
   3 scene-patterns.json    kick patterns, steadiness, swing and breakdowns per scene, from the separated parts
   4 catalogue-gaps.json    the gap report (tools/catalogue_gaps.py)
   5 demand.json            the demand panel (tools/demand_panel.py), with DJ charts
@@ -108,6 +109,9 @@ def main():
         json.dump({"note": "centres in the learned ear's 16 directions: artists with 3+ records, labels with 5+ (with the median and 75th-percentile distance of their own records)", "dims": d_, "artists": arts, "labels": labs},
                   open(os.path.join(D, "ear-centres.json"), "w"), separators=(",", ":")); ok("ear-centres.json", True)
     except Exception as e: print("examples/centres:", e); ok("scene-examples.json", False); ok("ear-centres.json", False)
+    # 2b each scene's artists Swap can point at, by records in the scene's Beatport top 100 (Swap's Scenes)
+    ok("scene-artists.json", run([os.path.join(F, "tools", "scene_artists.py"), "--db", a.db, "--parts", a.parts, "--artists", os.path.join(F, "worker", "artist_ids.json"),
+                                  "--out", os.path.join(D, "scene-artists.json")]))
     ok("dj-ranker.json", run([os.path.join(F, "tools", "dj_ranker.py"), "--tracklists", os.path.join(a.sonic, "data", "tracklists"), "--djindex", os.path.join(D, "dj-index.json"),
                               "--djnames", os.path.join(D, "dj-names.json"), "--charts", os.path.join(a.sonic, "data", "djcharts", "charts.jsonl"), "--out", os.path.join(D, "dj-ranker.json")]))
     ok("scene-practice.json", run([os.path.join(F, "tools", "scene_practice.py"), "--tracklists", os.path.join(a.sonic, "data", "tracklists"), "--djindex", os.path.join(D, "dj-index.json"), "--out", os.path.join(D, "scene-practice.json")]))
