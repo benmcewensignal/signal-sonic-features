@@ -1471,6 +1471,9 @@ def clean_plan(plan, nb_max=10000):
                 if 0 <= r0 < r1 <= grid["nb"]: runs.append((r0, r1))
             if runs and any(gains):
                 ent = {"loop": int(lay_["loop"]), "f": float(lay_.get("f") or 1), "shift": int(lay_.get("shift") or 0), "gains": gains, "runs": runs, "follow": bool(lay_.get("follow"))}
+                eq = lay_.get("eq")   # the fit: ten octave filter gains in dB (31.5 Hz to 16 kHz), as the page set them
+                if isinstance(eq, list) and len(eq) == len(FIT_FC):
+                    ent["eq"] = [round(min(15.0, max(-15.0, float(v))), 2) for v in eq]
                 if p == "drums":
                     kit = lay_.get("kit") if isinstance(lay_.get("kit"), dict) else None
                     if kit:
@@ -1549,6 +1552,7 @@ def recipe_text(P, credits, laid, loud, lines, stems_gain_db=None):
             if c.get("follow"): how.append("following your " + ("pattern" if p == "drums" else "notes"))
             if c.get("kit") and not c.get("follow") and p == "drums": how.append("its own pattern")
             if c.get("kit"): how.append("kit: " + ", ".join(f"{nm} from loop {v[0]}" for nm, v in c["kit"].items()))
+            if c.get("eq"): how.append("tone fitted toward yours: " + ", ".join(f"{fc:g} Hz {v:+.1f} dB" for fc, v in zip(FIT_FC, c["eq"]) if abs(v) >= 0.05))
             L.append(f"  {m.get('name')} by {m.get('user')} (freesound.org/s/{m.get('id')}), {_licence(m.get('license'))}; {bars}" + ("; " + "; ".join(how) if how else ""))
     L.append("")
     mv = P["moves"]; L.append(f"Phrases of {mv['phrase']} bars from bar {mv['offset'] + 1}" + (f"; cuts on {', '.join(mv['cut'])}" if mv["cut"] else "") + (f"; rolls on {', '.join(mv['roll'])}" if mv["roll"] else "") + ".")
@@ -1558,6 +1562,35 @@ def recipe_text(P, credits, laid, loud, lines, stems_gain_db=None):
     L += ["", "The MIDI files are the lines Sonic read from your own parts (a note or a kick and a snare per sixteenth), not the loops'.", "", "Loops: " + ("; ".join(credits) if credits else "none") + ".",
           "No sound comes from another artist's record. A CC BY loop released in a track is credited as above."]
     return "\n".join(L)
+
+
+# ---------------------------------------------------------------- the fit: a loop's tone moved toward your part's
+# The page measures your part and the loop in ten octave bands, works out how far to move each band (half the gap, at
+# most 9 dB), and sends the ten filter gains with the layer; the render puts the loop through the same filters.
+FIT_FC = (31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
+FIT_Q = math.sqrt(2)   # an octave wide
+
+
+def _peaking(fc, g, q=FIT_Q, sr=SR):
+    """A peaking filter as the Web Audio API's BiquadFilterNode computes one (Robert Bristow-Johnson's cookbook)."""
+    A = 10 ** (g / 40); w0 = 2 * math.pi * min(fc, sr / 2 - 1) / sr; al = math.sin(w0) / (2 * q); c = math.cos(w0)
+    b = np.array([1 + al * A, -2 * c, 1 - al * A]); a = np.array([1 + al / A, -2 * c, 1 - al / A])
+    return b / a[0], a / a[0]
+
+
+def eq_apply(x, gains, wrap=False):
+    """x (samples x 2) through the ten octave filters at gains (dB), in the page's order; with wrap, a loop cycle: its own
+    last second played before it and then dropped (the filters forget within a tenth of a second), so the cycle runs
+    into its own start as it does when it repeats. The page does the same."""
+    from scipy.signal import lfilter
+    g = [float(v) for v in (gains or [])][:len(FIT_FC)]
+    if not any(abs(v) >= 0.01 for v in g): return x
+    n = len(x); pre = min(n, SR) if wrap else 0
+    y = np.concatenate([x[n - pre:], x]).astype(np.float64) if pre else np.asarray(x, np.float64)
+    for fc, gv in zip(FIT_FC, g):
+        if abs(gv) < 0.01: continue
+        b, a = _peaking(fc, gv); y = lfilter(b, a, y, axis=0)
+    return y[pre:].astype(np.float32)
 
 
 def phrase_ends(nb, phrase, offset):
@@ -1661,11 +1694,14 @@ def render(path, plan):
                     if c.get("follow") or (p == "drums" and c.get("kit")):   # drums: your pattern (follow) or the loop's own, with a kit of other loops' kick and snare
                         your = your_line(p) if c.get("follow") else {}
                         y, prep, finfo = follow_part(p, m, c["f"], c["shift"], tempo, nb, your, kit=c.get("kit"), pattern="yours" if c.get("follow") else "theirs")
+                        if c.get("eq"): y = eq_apply(y, c["eq"])
                         part_out += lay(None, n, g0, bar, c["gains"], c["runs"], moves=P["moves"], part=p, timed=y)
                         laid.setdefault(p + "_follow", []).append(finfo)
                     else:
                         y, prep = prepare_cached(m, c["f"], c["shift"] if p != "drums" else 0, tempo)
+                        if c.get("eq"): y = eq_apply(y, c["eq"], wrap=True)
                         part_out += lay(y, n, g0, bar, c["gains"], c["runs"], moves=P["moves"], part=p)
+                    if c.get("eq"): laid.setdefault(p + "_eq", []).append(c["eq"])
                 except Exception as e:
                     laid.setdefault("errors", []).append(f"{p} {c['loop']}: {type(e).__name__}: {str(e)[:80]}"); continue
                 swapped |= np.asarray(c["gains"]) > 0
