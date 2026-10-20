@@ -11,6 +11,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# one deploy at a time, in order: two pushes a minute apart deployed side by side, and the older finished last, so the
+# worker ran the older code (20 October: /start?reading=1 was live in the repository but not on the worker)
+concurrency: { group: worker-deploy, cancel-in-progress: false }
 jobs:
   deploy:
     runs-on: ubuntu-24.04   # pinned: ubuntu-latest becomes Ubuntu 26 from 19 Oct 2026, under the audio decoding
