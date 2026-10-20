@@ -316,19 +316,36 @@ def read_from_stems(clip: bytes, stems: dict, with_audio: bool = True) -> dict:
         _sh.rmtree(d, ignore_errors=True)
 
 
+# a split's call id -> the full reading it started, while the split runs (so /result can hand the page the reading
+# before the split is done); the entry is removed when the split ends. Only the two ids are kept, never the track.
+_reading_ids = modal.Dict.from_name("sonic-swap-reading-ids", create_if_missing=True)
+
+
 @app.function(image=swap_gpu_image, gpu="T4", cpu=4.0, memory=12288, timeout=900, volumes={"/embed": _embed})
 def swap_read(data: bytes, name: str = "track", reading: bool = False) -> dict:
     import tempfile
     from worker.swap import read_track
+    me = None
+    try: me = modal.current_function_call_id()
+    except Exception: pass
+    def go(clip, stems):
+        rid = read_from_stems.spawn(clip, stems, True).object_id
+        if me:
+            try: _reading_ids.put(me, rid)
+            except Exception: pass
+        return rid
     with tempfile.NamedTemporaryFile(suffix=".audio") as f:
         f.write(data); f.flush()
         try:
             # asked for (the page's /start?reading=1), the full reading starts from this split's parts (read_from_stems),
             # so the track is separated once for both
-            go = (lambda clip, stems: read_from_stems.spawn(clip, stems, True).object_id) if reading else None
-            return read_track(f.name, name, reading=go)
+            return read_track(f.name, name, reading=go if reading else None)
         except Exception as e:
             return {"error": type(e).__name__ + ": " + str(e)[:200]}
+        finally:
+            if reading and me:
+                try: _reading_ids.pop(me)
+                except Exception: pass
 
 
 @app.function(image=swap_gpu_image, gpu="T4", cpu=4.0, memory=12288, timeout=900, volumes={"/embed": _embed})
@@ -421,7 +438,14 @@ def swap():
             r = await finished(req.query_params.get("id", ""))
         except Exception as e:
             return {"status": "failed", "error": type(e).__name__}
-        if r is None: return {"status": "running"}
+        if r is None:
+            out = {"status": "running"}
+            try:   # a split that started the full reading says so while it runs
+                rid = await _reading_ids.get.aio(req.query_params.get("id", ""))
+                if rid: out["reading_id"] = rid
+            except Exception:
+                pass
+            return out
         if r.get("error"): return {"status": "failed", "error": r["error"]}
         # the files come by /stem and /file; the status carries no bytes (a render with stems holds a zip)
         return {"status": "done", "result": {k: v for k, v in r.items() if k not in ("audio", "mp3", "zip") and not isinstance(v, (bytes, bytearray))} | ({"stems": True} if r.get("zip") else {})}
