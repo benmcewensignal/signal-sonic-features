@@ -90,6 +90,24 @@ def learned_call(wav_path):
 
 
 
+def ear_of_slices(x):
+    """Every scene's share (calibrated as the reading's call is) and the place in the catalogue's 16 ear directions (as
+    learned_call gives it; the site normalises before comparing), from 8 x 96 x 188 slices. None without the model."""
+    C = _load()
+    if not C: return None
+    import torch
+    x = np.asarray(x, np.float32)
+    if x.shape != (8, 96, W): return None
+    with torch.no_grad():
+        xn = (torch.from_numpy(x) - C["mu"]) / C["sd"]
+        p = torch.softmax(C["net"](xn), 1).mean(0).numpy()
+        e = C["net"].embed(xn).mean(0).numpy(); e = e / (np.linalg.norm(e) + 1e-9)
+    q = np.power(np.clip(p, 1e-9, 1), 1 / C.get("temperature", 1.0)); q = q / q.sum()
+    P = _proj(); v = None
+    if P is not None and P["V"].shape[1] == e.shape[0]: v = [round(float(t), 5) for t in (e - P["mean"]) @ P["V"].T]
+    return {"scenes": {C["scenes"][i]: round(float(q[i]), 4) for i in range(len(q))}, "ear": v}
+
+
 def learned_from_slices(x, condition="phone"):
     """The learned model's call from spectrogram slices a device computed itself (8 x 96 x 188, the same slices the
     model trained on), with the reliability measured for that condition; and the phone map's drum-led to vocal-led

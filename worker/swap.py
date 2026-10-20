@@ -1564,6 +1564,154 @@ def recipe_text(P, credits, laid, loud, lines, stems_gain_db=None):
     return "\n".join(L)
 
 
+# ---------------------------------------------------------------- the five loops ranked by the ear
+# The five loops listed for a part are ordered by the part's own measures. The ear (the learned model that hears whole
+# mixes, worker/embed.py) can hear each in your window instead: the window mixed as the page plays it (your other
+# parts as they stand, with their swaps), once with your part and once with each loop in its place, and each mix placed
+# in the ear. A scene target is scored by the ear's share for that scene; any other target by how close the mix sits
+# to the centre of that target's records in the ear, against how close the target's own records sit.
+EAR_SITE = "https://www.earlysignal.live/data/"
+_EAR = {}
+
+
+def ear_records():
+    """Every record the site has placed in the learned ear (data/dj-index.json): id -> row, and their places (unit
+    vectors in the ear's 16 directions, the catalogue's)."""
+    if "E" not in _EAR:
+        d = json.loads(urllib.request.urlopen(EAR_SITE + "dj-index.json", timeout=90).read())
+        D = int(d["eardims"]); q = np.frombuffer(base64.b64decode(d["ear"]), np.int8).reshape(-1, D).astype(np.float32)
+        E = q * (np.asarray(d["earscale"], np.float32) / 127)[None, :]
+        E /= np.maximum(np.linalg.norm(E, axis=1, keepdims=True), 1e-9)
+        has = np.frombuffer(base64.b64decode(d["earhas"]), np.uint8).astype(bool)
+        _EAR["at"] = {t: i for i, t in enumerate(d["ids"]) if i < len(has) and has[i]}; _EAR["E"] = E
+    return _EAR["at"], _EAR["E"]
+
+
+def ear_target(target):
+    """A target in the ear: a scene as the ear's own share for it; an artist, label, DJ, record or group of records as
+    the centre of those records' places, with how close each of them sits to it (to say how close a mix is, against
+    them). Returns {"scene": slug} or {"centre", "own", "records"}, or {"error"}."""
+    t = target or {}; kind = t.get("kind"); name = str(t.get("name") or "").strip()
+    if kind == "scene": return {"scene": name}
+    if kind in ("artist", "label", "dj"):
+        hit = {"artist": artist_ids, "label": label_ids, "dj": dj_ids}[kind]().get(name.lower())
+        if not hit: return {"error": f"Sonic has no records for that {kind}"}
+        ids = hit[1]
+    elif kind in ("record", "records", "map"):
+        ids = [str(x) for x in (t.get("ids") or ([t.get("id")] if t.get("id") else []))][:200]
+    else:
+        return {"error": "no target to rank toward"}
+    at, E = ear_records(); rows = [at[x] for x in ids if x in at]
+    if not rows: return {"error": "none of those records has a place in the ear"}
+    c = E[rows].mean(0); c /= (np.linalg.norm(c) or 1.0)
+    return {"centre": c, "own": E[rows] @ c, "records": len(rows)}
+
+
+def window_lay(cycle, n, t0, bar, gains, runs, bA, bB):
+    """A layer over the window only: n samples, with bar bA starting t0 seconds into the window (t0 <= 0: the bar the
+    window opens in); the cycle repeats from the start of each run of bars, at each bar's gain, as the page lays it."""
+    out = np.zeros((n, 2), np.float32); C = len(cycle); at = lambda b: int(round((t0 + (b - bA) * bar) * SR))
+    for r0, r1 in runs:
+        a, b = max(r0, bA), min(r1, bB)
+        if a >= b: continue
+        s0, s1 = max(0, at(a)), min(n, at(b))
+        if s1 <= s0: continue
+        idx = (np.arange(s0, s1) - at(r0)) % C; out[s0:s1] += cycle[idx]
+    env = np.zeros(n, np.float32)
+    for b in range(bA, bB):
+        s0, s1 = max(0, at(b)), min(n, at(b + 1))
+        if s1 > s0: env[s0:s1] = gains[b] if b < len(gains) else 0.0
+    return out * env[:, None]
+
+
+def ear_slices(x):
+    """A stereo mix at SR as the ear hears it (worker/embed.py learned_call): mono at 16 kHz, a log mel spectrogram, eight
+    slices of 188 frames spread over it, as little-endian float16 bytes."""
+    import librosa
+    from scipy.signal import resample_poly
+    y = resample_poly(x.mean(1).astype(np.float64), 160, 441).astype(np.float32)
+    M = np.log1p(1000 * librosa.feature.melspectrogram(y=y, sr=16000, n_fft=512, hop_length=256, n_mels=96)).astype(np.float32)
+    W = 188
+    if M.shape[1] < 2 * W: return None
+    s = np.stack([M[:, i:i + W] for i in np.linspace(0, M.shape[1] - W, 8).astype(int)])
+    return s.astype("<f2").tobytes()
+
+
+def rank_mixes(stems, plan, part, cands, bars_db, win, tempo):
+    """The window mixed as the page plays it, once with your part and once with each candidate loop in its place, as
+    the ear's slices. stems: part -> the window's audio (decoder lead removed); plan: the page's plan (clean_plan); cands:
+    [{loop, f, shift}]; bars_db: your part's level in each window bar (None where it rests); win: {bA, bB, t0, bar}.
+    Each loop at your part's signal level bar by bar (as they come), your part kept under it at the plan's share, the
+    part's level as set. Returns (slices for yours, [(candidate, slices or None, why)])."""
+    n = min(len(v) for v in stems.values()); X = {p: stems[p][:n] for p in stems}
+    bA, bB, t0, bar = int(win["bA"]), int(win["bB"]), float(win["t0"]), float(win["bar"])
+    def lvl(p): return 10 ** (plan["level"].get(p, 0.0) / 20)
+    def keep_env(p, swapped):
+        g = [(plan["keep"].get(p, 0.0) if swapped[b] else 1.0) for b in range(bB)]
+        return window_lay(np.ones((max(1, int(bar * SR)), 2), np.float32), n, t0, bar, g, [(bA, bB)], bA, bB)
+    rest = np.zeros((n, 2), np.float32)
+    for p in PARTS:
+        if p == part or p not in X: continue
+        layers = plan["parts"].get(p) or []; out = np.zeros((n, 2), np.float32); sw = [False] * bB
+        for c in layers:
+            m = loop_by_id(p, c["loop"])
+            if not m: continue
+            try:
+                y, _prep = prepare_cached(m, c["f"], c["shift"] if p != "drums" else 0, tempo)
+                if c.get("eq"): y = eq_apply(y, c["eq"], wrap=True)
+                out += window_lay(y, n, t0, bar, c["gains"], c["runs"], bA, bB)
+                for b in range(bA, min(bB, len(c["gains"]))): sw[b] = sw[b] or c["gains"][b] > 0
+            except Exception:
+                continue
+        out += X[p] * (keep_env(p, sw) if any(sw) else 1.0)
+        rest += out * lvl(p)
+    active = [b for b in range(bA, bB) if b - bA < len(bars_db) and bars_db[b - bA] is not None]
+    runs, b = [], None
+    for k in range(bA, bB + 1):
+        on = k < bB and k in active
+        if on and b is None: b = k
+        if not on and b is not None: runs.append((b, k)); b = None
+    swapped = [b in active for b in range(bB)]
+    yours = rest + X[part] * lvl(part)
+    base = rest + X[part] * keep_env(part, swapped) * lvl(part)
+    def prep_one(c):   # the candidates' cycles, four at a time (each a download and a stretch)
+        try:
+            m = loop_by_id(part, c["loop"])
+            if not m: return c, None, "not in the library"
+            return c, prepare_cached(m, float(c.get("f") or 1), int(c.get("shift") or 0) if part != "drums" else 0, tempo), None
+        except Exception as e:
+            return c, None, f"{type(e).__name__}: {str(e)[:60]}"
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(4) as ex: prepped = list(ex.map(prep_one, cands))
+    out = []
+    for c, got, why in prepped:
+        if got is None: out.append((c, None, why)); continue
+        y, prep = got; gains = [0.0] * bB
+        for k in active: gains[k] = min(4.0, 10 ** ((bars_db[k - bA] - prep["rms_db"]) / 20))
+        out.append((c, ear_slices(base + window_lay(y, n, t0, bar, gains, runs, bA, bB) * lvl(part)), None))
+    return ear_slices(yours), out
+
+
+def rank_scores(yours, cands, target):
+    """The ear's places for your window and each candidate's, scored toward the target: a scene's share (in 0 to 1), or,
+    for a centre, the cosine to it and the share of the target's own records the mix sits closer to it than."""
+    T = ear_target(target)
+    if T.get("error"): return {"error": T["error"]}
+    if "scene" in T and T["scene"] not in ((yours or {}).get("scenes") or {}): return {"error": "the ear does not call that scene"}
+    def score(e):
+        if not e: return None
+        if "scene" in T:
+            s = (e.get("scenes") or {}).get(T["scene"])
+            return None if s is None else {"share": round(float(s), 4)}
+        v = np.asarray(e.get("ear") or [], np.float32)[:16]
+        if len(v) != 16 or not np.linalg.norm(v): return None
+        cs = float((v / np.linalg.norm(v)) @ T["centre"])
+        return {"cos": round(cs, 4), "closer_than": round(float(np.mean(T["own"] < cs)), 3)}
+    res = {"yours": score(yours), "cands": [dict(c, **(score(e) or {})) for c, e in cands], "records": T.get("records"),
+           "measure": "share" if "scene" in T else "closer_than"}
+    return res
+
+
 # ---------------------------------------------------------------- the fit: a loop's tone moved toward your part's
 # The page measures your part and the loop in ten octave bands, works out how far to move each band (half the gap, at
 # most 9 dB), and sends the ten filter gains with the layer; the render puts the loop through the same filters.

@@ -275,6 +275,8 @@ async def recognise(request: Request):
 #   GET  /file?id=&t=                                  -> MP3 of the whole track, swapped (an attachment); &kind=stems the zip of stems, MIDI and recipe
 #   POST /groove?t=        JSON {id, tempo, g0, nb, scene} -> your drums over the window re-timed to a scene's feel (MP3 in JSON)
 #   GET  /artists?t=                                   -> [[artist, separated records], ...] for the search
+#   POST /reach?t=         JSON {targets, tempo, key}  -> how close the library gets to each target, part by part (no audio)
+#   POST /rank?t=          JSON {id, part, cands, ...} -> {"id"}       the listed loops heard by the ear in your window
 # The track lives in memory and a temporary directory for the length of each call; nothing is written anywhere.
 # pyin's compiled code (numba) is made once, at build, so a fresh container does not spend half a minute a part on it
 _WARM = "import numpy as np, librosa; y = np.random.default_rng(0).standard_normal(22050 * 4).astype('float32'); [librosa.pyin(y, fmin=lo, fmax=hi, sr=22050, frame_length=fl, hop_length=512) for lo, hi, fl in ((35, 330, 2048), (80, 1500, 1024))]"
@@ -313,6 +315,37 @@ def swap_render(data: bytes, plan: dict) -> dict:
             return render(f.name, plan)
         except Exception as e:
             return {"error": type(e).__name__ + ": " + str(e)[:200]}
+
+
+@app.function(image=swap_gpu_image, cpu=4.0, memory=8192, timeout=300, volumes={"/embed": _embed})
+def swap_rank(job: dict) -> dict:
+    """The five loops listed for a part, heard by the ear in your window (worker/swap.py rank_mixes, rank_scores): the
+    window as the page plays it, with your part and with each loop in its place, each mix placed in the learned ear and
+    scored toward the target. job: {stems: {part: MP3 bytes of the window} or None for the example, plan, part, cands,
+    bars_db, win, tempo, target}. No audio is kept."""
+    import urllib.request as _u, numpy as np
+    from concurrent.futures import ThreadPoolExecutor
+    from worker import swap as SW
+    from worker.embed import ear_of_slices
+    try:
+        raw = job.get("stems") or {}
+        if not raw:   # the example's parts, from the site
+            with ThreadPoolExecutor(4) as ex:
+                got = list(ex.map(lambda p: (p, _u.urlopen(SW.EXAMPLE_URL.replace("source.mp3", p + ".mp3"), timeout=60).read()), SW.PARTS))
+            raw = dict(got)
+        lead = SW.decoder_lead()
+        stems = {p: SW.decode_bytes(b)[lead:] for p, b in raw.items() if b}
+        if job.get("part") not in stems: return {"error": "no audio for that part"}
+        P = SW.clean_plan(job["plan"])
+        ys, cs = SW.rank_mixes(stems, P, job["part"], job["cands"], job["bars_db"], job["win"], float(job["tempo"]))
+        ey = ear_of_slices(np.frombuffer(ys, "<f2").astype(np.float32).reshape(8, 96, -1)) if ys else None
+        if not ey: return {"error": "the ear is not available just now"}
+        ec = [(c, ear_of_slices(np.frombuffer(s, "<f2").astype(np.float32).reshape(8, 96, -1)) if s else None) for c, s, _why in cs]
+        out = SW.rank_scores(ey, ec, job.get("target") or {})
+        out["why"] = {str(c.get("loop")): why for c, _s, why in cs if why}
+        return out
+    except Exception as e:
+        return {"error": type(e).__name__ + ": " + str(e)[:200]}
 
 
 @app.function(image=swap_light, secrets=[secret], cpu=4.0, memory=6144, timeout=900, scaledown_window=600, volumes={"/embed": _embed})
@@ -503,6 +536,34 @@ def swap():
         except Exception as e:
             return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:160]}, 400)
         return r if not r.get("error") else JSONResponse(r, 400)
+
+    @api.post("/rank")
+    async def rank(req: Request):
+        """The loops listed for a part, heard by the ear in your window (swap_rank): JSON {id (the split's, or 'example'),
+        part, cands: [{loop, f, shift}], bars_db (your part's level in each window bar, null where it rests), win: {bA,
+        bB, t0, bar}, tempo, plan (the page's), target} -> {"id"}; the scores come by /result."""
+        sc = ok(req)
+        if not sc: return no()
+        try:
+            b = await req.json(); part = str(b.get("part") or "")
+            if part not in SW.PARTS: return JSONResponse({"error": "part"}, 400)
+            cands = [{"loop": int(c["loop"]), "f": float(c.get("f") or 1), "shift": int(c.get("shift") or 0)} for c in (b.get("cands") or [])[:10]]
+            if not cands: return JSONResponse({"error": "no loops to rank"}, 400)
+            w = b.get("win") or {}; win = {"bA": int(w["bA"]), "bB": int(w["bB"]), "t0": float(w["t0"]), "bar": float(w["bar"])}
+            if not (0 <= win["bA"] < win["bB"] <= 4000 and 0.5 < win["bar"] < 6): return JSONResponse({"error": "window"}, 400)
+            bars_db = [(float(v) if v is not None else None) for v in (b.get("bars_db") or [])][: win["bB"] - win["bA"]]
+            stems = None
+            if not (sc == "e" or b.get("id") == "example"):
+                r0 = await finished(str(b.get("id") or ""))
+                if r0 is None: return JSONResponse({"status": "running"}, 202)
+                stems = {p: v for p, v in ((r0 or {}).get("audio") or {}).items() if p in SW.PARTS and v}
+                if part not in stems: return JSONResponse({"error": "no audio for that part"}, 404)
+            SW.clean_plan(b.get("plan") or {})   # checked here, so a bad plan fails at once
+            fc = await swap_rank.spawn.aio({"stems": stems, "plan": b.get("plan"), "part": part, "cands": cands, "bars_db": bars_db,
+                                            "win": win, "tempo": float(b.get("tempo") or 0), "target": b.get("target") or {}})
+        except Exception as e:
+            return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:160]}, 400)
+        return {"id": fc.object_id}
 
     @api.get("/scenes")
     async def scenes(req: Request):
