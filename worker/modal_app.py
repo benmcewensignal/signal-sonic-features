@@ -480,6 +480,18 @@ def swap():
         if "list" not in _ART: _ART["list"] = await asyncio.to_thread(SW.artists_separated)
         return {"artists": _ART["list"]}
 
+    @api.post("/reach")
+    async def reach(req: Request):
+        """How close the library gets to each target, part by part, at the track's tempo (no audio): JSON {targets:
+        [{key, target}], tempo, key, exclude} -> {reach: {key: {part: {closer_than, records} | {closeness} | null}}}."""
+        if not ok(req): return no()
+        try:
+            b = await req.json()
+            r = await asyncio.to_thread(SW.reach, b.get("targets") or [], b.get("tempo"), b.get("key"), [str(x) for x in (b.get("exclude") or [])][:80])
+        except Exception as e:
+            return JSONResponse({"error": type(e).__name__ + ": " + str(e)[:160]}, 400)
+        return r if not r.get("error") else JSONResponse(r, 400)
+
     @api.get("/scenes")
     async def scenes(req: Request):
         if not ok(req): return no()

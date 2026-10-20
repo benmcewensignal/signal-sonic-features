@@ -898,6 +898,36 @@ def loop_for(part, target, tempo, key=None, exclude=(), n=5, focus=None):
     return out
 
 
+def reach(targets, tempo, key=None, exclude=(), top=5):
+    """How close the library gets to each target, part by part, at the track's tempo and key, with no audio prepared:
+    the loops loop_for would try first (choose's order), and for the best of the first `top` the share of the target's
+    own records it sits closer to the target's average than (closer_than, the number the page gives a listed loop), with
+    how many records the target averages. A single record's target has no records to rank against: its closeness (the
+    cosine) instead. targets: [{"key": the page's key, "target": a loop_for target}], at most twelve."""
+    tempo = float(tempo or 0)
+    if not (60 <= tempo <= 200): return {"error": "no tempo"}
+    out = {}
+    for t in (targets or [])[:12]:
+        k = str(t.get("key") or ""); tg = t.get("target") or {}; row = {}
+        for part in PARTS:
+            info = {}
+            try:
+                v = _target_vector(part, dict(tg), info)
+            except Exception:
+                v = None
+            if v is None or info.get("cz") is None: row[part] = None; continue
+            cands = choose(part, v, tempo, key, exclude, top=200)[:top]
+            if not cands: row[part] = None; continue
+            L = loop_index()[FAM[part]]; zn = "Zp" if "Zp" in L else ("Zs" if "Zs" in L else "Z")
+            sims = [float(np.asarray(L[zn][c["i"]], np.float32) @ info["cz"]) for c in cands]
+            if info.get("own") is not None:
+                row[part] = {"closer_than": round(max(float(np.mean(info["own"] < x)) for x in sims), 3), "records": info.get("records")}
+            else:
+                row[part] = {"closeness": round(max(sims), 3), "records": info.get("records")}
+        out[k] = row
+    return {"reach": out}
+
+
 def scenes_separated():
     """The map's scenes with how many of their records Sonic has separated, for the page: [[slug, name, n], ...]."""
     RP = record_parts()
