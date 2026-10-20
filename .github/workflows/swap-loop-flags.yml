@@ -1,0 +1,25 @@
+name: swap loop flags
+# Every licensed loop heard once (tools/swap_loop_flags.py on Modal): length, level, silence, how much of its sound sits in
+# its loudest tenth, its hits, whether its channels cancel in mono. Annotations; loop-audio-measures.json on the
+# swap-test-results branch, for the rule that keeps one-shots and empty files out of the matcher.
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q modal numpy
+      - env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: modal run tools/swap_loop_flags.py
+      - name: keep the results
+        if: always()
+        run: |
+          set +e
+          cd "$RUNNER_TEMP" && git clone -q --depth 1 -b swap-test-results "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" kb || { mkdir -p kb && cd kb && git init -q && git checkout -q -b swap-test-results && cd ..; }
+          cp "$GITHUB_WORKSPACE"/out/loop-audio-measures.json kb/
+          cd kb && git config user.name sonic-bot && git config user.email sonic@earlysignal.live && git add -A && git commit -qm "loop audio measures ${{ github.run_id }}"
+          git push -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" swap-test-results:swap-test-results || echo "not kept"

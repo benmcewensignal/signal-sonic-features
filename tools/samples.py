@@ -93,7 +93,17 @@ def search(pages):
                             "female vocal 128", "male vocal 128", "female vocal 124", "vocal chop loop 128", "vocal chop house", "vocal chop future bass",
                             "vocal chop garage", "vocal chop dnb", "vocal spoken loop 128", "poetry loop", "vocal hook house 126", "pop vocal loop",
                             "rnb vocal loop", "vocal loop reggaeton", "latin vocal loop", "african vocal loop", "zulu vocal loop", "arabic vocal loop",
-                            "indian vocal loop", "gregorian chant loop", "monk chant loop", "vocal drone loop"],
+                            "indian vocal loop", "gregorian chant loop", "monk chant loop", "vocal drone loop",
+                            # a third round (20 October 2026): the voice is the thinnest family (637 loops against 9,384 drums)
+                            "voice loop", "vox loop", "vox chop", "vocal snippet loop", "vocal phrase loop", "vocal line loop", "vocal cut loop",
+                            "vocal sample 120 bpm", "vocal sample 126 bpm", "vocal sample 128 bpm", "vocal sample 140 bpm", "vocal sample 174 bpm",
+                            "vocal loop 118 bpm", "vocal loop 120 bpm", "vocal loop 132 bpm", "vocal loop 138 bpm", "vocal loop 145 bpm", "vocal loop 100 bpm",
+                            "acapella 120 bpm", "acapella 126 bpm", "acapella 130 bpm", "acapella 140 bpm", "acapella 170 bpm", "acapella loop",
+                            "mc vocal loop", "rap acapella", "grime vocal", "jungle vocal loop", "ragga vocal loop", "dub vocal loop", "dancehall vocal loop",
+                            "trance vocal loop", "psytrance vocal", "breakbeat vocal loop", "disco vocal loop", "funk vocal loop", "afrobeat vocal loop",
+                            "baile funk vocal", "gqom vocal", "amapiano vocal", "deep house vocal phrase", "melodic techno vocal", "techno spoken word",
+                            "robot voice loop", "talkbox loop", "vocoder loop", "vocal pad loop", "ooh vocal loop", "aah vocal loop", "hey vocal loop",
+                            "vocal shout", "crowd chant loop", "chant 128", "vocal yeah loop", "vocal riff", "sung loop", "singing phrase", "vocal adlib loop"],
                            {"vocal", "vocals", "voice", "acapella", "a-cappella", "vox", "chop", "singing", "sung", "spoken"})}
     for fam, (qs, _tags) in FAMILIES.items():
       for q in qs:
