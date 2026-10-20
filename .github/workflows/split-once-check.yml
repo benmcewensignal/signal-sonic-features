@@ -1,0 +1,24 @@
+name: split once check
+# Does the full reading come out the same from Swap's split of the whole track as from separating its middle minute
+# again (tools/split_once_check.py, on Modal)? Annotations; split-once.json on the swap-test-results branch.
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q modal numpy
+      - env: { MODAL_TOKEN_ID: "${{ secrets.MODAL_TOKEN_ID }}", MODAL_TOKEN_SECRET: "${{ secrets.MODAL_TOKEN_SECRET }}" }
+        run: modal run tools/split_once_check.py
+      - name: keep the results
+        if: always()
+        run: |
+          set +e
+          cd "$RUNNER_TEMP" && git clone -q --depth 1 -b swap-test-results "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" kb || { mkdir -p kb && cd kb && git init -q && git checkout -q -b swap-test-results && cd ..; }
+          cp "$GITHUB_WORKSPACE"/out/split-once.json kb/
+          cd kb && git config user.name sonic-bot && git config user.email sonic@earlysignal.live && git add -A && git commit -qm "split once ${{ github.run_id }}"
+          git push -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" swap-test-results:swap-test-results || echo "not kept"

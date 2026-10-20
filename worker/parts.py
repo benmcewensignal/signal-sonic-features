@@ -193,10 +193,12 @@ def ab_render(st, ab):
             "loop": {k: m_.get(k) for k in ("id", "name", "user", "license", "page", "tempo", "key")}, "a": enc(A, "a"), "b": enc(B, "b")}
 
 
-def read(wav_path, with_audio=False, donor=None, only_leverage=False, ab=None):
+def read(wav_path, with_audio=False, donor=None, only_leverage=False, ab=None, stems=None):
+    """The full reading of a clip (the middle minute): separated here, or, with stems ({part: WAV path} of the same
+    minute, already separated with the whole track by Swap's split), measured as they are."""
     work = tempfile.mkdtemp()
     try:
-        st = S.separate(wav_path, work)
+        st = dict(stems) if stems else S.separate(wav_path, work)
         if ab:
             try: return {"ab": ab_render(st, ab)}
             except Exception as e_: return {"ab": {"error": type(e_).__name__ + ": " + str(e_)[:140]}}

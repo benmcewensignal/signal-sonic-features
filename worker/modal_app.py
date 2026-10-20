@@ -267,7 +267,8 @@ async def recognise(request: Request):
 # ---- Swap: your track split into its parts, any part swapped for an openly licensed loop, the whole track to download ----
 # worker/swap.py does the work. The page talks to one web app here directly (the files are larger than the site's
 # functions accept), with a token the site signs with PARTS_KEY (api/swap.js in signalgood):
-#   POST /start?t=&name=   body: the track's file      -> {"id"}       separation on a GPU, then the reading
+#   POST /start?t=&name=   body: the track's file      -> {"id"}       separation on a GPU, then the reading; &reading=1 also
+#                                                                          starts the full reading from the same split (its id in the result)
 #   GET  /result?id=&t=                                -> {"status", "result"} without audio
 #   GET  /stem?id=&part=&t=                            -> MP3: one part over the listening window (part=probe: the click)
 #   POST /loop?t=          JSON {part, target, tempo, key, exclude} -> the licensed loop, prepared, as WAV in JSON
@@ -293,14 +294,39 @@ swap_light = (modal.Image.debian_slim(python_version="3.12")
 _embed = modal.Volume.from_name("sonic-embed", create_if_missing=True)
 
 
+@app.function(image=image, cpu=4.0, memory=6144, timeout=420, volumes={"/embed": _embed})
+def read_from_stems(clip: bytes, stems: dict, with_audio: bool = True) -> dict:
+    """The full reading from parts already separated: the track's middle minute (clip, as the phone cuts it) and each
+    part's same minute from Swap's split of the whole track, measured exactly as read_parts measures a clip it has
+    separated itself. Swap starts it, so a track is separated once for the swap and the reading."""
+    import tempfile, shutil as _sh
+    from worker.parts import read
+    d = tempfile.mkdtemp()
+    try:
+        cp = os.path.join(d, "clip.wav"); open(cp, "wb").write(clip); st = {}
+        for k, b in (stems or {}).items():
+            if k in ("drums", "bass", "other", "vocals") and b:
+                p_ = os.path.join(d, k + ".wav"); open(p_, "wb").write(b); st[k] = p_
+        if len(st) < 4: return {"error": "the split came without all four parts"}
+        r = read(cp, with_audio, stems=st); r["separated_with"] = "the whole track, in Swap's split"
+        return r
+    except Exception as e:
+        return {"error": type(e).__name__ + ": " + str(e)[:200]}
+    finally:
+        _sh.rmtree(d, ignore_errors=True)
+
+
 @app.function(image=swap_gpu_image, gpu="T4", cpu=4.0, memory=12288, timeout=900, volumes={"/embed": _embed})
-def swap_read(data: bytes, name: str = "track") -> dict:
+def swap_read(data: bytes, name: str = "track", reading: bool = False) -> dict:
     import tempfile
     from worker.swap import read_track
     with tempfile.NamedTemporaryFile(suffix=".audio") as f:
         f.write(data); f.flush()
         try:
-            return read_track(f.name, name)
+            # asked for (the page's /start?reading=1), the full reading starts from this split's parts (read_from_stems),
+            # so the track is separated once for both
+            go = (lambda clip, stems: read_from_stems.spawn(clip, stems, True).object_id) if reading else None
+            return read_track(f.name, name, reading=go)
         except Exception as e:
             return {"error": type(e).__name__ + ": " + str(e)[:200]}
 
@@ -385,7 +411,7 @@ def swap():
         body = await req.body()
         if not body: return JSONResponse({"error": "no file"}, 400)
         if len(body) > 200_000_000: return JSONResponse({"error": "the file is larger than 200 MB"}, 413)
-        fc = await swap_read.spawn.aio(body, (req.query_params.get("name") or "track")[:120])
+        fc = await swap_read.spawn.aio(body, (req.query_params.get("name") or "track")[:120], req.query_params.get("reading") == "1")
         return {"id": fc.object_id}
 
     @api.get("/result")

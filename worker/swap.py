@@ -364,8 +364,24 @@ def listening_window(levels, nb, bar):
 
 
 # ---------------------------------------------------------------- reading a track
-def read_track(path, name="track"):
-    """Everything the page needs to play the track's parts and swap them; the parts' window audio comes back as MP3."""
+def reading_inputs(wav, X, secs=60.0):
+    """The full reading's inputs from Swap's split: the track's middle minute as the phone cuts it for a reading (its two
+    channels summed and halved, at 32 kHz, 16-bit WAV), and each part's same minute from this split (mono, 44.1 kHz,
+    16-bit), so the reading measures the parts this split made instead of separating that minute again."""
+    import soundfile as sf
+    from scipy.signal import resample_poly
+    x, sr = read_wav(wav)
+    d = len(x) / sr; s = min(secs, d); i0 = int(round(max(0.0, (d - s) / 2) * sr)); i1 = i0 + int(round(s * sr))
+    c = resample_poly((0.5 * (x[i0:i1, 0] + x[i0:i1, 1])).astype(np.float64), 320, 441).astype(np.float32)
+    def wavb(y, rate):
+        b = io.BytesIO(); sf.write(b, np.clip(y, -1, 1), rate, format="WAV", subtype="PCM_16"); return b.getvalue()
+    return wavb(c, 32000), {k: wavb(v[i0:min(i1, len(v))].mean(1), SR) for k, v in X.items()}
+
+
+def read_track(path, name="track", reading=None):
+    """Everything the page needs to play the track's parts and swap them; the parts' window audio comes back as MP3.
+    With reading (a function of the reading's inputs that starts the full reading and returns its call id), the full
+    reading is started from this split as soon as the parts are in: the track is separated once, for both."""
     import soundfile as sf
     from features import stems as S
     from worker import scene as SCN
@@ -380,6 +396,12 @@ def read_track(path, name="track"):
         X = {k: read_wav(st[k])[0] for k in PARTS if k in st}
         if len(X) < 4: return {"error": "separation came back without all four parts"}
         n = min(len(v) for v in X.values()); X = {k: v[:n] for k, v in X.items()}; dur = n / SR
+        reading_id = None
+        if reading:   # the full reading, from these parts, while the rest of the split goes on
+            try:
+                clip, sb = reading_inputs(wav, X); reading_id = reading(clip, sb); timing["reading_started"] = round(time.time() - t_start, 1)
+            except Exception as e:
+                timing["reading_error"] = type(e).__name__ + ": " + str(e)[:80]
         mix = sum(X.values())
         T0, tbeats = rough_tempo(X["drums"]); timing["rough_tempo"] = round(time.time() - t_start, 1)
         a, p, strength = beat_grid(X["drums"], mix, dur, T0); timing["grid"] = round(time.time() - t_start, 1)
@@ -451,7 +473,7 @@ def read_track(path, name="track"):
                 "beat_levels": blevels,
                 "window": {"b0": b0, "bars": W, "start_s": round(ws / SR, 5), "end_s": round(we / SR, 5)},
                 "levels": levels, "vectors": vec, "plain": plain, "nearest": nearest, "like": like, "follow": follow,
-                "model": S.MODEL, "timing": timing, "audio": audio}
+                "model": S.MODEL, "timing": timing, "audio": audio, "reading_id": reading_id}
     finally:
         shutil.rmtree(w, ignore_errors=True)
 
