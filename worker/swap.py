@@ -1729,9 +1729,19 @@ def rank_scores(yours, cands, target):
         if len(v) != 16 or not np.linalg.norm(v): return None
         cs = float((v / np.linalg.norm(v)) @ T["centre"])
         return {"cos": round(cs, 4), "closer_than": round(float(np.mean(T["own"] < cs)), 3)}
-    res = {"yours": score(yours), "cands": [dict(c, **(score(e) or {})) for c, e in cands], "records": T.get("records"),
-           "measure": "share" if "scene" in T else "closer_than"}
-    return res
+    sy = score(yours); sc_ = [dict(c, **(score(e) or {})) for c, e in cands]
+    measure = "share" if "scene" in T else "closer_than"
+    if "centre" in T and sy and sy.get("cos") is not None:
+        # a window far from the target sits closer than none of its records with any loop, so the ranks would all read 0:
+        # then each loop is scored by how far it moves the window toward the target's typical record (the median of how
+        # close its own records sit), in % of the way from where the window sits with your part
+        med = float(np.median(T["own"])); gap = med - sy["cos"]
+        if gap > 0.005:
+            measure = "way"
+            for c in sc_:
+                if c.get("cos") is not None: c["way"] = round(100 * (c["cos"] - sy["cos"]) / gap, 1)
+        sy["median_own"] = round(med, 4)
+    return {"yours": sy, "cands": sc_, "records": T.get("records"), "measure": measure}
 
 
 # ---------------------------------------------------------------- the fit: a loop's tone moved toward your part's
