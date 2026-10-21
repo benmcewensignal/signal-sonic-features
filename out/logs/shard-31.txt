@@ -1,6 +1,6 @@
-remeasure: 4330 records added after 0 new ones, 7478 more to do after
-shard 31 of 34: 127 records
-stems: 233189 done, 127 this run, 7478 left after
+remeasure: 4146 records added after 0 new ones, 1026 more to do after
+shard 31 of 33: 125 records
+stems: 233189 done, 125 this run, 1026 left after
 /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/librosa/core/pitch.py:105: UserWarning: Trying to estimate tuning from empty frequency set.
   return pitch_tuning(
 /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/numpy/lib/_function_base_impl.py:3037: RuntimeWarning: invalid value encountered in divide
@@ -9,14 +9,14 @@ stems: 233189 done, 127 this run, 7478 left after
   c /= stddev[None, :]
 /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/librosa/core/pitch.py:105: UserWarning: Trying to estimate tuning from empty frequency set.
   return pitch_tuning(
-2026-10-20 18:25:31.395425: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
-2026-10-20 18:25:31.395521: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2026-10-21 00:44:27.103942: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-21 00:44:27.103969: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
 [   INFO   ] MusicExtractorSVM: no classifier models were configured by default
-2026-10-20 18:25:31.835449: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
+2026-10-21 00:44:27.541079: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA
 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2026-10-20 18:25:31.835913: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
-2026-10-20 18:25:31.835936: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
-2026-10-20 18:25:31.835957: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (runnervmxehtw): /proc/driver/nvidia/version does not exist
+2026-10-21 00:44:27.542037: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-10-21 00:44:27.542054: W tensorflow/stream_executor/cuda/cuda_driver.cc:326] failed call to cuInit: UNKNOWN ERROR (303)
+2026-10-21 00:44:27.542072: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (runnervm8k3b6): /proc/driver/nvidia/version does not exist
 /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/librosa/core/pitch.py:105: UserWarning: Trying to estimate tuning from empty frequency set.
   return pitch_tuning(
 /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/numpy/lib/_function_base_impl.py:3037: RuntimeWarning: invalid value encountered in divide
@@ -35,11 +35,12 @@ To enable them in other operations, rebuild TensorFlow with the appropriate comp
   c /= stddev[:, None]
 /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/numpy/lib/_function_base_impl.py:3038: RuntimeWarning: invalid value encountered in divide
   c /= stddev[None, :]
-  10/127, 0 failed
-  20/127, 0 failed
-  30/127, 0 failed
-  bp:19943015: HTTPError: HTTP Error 404: Not Found
-  40/127, 1 failed
-  50/127, 1 failed
+  bp:20950550: HTTPError: HTTP Error 404: Not Found
+  bp:20952182: HTTPError: HTTP Error 404: Not Found
+  10/125, 2 failed
+  20/125, 2 failed
+  30/125, 2 failed
+  40/125, 2 failed
+  50/125, 2 failed
 budget reached
-stems: 57 separated, 1 failed, written to out/stems-15389-s31.jsonl
+stems: 56 separated, 2 failed, written to out/stems-15492-s31.jsonl
