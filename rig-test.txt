@@ -1,0 +1,6 @@
+✓ Initialized. View run at 
+https://modal.com/apps/benmcewensignal/main/ap-vyiCTHa9aC8E6QR1kL7tKP
+✓ Created objects.
+GUARD {"got": {"tempo": 0, "kick": 0, "hats": 0, "late": 0, "key": 0}, "need": {"tempo": 12, "kick": 11, "hats": 11, "late": 9, "key": 11}, "of": 0}
+Stopping app - uncaught exception raised locally: SystemExit('the reader slipped below the rig\'s standard: {"tempo": [0, 12], "kick": [0, 11], "hats": [0, 11], "late": [0, 9], "key": [0, 11]} (0 tracks read)').
+the reader slipped below the rig's standard: {"tempo": [0, 12], "kick": [0, 11], "hats": [0, 11], "late": [0, 9], "key": [0, 11]} (0 tracks read)

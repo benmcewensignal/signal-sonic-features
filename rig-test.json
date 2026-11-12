@@ -1,0 +1,660 @@
+[
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {}
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 128,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Dm",
+   "var": {}
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "tech-house",
+   "tempo": 127,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    3,
+    6,
+    7,
+    10,
+    11,
+    14,
+    15
+   ],
+   "late": {
+    "2": 0.0,
+    "3": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "10": 0.0,
+    "11": 0.0,
+    "14": 0.0,
+    "15": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Fm",
+   "var": {}
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "tech-house",
+   "tempo": 129,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    3,
+    6,
+    7,
+    10,
+    11,
+    14,
+    15
+   ],
+   "late": {
+    "2": 0.0,
+    "3": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "10": 0.0,
+    "11": 0.0,
+    "14": 0.0,
+    "15": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "A#m",
+   "var": {}
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "techno-peak-time",
+   "tempo": 132,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    3,
+    7,
+    11,
+    15
+   ],
+   "key": "Gm",
+   "var": {}
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "techno-peak-time",
+   "tempo": 134,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    3,
+    7,
+    11,
+    15
+   ],
+   "key": "Cm",
+   "var": {}
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "uk-garage-speed-garage",
+   "tempo": 134,
+   "swing": 0.58,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    3,
+    6,
+    7,
+    10,
+    11,
+    14,
+    15
+   ],
+   "late": {
+    "2": 0.0,
+    "3": 0.16,
+    "6": 0.0,
+    "7": 0.16,
+    "10": 0.0,
+    "11": 0.16,
+    "14": 0.0,
+    "15": 0.16
+   },
+   "bass_steps": [
+    3,
+    6,
+    11,
+    14
+   ],
+   "key": "Cm",
+   "var": {}
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "uk-garage-speed-garage",
+   "tempo": 136,
+   "swing": 0.58,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    3,
+    6,
+    7,
+    10,
+    11,
+    14,
+    15
+   ],
+   "late": {
+    "2": 0.0,
+    "3": 0.16,
+    "6": 0.0,
+    "7": 0.16,
+    "10": 0.0,
+    "11": 0.16,
+    "14": 0.0,
+    "15": 0.16
+   },
+   "bass_steps": [
+    3,
+    6,
+    11,
+    14
+   ],
+   "key": "Fm",
+   "var": {}
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "drum-and-bass",
+   "tempo": 172,
+   "swing": 0.5,
+   "kick": "K....K..K....K..",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    3,
+    7,
+    11
+   ],
+   "key": "Dm",
+   "var": {}
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "drum-and-bass",
+   "tempo": 174,
+   "swing": 0.5,
+   "kick": "K....K..K....K..",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    3,
+    7,
+    11
+   ],
+   "key": "Gm",
+   "var": {}
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "amapiano",
+   "tempo": 113,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    3,
+    6,
+    7,
+    10,
+    11,
+    14,
+    15
+   ],
+   "late": {
+    "2": 0.0,
+    "3": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "10": 0.0,
+    "11": 0.0,
+    "14": 0.0,
+    "15": 0.0
+   },
+   "bass_steps": [
+    3,
+    6,
+    10,
+    15
+   ],
+   "key": "A#m",
+   "var": {}
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "amapiano",
+   "tempo": 115,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    3,
+    6,
+    7,
+    10,
+    11,
+    14,
+    15
+   ],
+   "late": {
+    "2": 0.0,
+    "3": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "10": 0.0,
+    "11": 0.0,
+    "14": 0.0,
+    "15": 0.0
+   },
+   "bass_steps": [
+    3,
+    6,
+    10,
+    15
+   ],
+   "key": "D#m",
+   "var": {}
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "bright": -1
+   }
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "bright": 1
+   }
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "punch": -1
+   }
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "punch": 1
+   }
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "busy": -1
+   }
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    1,
+    2,
+    3,
+    5,
+    6,
+    7,
+    9,
+    10,
+    11,
+    13,
+    14,
+    15
+   ],
+   "late": {
+    "1": 0.0,
+    "2": 0.0,
+    "3": 0.0,
+    "5": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "9": 0.0,
+    "10": 0.0,
+    "11": 0.0,
+    "13": 0.0,
+    "14": 0.0,
+    "15": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "busy": 1
+   }
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "bass": -1
+   }
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ },
+ {
+  "truth": {
+   "scene": "house",
+   "tempo": 126,
+   "swing": 0.5,
+   "kick": "K...K...K...K...",
+   "hats": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "late": {
+    "2": 0.0,
+    "6": 0.0,
+    "10": 0.0,
+    "14": 0.0
+   },
+   "bass_steps": [
+    2,
+    6,
+    10,
+    14
+   ],
+   "key": "Am",
+   "var": {
+    "bass": 1
+   }
+  },
+  "error": "demucs produced nothing:    raise URLError(err)\nurllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1010)>\n"
+ }
+]
